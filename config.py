@@ -11,7 +11,7 @@ DEFAULTS = {
     "github_token": "",           # token fine-grained con permiso Issues: read & write
     "poll_seconds": 20,
     "claude_model": "sonnet",
-    "claude_extra_args": ["--max-turns", "1", "--disallowedTools", "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,WebSearch,WebFetch,Task,NotebookEdit"],
+    "claude_extra_args": ["--max-turns", "1", "--disallowedTools", "Bash,Write,Edit,MultiEdit,Glob,Grep,WebSearch,WebFetch,Task,NotebookEdit"],
     "claude_timeout": 240,
     "claude_thinking_tokens": 1024,   # limita el razonamiento de Claude Code (MAX_THINKING_TOKENS)
     "redactor": "claude_code",        # "claude_code" (Pro) o "api" (clave, centimos por envio, rapido)
