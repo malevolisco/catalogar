@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogar · agencias</title>
+<style>
+  :root {
+    --fondo: #22272d; --panel: #2b3238; --linea: #3a434b; --texto: #e8ecef; --tenue: #98a4b0;
+    --etiqueta: #b7c1cb; --accion: #2fb07e; --accion-oscuro: #248c64; --aviso: #e0a33a;
+    --error: #e05a52; --foco: #7fd4b3; --ancho-etiqueta: 7.5rem;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto);
+    font: 15px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  a { color: var(--foco); }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
+
+  header { display: flex; align-items: baseline; gap: 1rem; padding: 1rem 1.25rem .75rem; border-bottom: 1px solid var(--linea); }
+  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  header .sub { color: var(--tenue); font-size: .9rem; }
+  header details { margin-left: auto; }
+  header summary { color: var(--tenue); cursor: pointer; list-style: none; }
+  header summary::-webkit-details-marker { display: none; }
+  header summary:hover { color: var(--texto); }
+
+  .ajustes { position: absolute; right: 1.25rem; margin-top: .5rem; width: min(26rem, calc(100vw - 2.5rem));
+    background: var(--panel); border: 1px solid var(--linea); border-radius: 6px; padding: 1rem; z-index: 5; }
+  .ajustes label { display: block; color: var(--etiqueta); font-size: .85rem; margin-top: .6rem; }
+  .ajustes input { width: 100%; margin-top: .2rem; padding: .45rem .55rem; background: var(--fondo); border: 1px solid var(--linea); border-radius: 4px; }
+  .ajustes .fila { display: flex; gap: .5rem; align-items: center; margin-top: .8rem; }
+  .ajustes .estado-repo { font-size: .85rem; color: var(--tenue); }
+  .ajustes p.nota { font-size: .8rem; color: var(--tenue); margin: .8rem 0 0; }
+
+  nav.pestanas { display: flex; gap: .25rem; padding: .5rem 1.25rem 0; border-bottom: 1px solid var(--linea); }
+  nav.pestanas button { background: transparent; border: 1px solid transparent; border-bottom: 0; color: var(--tenue);
+    padding: .45rem .9rem; border-radius: 5px 5px 0 0; margin-bottom: -1px; }
+  nav.pestanas button:hover { color: var(--texto); }
+  nav.pestanas button.activa { color: var(--texto); background: var(--panel); border-color: var(--linea); }
+
+  main { display: grid; grid-template-columns: 19rem 1fr; gap: 0; min-height: calc(100vh - 6.5rem); }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--linea); } }
+  aside { border-right: 1px solid var(--linea); padding: 1rem 1.25rem; }
+  aside.oculto { display: none; }
+  aside label { display: block; color: var(--etiqueta); font-size: .85rem; margin-top: .8rem; }
+  aside textarea { width: 100%; min-height: 8.5rem; margin-top: .25rem; padding: .5rem .6rem; resize: vertical;
+    background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; letter-spacing: .02em; }
+  aside input { width: 100%; margin-top: .25rem; padding: .45rem .6rem; background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; }
+  .principal { width: 100%; margin-top: 1rem; padding: .6rem; background: var(--accion); color: #0f1a15; border: 0; border-radius: 4px; font-weight: 600; }
+  .principal:hover { background: var(--accion-oscuro); color: var(--texto); }
+  .principal:disabled { opacity: .5; cursor: default; }
+  .ayuda { color: var(--tenue); font-size: .8rem; margin-top: .4rem; }
+
+  .pendientes { margin-top: 1.25rem; }
+  .pendiente { padding: .6rem .7rem; border: 1px solid var(--linea); border-radius: 4px; margin-top: .5rem;
+    font-size: .9rem; display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
+  .pendiente .t { color: var(--tenue); font-variant-numeric: tabular-nums; }
+  .pendiente.tarde { border-color: var(--aviso); }
+
+  .historial { margin-top: 1.5rem; }
+  .historial h2 { font-size: .85rem; font-weight: 500; color: var(--etiqueta); margin: 0 0 .4rem; }
+  .historial ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow: auto; }
+  .historial li { display: flex; justify-content: space-between; gap: .5rem; padding: .3rem .4rem; border-radius: 3px; cursor: pointer; font-size: .88rem; }
+  .historial li:hover { background: var(--panel); }
+  .historial li span { color: var(--tenue); white-space: nowrap; }
+  .historial .vacio { color: var(--tenue); font-size: .85rem; }
+
+  section.contenido { padding: 1rem 1.25rem 3rem; }
+  .vacio-grande { color: var(--tenue); max-width: 34rem; margin-top: .5rem; }
+  .oculto { display: none !important; }
+
+  .ficha { background: var(--panel); border: 1px solid var(--linea); border-radius: 6px; padding: .9rem 1rem 1rem; margin-bottom: 1rem; max-width: 62rem; }
+  .ficha .cabecera { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: .5rem; }
+  .ficha .cabecera .envio { font-size: .95rem; }
+  .ficha .cabecera .acciones { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+  .ficha.error { border-color: var(--error); }
+  .ficha.sesion { border-color: var(--aviso); }
+  .ficha.aprobada { border-color: var(--accion); }
+
+  .campo { display: grid; grid-template-columns: var(--ancho-etiqueta) 1fr auto; gap: .6rem; align-items: start; padding: .45rem 0; border-top: 1px solid var(--linea); }
+  .campo .etiqueta { color: var(--etiqueta); text-align: right; padding-top: .1rem; }
+  .campo .valor { white-space: pre-wrap; word-break: break-word; }
+  .campo .valor.restric-si { color: var(--aviso); font-weight: 600; }
+  .campo .valor.avisos { color: var(--aviso); font-size: .9rem; }
+  .campo .valor.vacio { color: var(--tenue); }
+  .campo .valor.copiable { cursor: pointer; border-radius: 3px; transition: background-color .15s, box-shadow .15s; }
+  .campo .valor.copiable:hover { background: rgba(127, 212, 179, .07); box-shadow: 0 0 0 .3rem rgba(127, 212, 179, .07); }
+  .campo .valor.copiado { background: rgba(47, 176, 126, .18); box-shadow: 0 0 0 .3rem rgba(47, 176, 126, .18); }
+  @media (prefers-reduced-motion: reduce) { .campo .valor.copiable { transition: none; } }
+  .campo textarea { width: 100%; background: var(--fondo); border: 1px solid var(--linea); border-radius: 4px; padding: .4rem .5rem; min-height: 3.2rem; resize: vertical; }
+  @media (max-width: 560px) { .campo { grid-template-columns: 1fr auto; } .campo .etiqueta { grid-column: 1 / -1; text-align: left; font-size: .8rem; } }
+
+  .copiar { background: transparent; border: 1px solid var(--linea); color: var(--etiqueta); border-radius: 4px; padding: .2rem .55rem; font-size: .8rem; white-space: nowrap; }
+  .copiar:hover { border-color: var(--etiqueta); color: var(--texto); }
+  .copiar.ok { border-color: var(--accion); color: var(--accion); }
+  .copiar.destacado { border-color: var(--accion); color: var(--accion); }
+  .copiar:disabled { opacity: .55; cursor: default; }
+  .texto-error { color: var(--error); white-space: pre-wrap; }
+
+  .lista { max-width: 62rem; }
+  .lista .elemento { display: flex; gap: .75rem; align-items: baseline; padding: .55rem .7rem; border: 1px solid var(--linea); border-radius: 5px; margin-bottom: .5rem; background: var(--panel); }
+  .lista .elemento .n { color: var(--tenue); font-variant-numeric: tabular-nums; min-width: 1.5rem; }
+  .lista .elemento .cuerpo { flex: 1; }
+  .lista .elemento .cuerpo .sub { color: var(--tenue); font-size: .85rem; margin-top: .15rem; }
+  .caja-anadir { max-width: 62rem; margin-bottom: 1.25rem; }
+  .caja-anadir textarea { width: 100%; min-height: 4.5rem; padding: .5rem .6rem; background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; resize: vertical; }
+  .caja-anadir .fila { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
+
+  .toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--panel);
+    border: 1px solid var(--linea); color: var(--texto); padding: .5rem .9rem; border-radius: 4px; opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 10; }
+  .toast.visible { opacity: 1; }
+  .toast.error { border-color: var(--error); }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Catalogar</h1>
+  <span class="sub">Reuters Connect y AP Newsroom, por número de envío</span>
+  <details id="detalles-ajustes">
+    <summary>Ajustes</summary>
+    <div class="ajustes">
+      <label>Repositorio de la cola (usuario/repositorio)
+        <input id="repo" placeholder="adrian/catalogar" autocomplete="off" spellcheck="false"></label>
+      <label>Token de GitHub con permiso Issues: lectura y escritura
+        <input id="token" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+      <label>Segundos entre comprobaciones
+        <input id="intervalo" type="number" min="5" max="120" value="10"></label>
+      <div class="fila">
+        <button id="probar" class="copiar">Probar conexión</button>
+        <span id="estado-repo" class="estado-repo"></span>
+      </div>
+      <p class="nota">Repositorio y token se guardan solo en este navegador. El token debe limitarse a ese repositorio y al permiso de Issues.</p>
+    </div>
+  </details>
+</header>
+
+<nav class="pestanas">
+  <button id="tab-fichas" class="activa">Fichas</button>
+  <button id="tab-reglas">Reglas</button>
+  <button id="tab-ejemplos">Fichas aprobadas</button>
+</nav>
+
+<main>
+  <aside id="lateral">
+    <label for="numeros">Números de envío
+      <textarea id="numeros" placeholder="0624&#10;4681323&#10;8999 30/08/2026" spellcheck="false"></textarea></label>
+    <div class="ayuda">Uno por línea. Cuatro cifras es Reuters; siete, AP. Una fecha detrás del número, si hace falta.</div>
+    <label for="fecha">Fecha común, opcional (DD/MM/AAAA)
+      <input id="fecha" placeholder="06/09/2026" inputmode="numeric" autocomplete="off"></label>
+    <button id="enviar" class="principal">Catalogar</button>
+    <div class="ayuda">Ctrl+Intro también envía.</div>
+    <div class="pendientes" id="pendientes"></div>
+    <div class="historial">
+      <h2>Historial en este navegador</h2>
+      <ul id="historial"></ul>
+      <div id="historial-vacio" class="vacio">Todavía no hay envíos.</div>
+    </div>
+  </aside>
+
+  <section class="contenido">
+    <div id="vista-fichas">
+      <p class="vacio-grande" id="vacio-fichas">Escribe uno o varios números y pulsa Catalogar. Las fichas van apareciendo según el worker las termina; no hace falta esperar al lote entero. Después, pulsa sobre el texto de cualquier campo para copiarlo.</p>
+      <div id="resultados"></div>
+    </div>
+
+    <div id="vista-reglas" class="oculto">
+      <div class="caja-anadir">
+        <label for="regla" style="color:var(--etiqueta);font-size:.85rem">Nueva regla, en español normal y con ejemplo si ayuda</label>
+        <textarea id="regla" placeholder="En cumbres y festivales, el NAME empieza por PAIS y el evento en forma corta: ITALIA FESTIVAL CINE VENECIA ..."></textarea>
+        <div class="fila">
+          <button id="enviar-regla" class="copiar destacado">Añadir regla</button>
+          <button id="refrescar-reglas" class="copiar">Ver las reglas guardadas</button>
+        </div>
+        <div class="ayuda">Se guarda en casa en reglas_extra.md y se aplica desde la siguiente ficha.</div>
+      </div>
+      <div class="lista" id="lista-reglas"></div>
+    </div>
+
+    <div id="vista-ejemplos" class="oculto">
+      <div class="caja-anadir">
+        <div class="fila" style="margin-top:0">
+          <button id="refrescar-ejemplos" class="copiar">Ver las fichas aprobadas</button>
+        </div>
+        <div class="ayuda">Se aprueban con el botón Buena de cada ficha. El worker las guarda en ejemplos.md y las usa como modelo. Con más de doce, el prompt se alarga y la redacción tarda más.</div>
+      </div>
+      <div class="lista" id="lista-ejemplos"></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  const API = "https://api.github.com";
+  const CAMPOS = ["NAME", "COMMENT", "RESTRICCIONES", "AVISOS"];
+  const ETIQUETAS = { NAME: "Name", COMMENT: "Comment", RESTRICCIONES: "Restricciones", AVISOS: "Avisos" };
+  const AVISO_TARDE_MS = 3 * 60 * 1000;
+  const ABANDONO_MS = 20 * 60 * 1000;
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+
+  const almacen = {
+    get(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+
+  // ---------- ajustes ----------
+  const ajustes = almacen.get("catalogar_ajustes", { repo: "", token: "", intervalo: 10 });
+  $("repo").value = ajustes.repo; $("token").value = ajustes.token; $("intervalo").value = ajustes.intervalo;
+  function guardarAjustes() {
+    ajustes.repo = $("repo").value.trim(); ajustes.token = $("token").value.trim();
+    ajustes.intervalo = Math.max(5, parseInt($("intervalo").value, 10) || 10);
+    almacen.set("catalogar_ajustes", ajustes);
+  }
+  ["repo", "token", "intervalo"].forEach(id => $(id).addEventListener("change", guardarAjustes));
+  if (!ajustes.repo || !ajustes.token) $("detalles-ajustes").open = true;
+
+  async function github(metodo, ruta, cuerpo) {
+    const r = await fetch(API + ruta, {
+      method: metodo,
+      headers: {
+        "Authorization": "Bearer " + ajustes.token,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(cuerpo ? { "Content-Type": "application/json" } : {}),
+      },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+    if (!r.ok) {
+      const detalle = await r.text().catch(() => "");
+      const msg = r.status === 401 ? "Token rechazado (401). Revisa el token en Ajustes."
+        : r.status === 404 ? "Repositorio no encontrado (404). Revisa usuario/repositorio y que el token tenga acceso."
+        : r.status === 403 ? "Sin permiso (403). El token necesita Issues: lectura y escritura."
+        : "GitHub devolvió " + r.status + ". " + detalle.slice(0, 200);
+      throw new Error(msg);
+    }
+    return r.status === 204 ? null : r.json();
+  }
+
+  function comprobarAjustes() {
+    if (!ajustes.repo || !ajustes.token) { $("detalles-ajustes").open = true; avisar("Faltan repositorio o token en Ajustes.", true); return false; }
+    return true;
+  }
+
+  $("probar").addEventListener("click", async () => {
+    guardarAjustes();
+    const s = $("estado-repo"); s.textContent = "Comprobando…";
+    try {
+      const info = await github("GET", "/repos/" + ajustes.repo);
+      s.textContent = info.private ? "Conectado con " + info.full_name + " (privado)." : "Conectado con " + info.full_name + ". Atención: el repositorio es público.";
+    } catch (e) { s.textContent = e.message; }
+  });
+
+  // ---------- pestañas ----------
+  const vistas = { fichas: ["vista-fichas", "tab-fichas"], reglas: ["vista-reglas", "tab-reglas"], ejemplos: ["vista-ejemplos", "tab-ejemplos"] };
+  function mostrar(cual) {
+    for (const k of Object.keys(vistas)) {
+      $(vistas[k][0]).classList.toggle("oculto", k !== cual);
+      $(vistas[k][1]).classList.toggle("activa", k === cual);
+    }
+    $("lateral").classList.toggle("oculto", cual !== "fichas");
+    if (cual === "reglas" && !$("lista-reglas").children.length) pedirLista("reglas");
+    if (cual === "ejemplos" && !$("lista-ejemplos").children.length) pedirLista("ejemplos");
+  }
+  $("tab-fichas").addEventListener("click", () => mostrar("fichas"));
+  $("tab-reglas").addEventListener("click", () => mostrar("reglas"));
+  $("tab-ejemplos").addEventListener("click", () => mostrar("ejemplos"));
+
+  // ---------- entrada de números ----------
+  const RE_ITEM = /^(?:AP)?(\d{7}|\d{4})(?:[\s=@]+(\d{2}\/\d{2}\/\d{4}))?$/i;
+  function leerTrabajos() {
+    const fechaComun = $("fecha").value.trim();
+    if (fechaComun && !/^\d{2}\/\d{2}\/\d{4}$/.test(fechaComun)) throw new Error("La fecha común debe ser DD/MM/AAAA.");
+    const lineas = $("numeros").value.split(/\n|,|;/).map(s => s.trim()).filter(Boolean);
+    const trabajos = [];
+    for (const l of lineas) {
+      const partes = l.split(/\s+/);
+      let i = 0;
+      while (i < partes.length) {
+        const m = RE_ITEM.exec(partes[i] + (partes[i + 1] && /^\d{2}\/\d{2}\/\d{4}$/.test(partes[i + 1]) ? " " + partes[++i] : ""));
+        if (!m) throw new Error('No entiendo "' + partes[i] + '". Usa 0624, 4681323 o 0624 06/09/2026.');
+        trabajos.push({ numero: m[1], fecha: m[2] || fechaComun || "" });
+        i++;
+      }
+    }
+    if (!trabajos.length) throw new Error("No hay ningún número.");
+    return trabajos;
+  }
+
+  // ---------- pendientes ----------
+  const pendientes = new Map();
+  function pintarPendientes() {
+    const cont = $("pendientes"); cont.innerHTML = "";
+    pendientes.forEach((p, num) => {
+      const d = el("div", "pendiente");
+      const esperado = Math.round((Date.now() - p.creado) / 1000);
+      if (esperado * 1000 > AVISO_TARDE_MS) d.classList.add("tarde");
+      const hechas = p.pintados || 0;
+      d.appendChild(el("span", "", "Issue #" + num + ": " + (hechas ? hechas + " de " + p.trabajos.length + " listas" : p.trabajos.map(t => t.numero).join(", "))));
+      d.appendChild(el("span", "t", esperado * 1000 > AVISO_TARDE_MS ? esperado + " s, ¿worker encendido?" : esperado + " s"));
+      cont.appendChild(d);
+    });
+  }
+  setInterval(pintarPendientes, 1000);
+
+  async function sondear(num) {
+    const p = pendientes.get(num); if (!p) return;
+    try {
+      const comentarios = await github("GET", "/repos/" + ajustes.repo + "/issues/" + num + "/comments?per_page=10");
+      if (comentarios.length) {
+        const cuerpo = comentarios[comentarios.length - 1].body || "";
+        const parcial = /^\s*Procesando\s+\d+\s+de\s+\d+/i.test(cuerpo);
+        const bloques = parsearComentario(cuerpo.replace(/^\s*Procesando[^\n]*\n/i, ""));
+        if (bloques.length > (p.pintados || 0)) {
+          const nuevos = bloques.slice(p.pintados || 0);
+          let registro = p.registro;
+          if (!registro) {
+            registro = { issue: num, cuando: Date.now(), trabajos: p.trabajos, bloques: [], repo: ajustes.repo, aprobadas: [] };
+            p.registro = registro;
+            guardarHistorial(registro);
+          }
+          registro.bloques = bloques;
+          pintarResultado({ ...registro, bloques: nuevos }, true);
+          actualizarHistorial(registro);
+          p.pintados = bloques.length;
+          avisar(parcial ? "Ficha " + bloques.length + " de " + p.trabajos.length + " lista." : "Lote terminado.");
+        }
+        if (!parcial) { pendientes.delete(num); pintarPendientes(); return; }
+        p.temporizador = setTimeout(() => sondear(num), ajustes.intervalo * 1000);
+        return;
+      }
+      if (Date.now() - p.creado > ABANDONO_MS && !(p.pintados || 0)) {
+        pendientes.delete(num); pintarPendientes();
+        avisar("La issue #" + num + " lleva 20 minutos sin respuesta. Sigue abierta en GitHub; el worker la procesará cuando arranque.", true);
+        return;
+      }
+    } catch (e) { avisar(e.message, true); }
+    p.temporizador = setTimeout(() => sondear(num), ajustes.intervalo * 1000);
+  }
+
+  $("enviar").addEventListener("click", enviar);
+  document.addEventListener("keydown", (ev) => { if (ev.ctrlKey && ev.key === "Enter") enviar(); });
+
+  async function enviar() {
+    guardarAjustes();
+    if (!comprobarAjustes()) return;
+    let trabajos;
+    try { trabajos = leerTrabajos(); } catch (e) { avisar(e.message, true); return; }
+    const boton = $("enviar"); boton.disabled = true;
+    try {
+      const lineas = trabajos.map(t => t.numero + (t.fecha ? " " + t.fecha : ""));
+      const titulo = trabajos.length === 1 ? lineas[0] : "Lote de " + trabajos.length + " envíos";
+      const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: titulo, body: lineas.join("\n") });
+      pendientes.set(issue.number, { trabajos: trabajos, creado: Date.now(), temporizador: null, pintados: 0, registro: null });
+      pintarPendientes(); $("numeros").value = "";
+      avisar("Enviado como issue #" + issue.number + ". Esperando al worker.");
+      setTimeout(() => sondear(issue.number), Math.min(8, ajustes.intervalo) * 1000);
+    } catch (e) { avisar(e.message, true); }
+    finally { boton.disabled = false; }
+  }
+
+  // ---------- parseo ----------
+  function parsearComentario(texto) {
+    const limpio = texto.replace(/```[a-z]*\n?/g, "").replace(/```/g, "").replace(/\r/g, "").trim();
+    return limpio.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(bloque => {
+      const campos = {}; let actual = null; const sueltas = [];
+      bloque.split("\n").forEach(linea => {
+        const m = /^\s*(ENVIO|NAME|COMMENT|RESTRICCIONES|AVISOS)\s*:\s*(.*)$/i.exec(linea);
+        if (m) { actual = m[1].toUpperCase(); campos[actual] = m[2].trim(); }
+        else if (actual && linea.trim() && actual !== "ENVIO") campos[actual] += " " + linea.trim();
+        else if (linea.trim()) sueltas.push(linea.trim());
+      });
+      const esError = !campos.NAME && !campos.COMMENT;
+      return { campos: campos, esError: esError, mensaje: sueltas.join("\n"), sesion: /SESION CADUCADA/i.test(bloque) };
+    });
+  }
+  const numeroDe = (envio) => (envio || "").split("·")[0].trim();
+
+  // ---------- fichas ----------
+  function pintarResultado(registro, arriba) {
+    const cont = $("resultados");
+    $("vacio-fichas").classList.add("oculto");
+    const frag = document.createDocumentFragment();
+    registro.bloques.forEach(b => frag.appendChild(construirFicha(b, registro)));
+    if (arriba) cont.prepend(frag); else cont.appendChild(frag);
+  }
+
+  function construirFicha(b, registro) {
+    const f = el("div", "ficha" + (b.esError ? " error" : "") + (b.sesion ? " sesion" : ""));
+    if ((registro.aprobadas || []).indexOf(numeroDe(b.campos.ENVIO)) >= 0) f.classList.add("aprobada");
+    const cab = el("div", "cabecera");
+    cab.appendChild(el("div", "envio", b.campos.ENVIO || "Envío"));
+    const acc = el("div", "acciones");
+    if (!b.esError) {
+      const todo = el("button", "copiar", "Copiar las cuatro líneas");
+      todo.addEventListener("click", () => copiar(["ENVIO", "NAME", "COMMENT", "RESTRICCIONES"].map(k => k + ": " + (b.campos[k] || "")).join("\n"), todo));
+      acc.appendChild(todo);
+
+      const buena = el("button", "copiar destacado", "Buena");
+      buena.title = "Guardar esta ficha como modelo para las siguientes";
+      buena.addEventListener("click", () => aprobar(b, registro, f, buena));
+      acc.appendChild(buena);
+
+      const corregir = el("button", "copiar", "Corregir");
+      corregir.addEventListener("click", () => modoEdicion(f, b, registro, corregir));
+      acc.appendChild(corregir);
+    }
+    if (registro.repo && registro.issue) {
+      const a = el("a", "", "#" + registro.issue);
+      a.href = "https://github.com/" + registro.repo + "/issues/" + registro.issue; a.target = "_blank"; a.rel = "noopener";
+      acc.appendChild(a);
+    }
+    cab.appendChild(acc); f.appendChild(cab);
+
+    if (b.esError) {
+      f.appendChild(el("div", "texto-error", b.mensaje || "El worker no devolvió NAME ni COMMENT."));
+      if (b.sesion) f.appendChild(el("div", "ayuda", "Hay que iniciar sesión en casa (login.py) y volver a enviar este número."));
+      return f;
+    }
+    CAMPOS.forEach(k => {
+      const v = b.campos[k] || "";
+      if (k === "AVISOS" && !v) return;
+      const c = el("div", "campo"); c.dataset.campo = k;
+      c.appendChild(el("div", "etiqueta", ETIQUETAS[k]));
+      const val = el("div", "valor", v || "—");
+      if (!v) val.classList.add("vacio");
+      if (k === "RESTRICCIONES" && v && v !== "SIN AVISO") val.classList.add("restric-si");
+      if (k === "AVISOS") val.classList.add("avisos");
+      if (k !== "AVISOS" && v) {
+        val.classList.add("copiable");
+        val.title = "Pulsa para copiar";
+        val.addEventListener("click", () => {
+          // si el usuario ha seleccionado texto a mano, respetar su selección
+          const sel = window.getSelection();
+          if (sel && sel.toString().length > 0) return;
+          copiar(val.textContent);
+          val.classList.add("copiado");
+          setTimeout(() => val.classList.remove("copiado"), 500);
+          avisar(ETIQUETAS[k] + " copiado.");
+        });
+      }
+      c.appendChild(val);
+      if (k !== "AVISOS" && v) { const bt = el("button", "copiar", "Copiar"); bt.addEventListener("click", () => copiar(val.textContent, bt)); c.appendChild(bt); }
+      else c.appendChild(el("span"));
+      f.appendChild(c);
+    });
+    return f;
+  }
+
+  function modoEdicion(ficha, b, registro, boton) {
+    if (ficha.dataset.editando === "1") return;
+    ficha.dataset.editando = "1";
+    boton.disabled = true;
+    const areas = {};
+    ["NAME", "COMMENT", "RESTRICCIONES"].forEach(k => {
+      const campo = ficha.querySelector('.campo[data-campo="' + k + '"]');
+      if (!campo) return;
+      const valor = campo.querySelector(".valor");
+      const ta = document.createElement("textarea");
+      ta.value = valor.textContent === "—" ? "" : valor.textContent;
+      valor.replaceWith(ta); areas[k] = ta;
+    });
+    const barra = el("div", "campo");
+    barra.appendChild(el("div", "etiqueta", ""));
+    const acciones = el("div", "");
+    const guardar = el("button", "copiar destacado", "Guardar y aprobar");
+    const cancelar = el("button", "copiar", "Cancelar");
+    cancelar.style.marginLeft = ".4rem";
+    acciones.appendChild(guardar); acciones.appendChild(cancelar);
+    barra.appendChild(acciones); barra.appendChild(el("span"));
+    ficha.appendChild(barra);
+
+    cancelar.addEventListener("click", () => ficha.replaceWith(construirFicha(b, registro)));
+    guardar.addEventListener("click", async () => {
+      ["NAME", "COMMENT", "RESTRICCIONES"].forEach(k => { if (areas[k]) b.campos[k] = areas[k].value.trim(); });
+      guardar.disabled = true;
+      const nuevo = construirFicha(b, registro);
+      ficha.replaceWith(nuevo);
+      actualizarHistorial(registro);
+      await aprobar(b, registro, nuevo, nuevo.querySelector(".copiar.destacado"));
+    });
+  }
+
+  async function aprobar(b, registro, ficha, boton) {
+    guardarAjustes();
+    if (!comprobarAjustes()) return;
+    if (boton) { boton.disabled = true; boton.textContent = "Guardando…"; }
+    const cuerpo = ["ENVIO", "NAME", "COMMENT", "RESTRICCIONES"].map(k => k + ": " + (b.campos[k] || "")).join("\n");
+    const num = numeroDe(b.campos.ENVIO);
+    try {
+      let issue = registro.issue;
+      if (!issue) {
+        const nueva = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: "Ficha aprobada " + num, body: "" });
+        issue = nueva.number;
+      }
+      await github("POST", "/repos/" + ajustes.repo + "/issues/" + issue + "/comments", { body: "```text\n" + cuerpo + "\n```" });
+      await github("POST", "/repos/" + ajustes.repo + "/issues/" + issue + "/comments", { body: "BUENA " + num });
+      if (ficha) ficha.classList.add("aprobada");
+      if (boton) { boton.textContent = "Aprobada"; boton.classList.add("ok"); }
+      avisar("Ficha enviada como aprobada. El worker la guardará como modelo.");
+      registro.aprobadas = (registro.aprobadas || []).concat(num);
+      actualizarHistorial(registro);
+    } catch (e) {
+      avisar(e.message, true);
+      if (boton) { boton.disabled = false; boton.textContent = "Buena"; }
+    }
+  }
+
+  // ---------- reglas y fichas aprobadas ----------
+  $("enviar-regla").addEventListener("click", async () => {
+    guardarAjustes();
+    const texto = $("regla").value.trim();
+    if (!texto) { avisar("Escribe la regla primero.", true); return; }
+    if (!comprobarAjustes()) return;
+    try {
+      const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: "REGLA: " + texto.slice(0, 200), body: texto.length > 200 ? texto : "" });
+      $("regla").value = "";
+      avisar("Regla enviada (issue #" + issue.number + "). Se aplica en cuanto el worker la guarde.");
+      setTimeout(() => pedirLista("reglas"), 15000);
+    } catch (e) { avisar(e.message, true); }
+  });
+  $("refrescar-reglas").addEventListener("click", () => pedirLista("reglas"));
+  $("refrescar-ejemplos").addEventListener("click", () => pedirLista("ejemplos"));
+
+  async function comando(titulo) {
+    const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: titulo, body: "" });
+    for (let intento = 0; intento < 12; intento++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const comentarios = await github("GET", "/repos/" + ajustes.repo + "/issues/" + issue.number + "/comments?per_page=5");
+      if (comentarios.length) return comentarios[comentarios.length - 1].body || "";
+    }
+    throw new Error("El worker no ha respondido. ¿Está corriendo en el PC de casa?");
+  }
+
+  async function pedirLista(cual) {
+    guardarAjustes();
+    if (!comprobarAjustes()) return;
+    const destino = $(cual === "reglas" ? "lista-reglas" : "lista-ejemplos");
+    destino.innerHTML = ""; destino.appendChild(el("div", "ayuda", "Consultando al worker…"));
+    try {
+      const texto = await comando(cual === "reglas" ? "LISTAR REGLAS" : "LISTAR EJEMPLOS");
+      pintarLista(cual, texto);
+    } catch (e) { destino.innerHTML = ""; destino.appendChild(el("div", "texto-error", e.message)); }
+  }
+
+  function pintarLista(cual, texto) {
+    const destino = $(cual === "reglas" ? "lista-reglas" : "lista-ejemplos");
+    destino.innerHTML = "";
+    const lineas = (texto || "").split("\n").map(l => l.trim()).filter(l => /^\d+\.\s/.test(l));
+    if (!lineas.length) { destino.appendChild(el("div", "ayuda", cual === "reglas" ? "No hay reglas añadidas." : "No hay fichas aprobadas todavía.")); return; }
+    lineas.forEach(linea => {
+      const m = /^(\d+)\.\s*(.*)$/.exec(linea);
+      const idx = m[1], resto = m[2];
+      const fila = el("div", "elemento");
+      fila.appendChild(el("div", "n", idx + "."));
+      const cuerpo = el("div", "cuerpo");
+      if (cual === "ejemplos") {
+        const partes = resto.split("—");
+        cuerpo.appendChild(el("div", "", (partes[1] || partes[0]).trim()));
+        if (partes.length > 1) cuerpo.appendChild(el("div", "sub", partes[0].trim()));
+      } else {
+        cuerpo.appendChild(el("div", "", resto));
+      }
+      fila.appendChild(cuerpo);
+      const quitar = el("button", "copiar", "Quitar");
+      quitar.addEventListener("click", async () => {
+        quitar.disabled = true;
+        const num = cual === "ejemplos" ? numeroDe(resto.split("—")[0]) : idx;
+        try {
+          await comando(cual === "reglas" ? "QUITAR REGLA " + idx : "QUITAR EJEMPLO " + num);
+          avisar("Borrado.");
+          pedirLista(cual);
+        } catch (e) { avisar(e.message, true); quitar.disabled = false; }
+      });
+      fila.appendChild(quitar);
+      destino.appendChild(fila);
+    });
+  }
+
+  // ---------- utilidades ----------
+  async function copiar(texto, boton) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(texto);
+      else {
+        const ta = document.createElement("textarea"); ta.value = texto; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+      }
+      if (boton) { const t = boton.textContent; boton.textContent = "Copiado"; boton.classList.add("ok"); setTimeout(() => { boton.textContent = t; boton.classList.remove("ok"); }, 1200); }
+    } catch (e) { avisar("No se pudo copiar. Selecciona el texto y usa Ctrl+C.", true); }
+  }
+
+  function guardarHistorial(registro) {
+    const h = almacen.get("catalogar_historial", []);
+    h.unshift(registro); almacen.set("catalogar_historial", h.slice(0, 100)); pintarHistorial();
+  }
+  function actualizarHistorial(registro) {
+    const h = almacen.get("catalogar_historial", []);
+    for (let i = 0; i < h.length; i++) {
+      if (h[i].issue === registro.issue && h[i].cuando === registro.cuando) { h[i] = registro; break; }
+    }
+    almacen.set("catalogar_historial", h); pintarHistorial();
+  }
+  function pintarHistorial() {
+    const h = almacen.get("catalogar_historial", []);
+    const ul = $("historial"); ul.innerHTML = "";
+    $("historial-vacio").style.display = h.length ? "none" : "";
+    h.forEach(r => {
+      const li = el("li");
+      const nums = r.trabajos.map(t => t.numero).join(", ");
+      const err = r.bloques.some(b => b.esError);
+      li.appendChild(el("span", "", (err ? "⚠ " : "") + ((r.aprobadas || []).length ? "✓ " : "") + nums));
+      li.appendChild(el("span", "", new Date(r.cuando).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })));
+      li.title = "Volver a mostrar";
+      li.addEventListener("click", () => { mostrar("fichas"); pintarResultado(r, true); window.scrollTo({ top: 0 }); });
+      ul.appendChild(li);
+    });
+  }
+  pintarHistorial();
+
+  let temporizadorToast = null;
+  function avisar(msg, esError) {
+    const t = $("toast"); t.textContent = msg; t.classList.toggle("error", !!esError); t.classList.add("visible");
+    clearTimeout(temporizadorToast); temporizadorToast = setTimeout(() => t.classList.remove("visible"), esError ? 6000 : 3000);
+  }
+})();
+</script>
+</body>
+</html>

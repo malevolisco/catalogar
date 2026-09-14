@@ -1,0 +1,18 @@
+{
+  "github_repo": "TU_USUARIO/catalogar",
+  "github_token": "github_pat_xxxxxxxxxxxxxxxx",
+  "poll_seconds": 20,
+  "claude_model": "sonnet",
+  "claude_extra_args": ["--max-turns", "1", "--disallowedTools", "Bash,Read,Write,Edit,MultiEdit,Glob,Grep,WebSearch,WebFetch,Task,NotebookEdit"],
+  "claude_timeout": 240,
+  "claude_thinking_tokens": 1024,
+  "redactor": "claude_code",
+  "api_key": "",
+  "api_model": "claude-haiku-4-5-20251001",
+  "api_max_tokens": 700,
+  "acortar_comment": true,
+  "reglas": "reglas_ligeras.md",
+  "headless": false,
+  "navegador": "auto",
+  "navegador_ruta": ""
+}

@@ -1,0 +1,19 @@
+[Unit]
+Description=Catalogar - worker de fichas de agencias
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/catalogar
+Environment=DISPLAY=:99
+ExecStartPre=/bin/sh -c 'pgrep Xvfb || (Xvfb :99 -screen 0 1400x1000x24 & sleep 2)'
+ExecStart=/usr/bin/python3 /home/pi/catalogar/worker.py
+Restart=always
+RestartSec=30
+StandardOutput=append:/home/pi/catalogar/worker.log
+StandardError=append:/home/pi/catalogar/worker.log
+
+[Install]
+WantedBy=multi-user.target
