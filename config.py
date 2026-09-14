@@ -24,7 +24,7 @@ DEFAULTS = {
     "escenas": True,           # usar el clasificador local de escenas si esta entrenado
     "escenas_umbral": 0.6,     # confianza minima para hacerle caso
     "escenas_sin_imagenes": True,  # con etiqueta fiable, no mandar los fotogramas (ahorra cuota)
-    "miniaturas": 6,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
+    "miniaturas": 10,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
     "navegador": "auto",        # auto | chrome | msedge | chromium | sistema (el instalado, para Raspberry)
     "navegador_ruta": "",       # ejecutable concreto, si hace falta (ej. /usr/bin/chromium)
