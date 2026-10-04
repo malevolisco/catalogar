@@ -206,6 +206,9 @@ ARGS_BASE = ["--disable-blink-features=AutomationControlled", "--no-first-run", 
 # equipos con poca memoria (Raspberry): /dev/shm pequeña y sin GPU util
 # ventana "oculta": de verdad abierta (no headless, que el antibot distingue), pero fuera de la pantalla
 FUERA_DE_PANTALLA = (-10000, -10000)   # lejos de cualquier monitor (los de la izquierda tienen x negativa)
+# fuera de la pantalla Windows la da por tapada y Chrome dejaria de pintarla (y de emitirla a la pestaña Navegador)
+ARGS_OCULTO = ["--disable-features=CalculateNativeWinOcclusion", "--disable-backgrounding-occluded-windows",
+               "--disable-renderer-backgrounding", "--disable-background-timer-throttling"]
 ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer",
                 "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512"]
 
@@ -257,7 +260,7 @@ def abrir_contexto(pw, headless=False, canal="auto", ruta=None, ligero=None, ocu
         locale="es-ES",
         ignore_default_args=["--enable-automation"],
         args=ARGS_BASE + (ARGS_LIGEROS if ligero else [])
-             + ([f"--window-position={FUERA_DE_PANTALLA[0]},{FUERA_DE_PANTALLA[1]}"] if oculto and not headless else []),
+             + ([f"--window-position={FUERA_DE_PANTALLA[0]},{FUERA_DE_PANTALLA[1]}"] + ARGS_OCULTO if oculto and not headless else []),
     )
     intentos = []          # (etiqueta, kwargs extra)
     if ruta:

@@ -153,6 +153,20 @@
   #aviso.visible { opacity:1; transform:translateX(-50%) translateY(0); }
   #aviso.malo { background:var(--tally); }
 
+  /* ---------- pestaña Navegador: el navegador de las agencias en directo ---------- */
+  .visor-barra { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .visor-barra input[type=text] { flex:1; min-width:240px; font-family:var(--mono); font-size:13px; }
+  .visor-pestanas { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+  .visor-pestanas button { max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .visor-pestanas button.activa { background:var(--tinta); color:var(--hoja); border-color:var(--tinta); }
+  #visor-marco { position:relative; background:#e9ecf0; border:1px solid var(--linea); border-radius:var(--radio);
+                 outline:none; line-height:0; user-select:none; cursor:default; }
+  #visor-marco:focus-visible, #visor-marco.con-foco { border-color:var(--azul); box-shadow:0 0 0 2px #c9d5ec; }
+  #visor-img { width:100%; height:auto; display:block; border-radius:var(--radio); }
+  #visor-vacio { line-height:1.5; padding:60px 20px; text-align:center; color:var(--gris); }
+  .visor-origen { font-size:13px; color:var(--gris); }
+  .visor-origen b { color:var(--tinta); font-weight:600; }
+
   /* ---------- sub-pestañas (Reglas y Admin) ---------- */
   .subnav { display:flex; gap:4px; margin:0 0 18px; border-bottom:1px solid var(--linea); flex-wrap:wrap; }
   .subnav button { background:none; border:0; padding:8px 12px; cursor:pointer; color:var(--gris); border-bottom:2px solid transparent; margin-bottom:-1px; }
@@ -281,6 +295,7 @@
       <button data-vista="fichas" class="activa">Fichas</button>
       <button data-vista="reglas">Reglas</button>
       <button data-vista="aprobadas">Fichas aprobadas</button>
+      <button data-vista="navegador">Navegador</button>
       <button data-vista="admin">Admin</button>
     </nav>
     <div class="herramientas">
@@ -385,6 +400,28 @@
   <section id="vista-aprobadas" class="oculto">
     <p class="pista" style="margin:0 0 14px">Estas fichas entran como modelo en cada encargo. Más de doce alargan la redacción; mejor pocas y variadas.</p>
     <div id="lista-aprobadas"></div>
+  </section>
+
+  <!-- ---- navegador ---- -->
+  <section id="vista-navegador" class="oculto">
+    <div class="visor-barra">
+      <span class="visor-origen" id="visor-origen">Sin navegador abierto</span>
+      <span style="margin-left:auto"></span>
+      <button class="b mini" id="visor-login">Iniciar sesión agencias</button>
+      <button class="b mini principal oculto" id="visor-listo">Ya he iniciado sesión</button>
+    </div>
+    <div class="visor-pestanas" id="visor-pestanas"></div>
+    <div class="visor-barra">
+      <button class="b mini" id="visor-atras" title="Atrás" aria-label="Atrás">←</button>
+      <button class="b mini" id="visor-recargar" title="Recargar" aria-label="Recargar">↻</button>
+      <input type="text" id="visor-url" placeholder="Dirección" spellcheck="false" autocomplete="off">
+      <button class="b mini" id="visor-real" title="Si algo no responde aquí, saca la ventana de verdad">Sacar la ventana real</button>
+    </div>
+    <div id="visor-marco" tabindex="0" aria-label="Navegador de las agencias. Haz clic y escribe como en una ventana normal.">
+      <img id="visor-img" alt="" class="oculto">
+      <div id="visor-vacio">El navegador de las agencias no está abierto.<br>Se abre solo al catalogar, o pulsa <b>Iniciar sesión agencias</b>.</div>
+    </div>
+    <p class="pista" id="visor-pista">Haz clic en la imagen y escribe como en una ventana normal (también se puede pegar con Ctrl+V). Mientras redacta un lote, solo se mira: los clics se atienden al terminar cada envío.</p>
   </section>
 
   <!-- ---- admin ---- -->
@@ -509,6 +546,7 @@
   let agendaNombres = [], hayCopia = false, filtro = "";
   let agenda = {}, formales = [], copiaDir = "";          // para saber el tono de cada destino
   let reloj = null, modo = "mayusculas", modoFijado = false, ultima = "";
+  let loginVisto = false;
 
   // ---------------------------------------------------------------- red
   async function api(metodo, ruta, cuerpo, formulario) {
@@ -696,7 +734,8 @@
   document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
     document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
     vistaActual = b.dataset.vista;
-    ["fichas", "reglas", "aprobadas", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    ["fichas", "reglas", "aprobadas", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    if (b.dataset.vista === "navegador") arrancarVisor();
     if (b.dataset.vista === "reglas") { pedirReglas(); if (subReglas === "base") pedirCriterio(); }
     if (b.dataset.vista === "aprobadas") pedirAprobadas();
     if (b.dataset.vista === "admin") abrirAdmin();
@@ -728,13 +767,7 @@
   }
 
   // ---------------------------------------------------------------- sesión de agencias
-  $("abrir-sesion").addEventListener("click", async () => {
-    try {
-      await api("POST", "/api/navegador/login");
-      avisar("Ventana abierta en el ordenador de casa. Inicia sesión en las agencias y pulsa Ya he iniciado sesión.");
-      refrescar();
-    } catch (e) { avisar(e.message, true); }
-  });
+  $("abrir-sesion").addEventListener("click", () => iniciarSesionAgencias());
   $("sesion-lista").addEventListener("click", async () => {
     try { await api("POST", "/api/navegador/login/terminar"); avisar("Sesión guardada."); refrescar(); }
     catch (e) { avisar(e.message, true); }
@@ -808,6 +841,9 @@
       + (d.buzon ? " · buzón cada " + d.buzon + " min" : "");
 
     const enLogin = d.sesion_agencia === "login en curso" || d.sesion_agencia === "login pendiente";
+    // un inicio de sesion que empieza solo (al arrancar, o pedido desde otro sitio): a la pestaña Navegador
+    if (d.sesion_agencia === "login en curso" && !loginVisto) { loginVisto = true; if (vistaActual !== "navegador") irA("navegador"); }
+    if (!enLogin) loginVisto = false;
     $("sesion-lista").classList.toggle("oculto", !enLogin);
     $("abrir-sesion").classList.toggle("oculto", enLogin);
 
@@ -1237,6 +1273,111 @@
     }));
   }
 
+  // ---------------------------------------------------------------- pestaña Navegador
+  let visorSeq = -1, visorPidiendo = false, visorEstado = null, visorReloj = null, visorTexto = "", visorTextoT = null;
+  function irA(vista) { document.querySelector(`nav button[data-vista="${vista}"]`)?.click(); }
+  function arrancarVisor() {
+    if (visorReloj) return;
+    const vuelta = async () => {
+      if (vistaActual !== "navegador") { clearTimeout(visorReloj); visorReloj = null; return; }
+      await pedirVisor();
+      visorReloj = setTimeout(vuelta, 250);
+    };
+    vuelta();
+  }
+  async function pedirVisor() {
+    let e;
+    try { e = await api("GET", "/api/visor/estado"); } catch (err) { return; }
+    visorEstado = e;
+    const enLogin = e.login_activo || e.sesion_agencia === "login en curso" || e.sesion_agencia === "login pendiente";
+    $("visor-listo").classList.toggle("oculto", !enLogin);
+    $("visor-login").classList.toggle("oculto", enLogin);
+    $("visor-origen").innerHTML = e.activo ? `Navegador de las agencias · <b>${esc(e.origen)}</b>` : (e.sesion_agencia === "login pendiente" ? "Se abrirá en cuanto termine el envío que se está redactando…" : "Sin navegador abierto");
+    $("visor-img").classList.toggle("oculto", !e.activo);
+    $("visor-vacio").classList.toggle("oculto", e.activo);
+    ["visor-atras", "visor-recargar", "visor-url", "visor-real"].forEach(id => $(id).disabled = !e.activo);
+    if (document.activeElement !== $("visor-url")) $("visor-url").value = e.url || "";
+    $("visor-pestanas").innerHTML = e.activo && e.paginas.length > 1 ? e.paginas.map(p =>
+      `<button class="b mini ${p.i === e.activa ? "activa" : ""}" data-i="${p.i}" title="${esc(p.url)}">${esc(p.titulo || p.url)}</button>`).join("") : "";
+    $("visor-pestanas").querySelectorAll("button").forEach(b => b.addEventListener("click", () => ordenVisor({ t: "pestana", i: +b.dataset.i })));
+    if (e.activo && e.seq !== visorSeq && !visorPidiendo) {
+      visorPidiendo = true;
+      const img = $("visor-img"), seq = e.seq;
+      img.onload = img.onerror = () => { visorPidiendo = false; visorSeq = seq; };
+      img.src = "/api/visor/imagen?s=" + seq;
+    }
+  }
+  async function ordenVisor(o) {
+    try { await api("POST", "/api/visor/orden", o); } catch (e) { avisar(e.message, true); }
+  }
+  // coordenadas de 0 a 1 sobre la imagen (el servidor las pasa a la pantalla del navegador)
+  function puntoVisor(ev) {
+    const r = $("visor-img").getBoundingClientRect();
+    return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+  }
+  const marco = $("visor-marco");
+  // el foco (para recibir las teclas) sin mover la pagina: si se moviera, el clic caeria donde no se apunto
+  marco.addEventListener("mousedown", ev => { if (visorEstado?.activo) { ev.preventDefault(); marco.focus({ preventScroll: true }); } });
+  marco.addEventListener("click", ev => {
+    if (!visorEstado?.activo || ev.target.id !== "visor-img") return;
+    soltarTexto();
+    ordenVisor({ t: "clic", ...puntoVisor(ev), veces: ev.detail >= 2 ? 2 : 1 });
+  });
+  marco.addEventListener("contextmenu", ev => {
+    if (!visorEstado?.activo || ev.target.id !== "visor-img") return;
+    ev.preventDefault(); ordenVisor({ t: "clic", ...puntoVisor(ev), boton: "right" });
+  });
+  let ruedaAcum = 0, ruedaT = null, ruedaPunto = null;
+  marco.addEventListener("wheel", ev => {
+    if (!visorEstado?.activo || ev.target.id !== "visor-img") return;
+    ev.preventDefault();
+    ruedaAcum += ev.deltaY; ruedaPunto = puntoVisor(ev);
+    clearTimeout(ruedaT);
+    ruedaT = setTimeout(() => { ordenVisor({ t: "rueda", dy: ruedaAcum, ...ruedaPunto }); ruedaAcum = 0; }, 80);
+  }, { passive: false });
+  // el texto se junta y se manda de golpe; las teclas especiales, una a una y en orden
+  function soltarTexto() {
+    clearTimeout(visorTextoT);
+    if (visorTexto) { const s = visorTexto; visorTexto = ""; ordenVisor({ t: "texto", s }); }
+  }
+  const TECLAS = new Set(["Enter", "Tab", "Backspace", "Delete", "Escape", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"]);
+  marco.addEventListener("keydown", ev => {
+    if (!visorEstado?.activo) return;
+    const mod = ev.ctrlKey || ev.metaKey || ev.altKey;
+    if (mod && ev.key.toLowerCase() === "v") return;               // pegar: lo coge el evento paste
+    if (!mod && ev.key.length === 1) {
+      ev.preventDefault();
+      visorTexto += ev.key;
+      clearTimeout(visorTextoT); visorTextoT = setTimeout(soltarTexto, 120);
+      return;
+    }
+    if (TECLAS.has(ev.key) || (mod && ev.key.length === 1)) {
+      ev.preventDefault(); soltarTexto();
+      const k = (ev.ctrlKey ? "Control+" : "") + (ev.altKey ? "Alt+" : "") + (ev.shiftKey && ev.key.length > 1 ? "Shift+" : "") + ev.key;
+      ordenVisor({ t: "tecla", k });
+    }
+  });
+  marco.addEventListener("paste", ev => {
+    if (!visorEstado?.activo) return;
+    ev.preventDefault(); soltarTexto();
+    const s = (ev.clipboardData || window.clipboardData).getData("text");
+    if (s) ordenVisor({ t: "texto", s });
+  });
+  marco.addEventListener("focus", () => marco.classList.add("con-foco"));
+  marco.addEventListener("blur", () => { marco.classList.remove("con-foco"); soltarTexto(); });
+  $("visor-atras").addEventListener("click", () => ordenVisor({ t: "atras" }));
+  $("visor-recargar").addEventListener("click", () => ordenVisor({ t: "recargar" }));
+  $("visor-url").addEventListener("keydown", ev => { if (ev.key === "Enter") { ordenVisor({ t: "ir", url: $("visor-url").value }); $("visor-url").blur(); } });
+  $("visor-real").addEventListener("click", () => { ordenVisor({ t: "ventana", visible: true }); avisar("La ventana de verdad aparece en la pantalla. Al terminar, vuelve a esconderse sola con el siguiente envío."); });
+  async function iniciarSesionAgencias() {
+    try { await api("POST", "/api/navegador/login"); irA("navegador"); avisar("Inicia sesión en las agencias aquí mismo y pulsa Ya he iniciado sesión."); refrescar(); }
+    catch (e) { avisar(e.message, true); }
+  }
+  $("visor-login").addEventListener("click", iniciarSesionAgencias);
+  $("visor-listo").addEventListener("click", async () => {
+    try { await api("POST", "/api/navegador/login/terminar"); avisar("Sesión guardada."); refrescar(); } catch (e) { avisar(e.message, true); }
+  });
+
   // ---------------------------------------------------------------- admin
   let relojAdmin = null, ultimoRegistro = 0, lineasRegistro = [], ajustesDatos = null;
   const tile = (et, va, clase) => `<div class="tile"><div class="et">${esc(et)}</div><div class="va ${clase || ""}">${esc(va)}</div></div>`;
@@ -1276,7 +1417,7 @@
     $(id).disabled = false; pedirResumen();
   });
   accionAdmin("ad-comprobar", async () => { avisar("Entrando en las agencias…"); const r = await api("POST", "/api/navegador/comprobar"); avisar(r.ok ? "Sesión correcta en las agencias." : r.problema, !r.ok); });
-  accionAdmin("ad-login", async () => { await api("POST", "/api/navegador/login"); avisar("Se abre la ventana de las agencias. Inicia sesión y pulsa Ya he iniciado sesión arriba."); refrescar(); });
+  accionAdmin("ad-login", iniciarSesionAgencias);
   accionAdmin("ad-reabrir", async () => { await api("POST", "/api/navegador/reabrir"); avisar("El navegador de agencias se abrirá de nuevo con el siguiente envío."); });
   accionAdmin("ad-reiniciar", reiniciarServidor);
 

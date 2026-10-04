@@ -28,9 +28,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 import criterio
+from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
@@ -570,3 +571,35 @@ async def cambiar_criterio(accion: str, request: Request):
         raise HTTPException(400, str(e).strip("'\""))
     g("log")(f"Criterio base: {accion} ({ident or 'nueva'})")
     return criterio.vista(nombre, texto)
+
+
+# ====================================================================== pestaña Navegador (visor.py)
+@router.get("/api/visor/estado")
+def visor_estado():
+    e = VISOR.estado()
+    e["sesion_agencia"] = g("ESTADO").sesion_agencia
+    e["login_activo"] = g("WORKER").login_activo
+    return e
+
+
+@router.get("/api/visor/imagen")
+def visor_imagen():
+    datos = VISOR.ultima_imagen()
+    if not datos:
+        return Response(status_code=204)
+    return Response(datos, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+ORDENES_VISOR = {"clic", "rueda", "texto", "tecla", "pestana", "atras", "recargar", "ir", "ventana"}
+
+
+@router.post("/api/visor/orden")
+async def visor_orden(request: Request):
+    datos = await g("_json")(request)
+    ordenes = datos.get("ordenes") or [datos]
+    for o in ordenes[:100]:
+        if not isinstance(o, dict) or o.get("t") not in ORDENES_VISOR:
+            raise HTTPException(400, "Orden desconocida")
+        if not VISOR.ordenar(o):
+            raise HTTPException(409, "No hay ningún navegador abierto")
+    return {"ok": True}

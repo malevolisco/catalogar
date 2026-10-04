@@ -30,7 +30,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 ## El exe (lo nuevo)
 - `catalogator.py`: lanzador. Abre una ventana de escritorio propia (pywebview + WebView2) con el panel, sin navegador;
   si no puede, la ventana tkinter de antes con el navegador (`--clasica` la fuerza). Desde fuera, Tailscale + clave.
-  El navegador de agencias trabaja fuera de la pantalla (`navegador_oculto`, no headless) y solo sale si hace falta. Se baja de GitHub Releases `catalogator-app.zip` y se actualiza solo al abrir.
+  El navegador de agencias trabaja fuera de la pantalla (`navegador_oculto`, no headless) y se ve y se maneja desde la
+  pestaña **Navegador** del panel (`visor.py`: imagen en directo por Page.startScreencast + clics/teclas reenviados; todo lo
+  de Playwright lo hace el hilo del Worker en `VISOR.bombear()`). El login de agencias tambien va ahi. "Sacar la ventana
+  real" la trae a la pantalla si algo no responde. Se baja de GitHub Releases `catalogator-app.zip` y se actualiza solo al abrir.
   La app vive en `%LOCALAPPDATA%\Catalogator\app`; los datos del usuario no se tocan; copia de seguridad en `_anterior/`.
 - `empaquetar.py` hace el zip de la app; `catalogator.spec` compila con PyInstaller; `.github/workflows/release.yml`
   compila en Windows al publicar una etiqueta `v*` (o a mano con "Run workflow" indicando la version).
@@ -65,7 +68,8 @@ PRIMERA PRUEBA EN EL PC (4 oct): el exe instala y arranca, pero `servidor.py` ca
 o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 
 ## Pendiente
-1. Probar en Windows la version de escritorio (v2026.10.04.3): ventana propia, Admin, criterio editable, navegador oculto.
+1. Probar en Windows la version de escritorio (v2026.10.04.4): ventana propia, Admin, criterio editable, pestaña Navegador
+   (login de agencias dentro de la app).
    No se puede ver desde Linux: la ventana se probo con un pywebview simulado.
 2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
 3. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
