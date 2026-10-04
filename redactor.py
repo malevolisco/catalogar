@@ -22,6 +22,7 @@ from pathlib import Path
 
 from actos import DESCRIPTOR as DESCRIPTOR_ACTO, comparar as comparar_acto
 from situaciones import cruzar_restricciones
+import criterio
 
 BASE_DIR = Path(__file__).resolve().parent
 REGLAS_PATH = BASE_DIR / "reglas.md"
@@ -124,7 +125,10 @@ class RedactorError(Exception):
 
 def _reglas():
     ruta = BASE_DIR / CFG.get("reglas", "reglas.md")
-    base = (ruta if ruta.exists() else REGLAS_PATH).read_text(encoding="utf-8")
+    if not ruta.exists():
+        ruta = REGLAS_PATH
+    # el criterio base de la version instalada con los cambios del catalogador encima (criterio_cambios.json)
+    base = criterio.componer(ruta.name, ruta.read_text(encoding="utf-8"))
     extra = []
     if REGLAS_EXTRA_PATH.exists():
         for linea in REGLAS_EXTRA_PATH.read_text(encoding="utf-8").splitlines():

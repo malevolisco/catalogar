@@ -51,6 +51,7 @@ import paginas_word
 import listas
 from actos import huella_fotogramas, guardar_para_entrenar
 from catalogar import guardar_csv, FECHA_RE
+import admin
 
 BASE_DIR = Path(__file__).resolve().parent
 COLA_DIR = BASE_DIR / "cola"
@@ -62,6 +63,7 @@ CAMPOS = ("ENVIO", "NAME", "COMMENT", "RESTRICCIONES")
 
 CFG = {}
 app = FastAPI(title="catalogar", docs_url=None, redoc_url=None)
+ARRANCADO = datetime.now()
 
 
 def log(msg):
@@ -246,7 +248,7 @@ import queue
 def comprobar_sesion():
     """Abre el navegador, entra en las agencias (Reuters, AP y EBU) y comprueba que la sesion sirve. Devuelve None si todo bien,
     o el texto del problema. Cierra el navegador al terminar. SOLO desde el hilo del Worker."""
-    ex = Extractor(headless=CFG["headless"], canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
+    ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
                    miniaturas=0, espera_login=0)
     try:
         ex.open()
@@ -388,7 +390,7 @@ class Worker(threading.Thread):
                     _escenas.precargar()
             except ImportError as e:              # falta numpy/onnxruntime: se sigue sin clasificador
                 log(f"Clasificador de escenas no disponible ({e.name}): pip install numpy onnxruntime pillow")
-        self.ex = Extractor(headless=CFG["headless"], canal=CFG.get("navegador", "auto"),
+        self.ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"),
                             ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0)
         self.ex.open()
         ESTADO.sesion_agencia = "abierta"
@@ -671,6 +673,8 @@ def enviar_correos(lote, reparto=None, formal=None):
         ESTADO.guardar()
     for e in envios:
         log(f"  correo a {e['etiqueta'] or e['a']}: " + ("enviado" if e["ok"] else "FALLO " + e["error"]))
+        admin.anotar_correo("enviado", e["a"], e.get("etiqueta", ""), len(e.get("fichas") or []), lote, "reparto",
+                            ok=e["ok"], error=e.get("error", ""), formal=formal)
     if sin_repartir:
         log(f"  sin repartir ({len(sin_repartir)}), quedan en la pagina: " + ", ".join(sin_repartir))
     return envios
@@ -720,11 +724,13 @@ def enviar_por_catalogador(lote):
             envios.append({"a": direccion, "etiqueta": etiqueta, "fichas": [f["etiqueta"] for f in fichas],
                            "ok": True, "error": "", "formal": formal, "origen": "lista"})
             log(f"  correo a {etiqueta} ({direccion}): {len(fichas)} ficha(s) de su lista" + (" · formal" if formal else ""))
+            admin.anotar_correo("enviado", direccion, etiqueta, len(fichas), lote, "lista", formal=formal)
             _anotar_enviada(fichas, etiqueta, direccion)
         except CorreoError as e:
             envios.append({"a": destino, "etiqueta": destino, "fichas": [], "ok": False, "error": str(e),
                            "formal": False, "origen": "lista"})
             log(f"  correo a {destino}: FALLO {e}")
+            admin.anotar_correo("enviado", destino, destino, len(fichas), lote, "lista", ok=False, error=str(e))
     with ESTADO.lock:
         lote["envios"] = (lote.get("envios") or []) + envios
         lote["enviado"] = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -784,9 +790,11 @@ def responder_peticion(lote):
         envio["ok"] = True
         _anotar_enviada(hechas, "respuesta", destino)
         log(f"  respuesta a {destino}: {len(hechas)} ficha(s)" + (" · formal" if formal else ""))
+        admin.anotar_correo("enviado", destino, "respuesta", len(hechas), lote, "respuesta", formal=formal)
     except CorreoError as e:
         envio.update({"fichas": [], "error": str(e)})
         log(f"  respuesta a {destino}: FALLO {e}")
+        admin.anotar_correo("enviado", destino, "respuesta", len(hechas), lote, "respuesta", ok=False, error=str(e))
     with ESTADO.lock:
         lote["envios"] = (lote.get("envios") or []) + [envio]
         ESTADO.guardar()
@@ -811,8 +819,12 @@ def avisar_sin_envios(peticion, nota):
     try:
         enviar(CFG, peticion["de"], f"{MARCA_CORREO} sin envios que catalogar", cuerpo, html=html)
         log(f"Buzon: aviso a {peticion['de']} (la lista no traia numeros)" + (" · formal" if formal else ""))
+        admin.anotar_correo("recibido", peticion["de"], "", 0, None, "sin envios", asunto=peticion.get("asunto", ""),
+                            detalle="no traia numeros: se le ha avisado")
     except CorreoError as e:
         log(f"Buzon: no se pudo avisar a {peticion['de']} ({e})")
+        admin.anotar_correo("recibido", peticion["de"], "", 0, None, "sin envios", asunto=peticion.get("asunto", ""),
+                            ok=False, error=f"no traia numeros y no se le ha podido avisar: {e}")
 
 
 class Buzon(threading.Thread):
@@ -864,6 +876,8 @@ class Buzon(threading.Thread):
                         fichas.append(f)
                     nombre = f"correo de {p['nombre']}: " + ", ".join(p["numeros"][:3]) + (" ..." if len(p["numeros"]) > 3 else "")
                     lotes = crear_lotes("correo", nombre, fichas, responder_a=p["de"], asunto_origen=p["asunto"], nota=nota)
+                    admin.anotar_correo("recibido", p["de"], p.get("nombre", ""), len(fichas), lotes[0], "peticion",
+                                        asunto=p["asunto"], detalle=nota)
                     log(f"Buzon: {len(fichas)} envio(s) de {p['de']}" + (f" en {len(lotes)} lotes" if len(lotes) > 1 else "")
                         + (" (correo con mas de 2000 numeros: recortado)" if p["de_mas"] else "")
                         + (f" · {nota}" if nota else ""))
@@ -871,6 +885,7 @@ class Buzon(threading.Thread):
                     nuevo = ", ".join(sorted(set(rechazados)))
                     if nuevo != self.ultimo:
                         log(f"Buzon: correos ignorados de {nuevo} (remitente no permitido; se quedan sin leer)")
+                        admin.anotar_correo("ignorado", nuevo, "", 0, None, "remitente no permitido")
                         self.ultimo = nuevo
             except BuzonError as e:
                 log(f"Buzon: {e}")
@@ -1165,6 +1180,7 @@ async def enviar_seleccion_api(request: Request):
     with ESTADO.lock:
         ESTADO.guardar()
     log(f"Correo a {etiqueta} ({direccion}): {len(fichas)} ficha(s) seleccionadas" + (" · formal" if formal else ""))
+    admin.anotar_correo("enviado", direccion, etiqueta, len(fichas), None, "seleccion", formal=formal)
     return {"a": etiqueta, "direccion": direccion, "fichas": len(fichas), "formal": formal}
 
 
@@ -1357,6 +1373,11 @@ def reabrir_navegador():
     """Cierra el navegador del Worker para que lo abra de nuevo con la sesion nueva."""
     WORKER.encargar("cerrar")
     return {"ok": True}
+
+
+# ====================================================================== administracion (admin.py)
+admin.iniciar(globals())
+app.include_router(admin.router)
 
 
 # ====================================================================== arranque

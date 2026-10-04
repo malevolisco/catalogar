@@ -204,8 +204,29 @@ RUTAS_SISTEMA = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/goo
 
 ARGS_BASE = ["--disable-blink-features=AutomationControlled", "--no-first-run", "--no-default-browser-check"]
 # equipos con poca memoria (Raspberry): /dev/shm pequeña y sin GPU util
+# ventana "oculta": de verdad abierta (no headless, que el antibot distingue), pero fuera de la pantalla
+FUERA_DE_PANTALLA = (-10000, -10000)   # lejos de cualquier monitor (los de la izquierda tienen x negativa)
 ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer",
                 "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512"]
+
+
+def mostrar_ventana(ctx, page, visible=True):
+    """Mueve la ventana del navegador a la pantalla (visible) o fuera de ella, sin cerrarla."""
+    try:
+        s = ctx.new_cdp_session(page)
+        w = s.send("Browser.getWindowForTarget")["windowId"]
+        s.send("Browser.setWindowBounds", {"windowId": w, "bounds": {"windowState": "normal"}})
+        if visible:
+            bounds = {"left": 60, "top": 40, "width": 1400, "height": 1000}
+        else:
+            bounds = {"left": FUERA_DE_PANTALLA[0], "top": FUERA_DE_PANTALLA[1]}
+        s.send("Browser.setWindowBounds", {"windowId": w, "bounds": bounds})
+        if visible:
+            page.bring_to_front()
+        s.detach()
+        return True
+    except Exception:
+        return False
 
 
 def ruta_sistema():
@@ -221,10 +242,11 @@ def ruta_sistema():
     return None
 
 
-def abrir_contexto(pw, headless=False, canal="auto", ruta=None, ligero=None):
+def abrir_contexto(pw, headless=False, canal="auto", ruta=None, ligero=None, oculto=False):
     """Abre el navegador con perfil persistente y sin marcas de automatizacion.
     canal: 'chrome', 'msedge', 'chromium' (el de Playwright), 'sistema' (el instalado) o 'auto'.
-    ruta: ejecutable concreto (tiene prioridad). ligero: opciones de bajo consumo (por defecto, en Linux)."""
+    ruta: ejecutable concreto (tiene prioridad). ligero: opciones de bajo consumo (por defecto, en Linux).
+    oculto: la ventana se abre fuera de la pantalla; mostrar_ventana() la trae cuando hace falta una persona."""
     import sys as _sys
     if ligero is None:
         ligero = _sys.platform.startswith("linux")
@@ -234,7 +256,8 @@ def abrir_contexto(pw, headless=False, canal="auto", ruta=None, ligero=None):
         viewport={"width": 1400, "height": 1000},
         locale="es-ES",
         ignore_default_args=["--enable-automation"],
-        args=ARGS_BASE + (ARGS_LIGEROS if ligero else []),
+        args=ARGS_BASE + (ARGS_LIGEROS if ligero else [])
+             + ([f"--window-position={FUERA_DE_PANTALLA[0]},{FUERA_DE_PANTALLA[1]}"] if oculto and not headless else []),
     )
     intentos = []          # (etiqueta, kwargs extra)
     if ruta:
@@ -279,8 +302,9 @@ class NotFound(Exception):
 class Extractor:
     _url_busqueda_vista = False      # ya se ha anotado en consola la URL de una busqueda a mano
     def __init__(self, headless=False, debug=False, canal="auto", ruta=None, miniaturas=0,
-                 espera_login=60):
+                 espera_login=60, oculto=False):
         self.headless = headless
+        self.oculto = oculto and not headless
         self.espera_login = int(espera_login or 0)
         self.debug = debug
         self.n_miniaturas = int(miniaturas or 0)
@@ -296,7 +320,8 @@ class Extractor:
         if self._ctx:
             return
         self._pw = sync_playwright().start()
-        self._ctx, self.navegador = abrir_contexto(self._pw, headless=self.headless, canal=self.canal, ruta=self.ruta)
+        self._ctx, self.navegador = abrir_contexto(self._pw, headless=self.headless, canal=self.canal, ruta=self.ruta,
+                                                   oculto=self.oculto)
         self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
 
     def close(self):
@@ -370,6 +395,16 @@ class Extractor:
         if self.headless or not self.espera_login:
             return False
         limite = self.espera_login
+        if self.oculto:                 # estaba fuera de la pantalla: se trae para que la vea alguien
+            mostrar_ventana(self._ctx, self._page, True)
+        try:
+            return self._esperar_persona_visible(agencia, motivo, limite)
+        finally:
+            if self.oculto:
+                mostrar_ventana(self._ctx, self._page, False)
+
+    def _esperar_persona_visible(self, agencia, motivo, limite):
+        import time as _t
         print(f"\n  {motivo} en {agencia}.")
         print(f"  Resuelvelo en la ventana del navegador. Espero {limite} segundos.")
         print("  No cierres la ventana: en cuanto entres, sigo solo.")
