@@ -441,10 +441,10 @@ class Worker(threading.Thread):
 
     def _vuelta(self):
         if VISOR.activo:
-            VISOR.bombear()                          # el navegador de trabajo abierto y parado: se puede tocar
+            VISOR.bombear(250)                       # el navegador de trabajo abierto y parado: se puede tocar
         try:
-            # con el navegador a la vista de la pagina se vuelve rapido aqui, para atender sus clics
-            encargo = self.encargos.get(timeout=0.25 if VISOR.activo else 2)   # primero los encargos de navegador
+            # con el navegador a la vista, la espera la hace bombear (que atiende los clics al momento)
+            encargo = self.encargos.get(timeout=0.01 if VISOR.activo else 2)   # primero los encargos de navegador
         except queue.Empty:
             encargo = None
         if encargo is not None:

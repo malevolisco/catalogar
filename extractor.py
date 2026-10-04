@@ -206,9 +206,11 @@ ARGS_BASE = ["--disable-blink-features=AutomationControlled", "--no-first-run", 
 # equipos con poca memoria (Raspberry): /dev/shm pequeña y sin GPU util
 # ventana "oculta": de verdad abierta (no headless, que el antibot distingue), pero fuera de la pantalla
 FUERA_DE_PANTALLA = (-10000, -10000)   # lejos de cualquier monitor (los de la izquierda tienen x negativa)
-# fuera de la pantalla Windows la da por tapada y Chrome dejaria de pintarla (y de emitirla a la pestaña Navegador)
-ARGS_OCULTO = ["--disable-features=CalculateNativeWinOcclusion", "--disable-backgrounding-occluded-windows",
-               "--disable-renderer-backgrounding", "--disable-background-timer-throttling"]
+# fuera de la pantalla Windows la da por tapada y Chrome dejaria de pintarla (y de emitirla a la pestaña Navegador).
+# Playwright ya pasa estas tres; van tambien aqui por si cambia. Nada de --disable-features: Chrome se queda con
+# el ultimo y pisaria la lista que pone Playwright.
+ARGS_OCULTO = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
+               "--disable-background-timer-throttling"]
 ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer",
                 "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512"]
 

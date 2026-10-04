@@ -647,6 +647,28 @@ def visor_imagen():
     return Response(datos, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/api/visor/directo")
+def visor_directo():
+    """La imagen en directo como video MJPEG: el navegador de la pagina la pinta sola en un <img>, cuadro
+    a cuadro, sin preguntar. Se corta a los 10 minutos o al cerrarse el navegador (la pagina reconecta)."""
+    from fastapi.responses import StreamingResponse
+
+    def cuadros():
+        # Chrome no pinta un cuadro hasta ver la marca del siguiente: la marca va justo detras de cada imagen
+        vista, fin = -1, time.time() + 600
+        yield b"--cuadro\r\n"
+        while time.time() < fin:
+            seq, imagen = VISOR.esperar_imagen(vista, 5)
+            if not VISOR.activo:
+                return
+            if seq != vista and imagen:
+                vista = seq
+                yield (b"Content-Type: image/jpeg\r\nContent-Length: " + str(len(imagen)).encode()
+                       + b"\r\n\r\n" + imagen + b"\r\n--cuadro\r\n")
+    return StreamingResponse(cuadros(), media_type="multipart/x-mixed-replace; boundary=cuadro",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
 ORDENES_VISOR = {"clic", "rueda", "texto", "tecla", "pestana", "atras", "recargar", "ir", "ventana"}
 
 

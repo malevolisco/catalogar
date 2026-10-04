@@ -23,6 +23,7 @@ VIEWPORT = (1400, 1000)        # el de abrir_contexto: las coordenadas que llega
 class Visor:
     def __init__(self):
         self.lock = threading.Lock()
+        self.nueva = threading.Condition(self.lock)     # avisa a la emision en directo de cada imagen nueva
         self.ordenes = collections.deque(maxlen=500)
         self._reset()
 
@@ -44,10 +45,12 @@ class Visor:
     # ------------------------------------------------------------------ desde el hilo del Worker
     def conectar(self, ctx, origen):
         """Empieza a enseñar ese navegador. Si ya habia otro, lo sustituye."""
+        mismo = ctx is self.ctx
         self.desconectar()
         with self.lock:
             self.ctx, self.origen = ctx, origen
-            self.ordenes.clear()
+            if not mismo:                    # lo pedido para el mismo navegador (al reconectar) no se pierde
+                self.ordenes.clear()
         try:
             paginas = [p for p in ctx.pages if not p.is_closed()]
             self._elegir(paginas[0] if paginas else ctx.new_page())
@@ -64,6 +67,7 @@ class Visor:
             seq = self.seq
             self._reset()
             self.seq = seq + 1             # la pagina ve el cambio y deja de pedir imagen
+            self.nueva.notify_all()
 
     def _elegir(self, page):
         """Cambia la pestaña que se emite."""
@@ -81,13 +85,14 @@ class Visor:
                 with self.lock:
                     if self.cdp is cdp:
                         self.imagen, self.seq, self.t_imagen = datos, self.seq + 1, time.time()
+                        self.nueva.notify_all()
                 try:
                     cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
                 except Exception:
                     pass
 
             cdp.on("Page.screencastFrame", cuadro)
-            cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 70,
+            cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 65, "everyNthFrame": 1,
                                               "maxWidth": VIEWPORT[0], "maxHeight": VIEWPORT[1]})
             self.cdp = cdp
         except Exception:
@@ -100,6 +105,7 @@ class Visor:
             datos = self.page.screenshot(type="jpeg", quality=70, timeout=5000)
             with self.lock:
                 self.imagen, self.seq, self.t_imagen = datos, self.seq + 1, time.time()
+                self.nueva.notify_all()
         except Exception:
             pass
 
@@ -127,25 +133,32 @@ class Visor:
             self.url, self.titulo = actual.get("url", ""), actual.get("titulo", "")
 
     def bombear(self, espera_ms=60):
-        """Atiende lo que ha pedido la pagina y deja que lleguen imagenes. SOLO desde el hilo del Worker."""
+        """Atiende lo que ha pedido la pagina y deja que lleguen imagenes durante espera_ms. Las ordenes que
+        llegan mientras tanto se atienden al momento (esperas de 20 ms), no al final. SOLO desde el hilo del Worker."""
         if self.ctx is None or self.page is None:
             return
-        with self.lock:
-            ordenes = list(self.ordenes)
-            self.ordenes.clear()
-        for o in ordenes:
+        fin = time.time() + espera_ms / 1000
+        while True:
+            with self.lock:
+                ordenes = list(self.ordenes)
+                self.ordenes.clear()
+            for o in ordenes:
+                try:
+                    self._ejecutar(o)
+                except Exception:
+                    pass
+            if self.page is None:
+                return
+            self._lista()
+            # si la emision no da imagenes (ventana tapada, nada cambia) y alguien esta mirando, una captura
+            if time.time() - self.mirando < 3 and time.time() - self.t_imagen > 2:
+                self._captura()
+            if time.time() >= fin:
+                return
             try:
-                self._ejecutar(o)
+                self.page.wait_for_timeout(20)          # aqui llegan los cuadros de la emision
             except Exception:
-                pass
-        self._lista()
-        # si la emision no da imagenes (ventana tapada, nada cambia) y alguien esta mirando, una captura
-        if time.time() - self.mirando < 3 and time.time() - self.t_imagen > 2:
-            self._captura()
-        try:
-            self.page.wait_for_timeout(espera_ms)      # aqui llegan los cuadros de la emision
-        except Exception:
-            pass
+                return
 
     def _ejecutar(self, o):
         p = self.page
@@ -186,6 +199,13 @@ class Visor:
             self.mirando = time.time()
             return {"activo": self.ctx is not None, "origen": self.origen, "seq": self.seq,
                     "paginas": list(self.paginas), "activa": self.activa, "url": self.url, "titulo": self.titulo}
+
+    def esperar_imagen(self, vista, espera=10.0):
+        """Espera a que haya una imagen distinta de la vista (o a que se cierre el navegador): (seq, imagen)."""
+        with self.nueva:
+            self.mirando = time.time()
+            self.nueva.wait_for(lambda: self.seq != vista or self.ctx is None, timeout=espera)
+            return self.seq, self.imagen
 
     def ultima_imagen(self):
         with self.lock:
