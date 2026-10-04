@@ -36,6 +36,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - Instrucciones tecnicas: comandos exactos + una frase de lo que hace cada uno. Sin jerga densa y sin tono infantil.
 - Al cambiar codigo o reglas: dejar todo en su sitio, sin duplicados ni restos que contradigan lo nuevo. Revisar SIEMPRE antes de entregar.
 - No sabe programar; tiene Python en Windows.
+- GitHub lo lleva Claude de principio a fin: cambios, pull request, unirla a `main` y publicar version (Actions).
+  Adrian solo sube lo que existe unicamente en su PC (nunca `config.json`, `cola`, `perfil_*`) y prueba el exe.
 
 ## Estado
 HECHO: reconocimiento de actos, MediaCentral (doble clic, autoguardado, campos por fila), falsos positivos de KILL,
@@ -54,7 +56,7 @@ PRIMERA PRUEBA EN EL PC (4 oct): el exe instala y arranca, pero `servidor.py` ca
 o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 
 ## Pendiente
-1. Adrian sube `actos.py` (de su copia local) a `main` y se publica `v2026.10.04.1`; volver a probar el exe.
+1. `actos.py` ya esta en `main`; publicar `v2026.10.04.1` y volver a probar el exe (y traer el `config.json` antiguo).
 2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
 3. Menu **Ajustes** en la ventana (agenda, correo con boton Probar, redaccion, clave de la pagina, MediaCentral). Propuesto, falta el OK.
 4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
