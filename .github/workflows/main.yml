@@ -1,0 +1,55 @@
+name: Publicar version
+
+# Cada etiqueta vX (por ejemplo v2026.10.04) publica una release con:
+#   catalogator-app.zip   el codigo y el criterio (lo que Catalogator.exe se baja y actualiza solo)
+#   Catalogator.exe       el lanzador compilado en Windows (solo hay que bajarlo una vez)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Etiqueta de la version (vAAAA.MM.DD)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version
+        id: v
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then V="${{ github.event.inputs.version }}"; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "EXE_VERSION = \"$V\"" > catalogator_version.py
+      - name: Librerias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Zip de la app
+        run: python empaquetar.py ${{ steps.v.outputs.version }}
+      - name: Compilar Catalogator.exe
+        run: pyinstaller --noconfirm catalogator.spec
+      - name: Comprobar que arranca
+        shell: bash
+        run: |
+          ./dist/Catalogator.exe --actualizar || true
+          ls -la dist
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.version }}
+          name: ${{ steps.v.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/catalogator-app.zip
+            dist/Catalogator.exe
