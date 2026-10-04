@@ -1,18 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-redactor.py - Envia el texto de la ficha y las reglas a Claude Code en modo no
-interactivo (claude -p) y devuelve las cuatro lineas normalizadas y validadas.
+redactor.py - Envia el texto de la ficha y las reglas a Claude y devuelve la ficha (ENVIO, NAME, COMMENT, RESTRICCIONES)
+normalizadas y validadas.
 
-Requiere Claude Code instalado y con sesion iniciada (ejecuta `claude` una vez
-en una consola y entra con tu cuenta Pro).
+Dos motores, elegidos con "redactor" en config.json:
+  claude_code  Claude Code en modo no interactivo (claude -p) con la cuenta Pro. Sin coste por ficha.
+  api          API de Anthropic con clave (api_key). Centimos por ficha, mas rapido, reglas cacheadas.
+
+El modelo local (Ollama) no vive aqui: es una demo aparte, en la carpeta demo\, que sustituye
+llamar_modelo desde fuera sin tocar este fichero.
 """
 import os
+import sys
 import re
 import shutil
 import base64
 import subprocess
 import unicodedata
+from datetime import datetime, timedelta
 from pathlib import Path
+
+from actos import DESCRIPTOR as DESCRIPTOR_ACTO, comparar as comparar_acto
+from situaciones import cruzar_restricciones
 
 BASE_DIR = Path(__file__).resolve().parent
 REGLAS_PATH = BASE_DIR / "reglas.md"
@@ -27,14 +36,21 @@ CAMPOS = ("ENVIO", "NAME", "COMMENT", "RESTRICCIONES")
 CFG = {
     "redactor": "claude_code",            # "claude_code" (Pro, sin coste) o "api" (clave, centimos, rapido)
     "claude_model": "sonnet",
-    "claude_extra_args": ["--max-turns", "1"],
+    "claude_extra_args": [],              # flags extra; herramientas y turnos los pone _cmd_claude
     "claude_timeout": 240,
     "claude_thinking_tokens": 1024,       # presupuesto de pensamiento de Claude Code (MAX_THINKING_TOKENS)
     "api_key": "",
     "api_model": "claude-haiku-4-5-20251001",
-    "api_max_tokens": 700,
+    "api_max_tokens": 1200,
     "acortar_comment": True,
     "reglas": "reglas.md",                # fichero de reglas a usar (reglas.md o reglas_ligeras.md)
+    "generar_normal": True,               # pedir en la misma llamada la version en escritura normal
+    "miniaturas": 0,                      # fotogramas que se adjuntan al modelo (0 = ninguno)
+    "escenas": True,                      # clasificador local de escenas, si esta entrenado
+    "escenas_umbral": 0.6,                # parte minima de fotogramas que votan por la misma clase
+    "escenas_fiabilidad_min": 0.85,       # acierto minimo medido al entrenar para fiarse de una clase
+    "escenas_sin_imagenes": True,         # con etiqueta fiable, no adjuntar los fotogramas
+    "escenas_fotogramas": 6,              # fotogramas que se sacan solo para el clasificador (no van al modelo)
 }
 
 
@@ -54,6 +70,15 @@ CARGO_GENTILICIO_RE = re.compile(
     r"FINLANDES|FINLANDESA|GRIEGO|GRIEGA|HUNGARO|HUNGARA|CHECO|CHECA|AUSTRIACO|AUSTRIACA|SUIZO|SUIZA|IRLANDES|IRLANDESA)\s+"
     r"[A-ZÑ][A-ZÑ\-]+\s+[A-ZÑ][A-ZÑ\-]+"
 )
+
+# Cargo delante del nombre en aposicion: EL PRESIDENTE DE FRANCIA, EMMANUEL MACRON (lo correcto es al reves)
+CARGO_DELANTE_RE = re.compile(
+    r"\b(PRESIDENTE|PRESIDENTA|PRIMER MINISTRO|PRIMERA MINISTRA|MINISTRO|MINISTRA|CANCILLER|ALCALDE|ALCALDESA|"
+    r"GOBERNADOR|GOBERNADORA|PORTAVOZ|SECRETARIO|SECRETARIA|DIRECTOR|DIRECTORA|EMBAJADOR|EMBAJADORA|ACTIVISTA|"
+    r"ABOGADO|ABOGADA|CANTANTE|ACTOR|ACTRIZ|ENTRENADOR|ENTRENADORA|JUGADOR|JUGADORA|PILOTO|CONSEJERO DELEGADO)"
+    r"(?: (?:DE|DEL|DE LA|DE LOS) [A-ZÑ]+(?: [A-ZÑ]+){0,3})?, "
+    r"(?!(?:SOBRE|EN|DURANTE|TRAS|CON|ANTE|Y|DE|DEL|INCLUYE|A|AL|POR|PARA|SIN|SEGUN|MOSTRANDO|JUNTO|ACOMPAÑADO|ACOMPAÑADA)\b)"
+    r"([A-ZÑ]{2,}(?:-[A-ZÑ]+)?(?: [A-ZÑ]{2,}(?:-[A-ZÑ]+)?){1,2})(?=,|\.)")
 
 VERBOS_INICIO = {
     # Solo formas que no son tambien sustantivo. CRITICA, RECHAZO, ANUNCIO, DENUNCIA y MUESTRA
@@ -113,9 +138,33 @@ def _reglas():
         bloques = []
         for e in ejemplos:
             bloques.append(f"ENVIO: {e['envio']}\nNAME: {e['name']}\nCOMMENT: {e['comment']}\nRESTRICCIONES: {e['restricciones']}")
-        base += ("\n\n=== FICHAS APROBADAS POR EL CATALOGADOR (el modelo a seguir) ===\n\n"
+        base += ("\n\n=== FICHAS APROBADAS POR EL CATALOGADOR ===\n\n"
+                 "Sirven para el tono, el orden y la medida. Cuando una ficha aprobada contradiga una regla del "
+                 "criterio, manda la regla: las fichas se aprobaron enteras, no frase a frase, y pueden arrastrar "
+                 "detalles que el criterio ya corrige.\n\n"
                  + "\n\n".join(bloques) + "\n")
+    # la version en escritura normal se pide aqui, con el resto de instrucciones fijas (va en la parte
+    # cacheada de la API y no contradice el "devuelve solo estas lineas" del preambulo)
+    if CFG.get("generar_normal", True):
+        base += (
+            "\n\n=== VERSION EN ESCRITURA NORMAL ===\n\n"
+            "Despues de las tres lineas, y solo despues, anade estas tres con el MISMO texto de NAME, COMMENT y "
+            "RESTRICCIONES pasado a escritura normal del español: mayuscula solo al inicio de frase y en nombres propios "
+            "(personas, lugares, instituciones, obras), minusculas en el resto, tildes y dieresis correctas, siglas en "
+            "mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). Prohibido cambiar, añadir, quitar o reordenar palabras, cifras o "
+            "signos: solo cambian mayusculas, minusculas y tildes.\n"
+            "NAME_NORMAL: ...\nCOMMENT_NORMAL: ...\nRESTRICCIONES_NORMAL: ...\n"
+        )
     return base
+
+
+DURACION_RE = re.compile(r"Duration\s*:?\s*\n*\s*(\d{1,2}:\d{2}:\d{2})", re.I)
+
+
+def duracion_de(texto):
+    """Duracion del video tal como la da la pagina (Reuters y AP la ponen en los metadatos), o ''."""
+    m = DURACION_RE.search(texto or "")
+    return m.group(1) if m else ""
 
 
 def listar_ejemplos():
@@ -155,6 +204,7 @@ def anadir_ejemplo(campos):
     Devuelve (numero_de_ejemplos, aviso_o_None)."""
     envio = (campos.get("ENVIO") or "").strip()
     num = envio.split("·")[0].strip() if envio else ""
+    campos = dict(campos, RESTRICCIONES=limpiar_restricciones(campos.get("RESTRICCIONES") or "SIN AVISO"))
     if not campos.get("NAME") or not campos.get("COMMENT"):
         raise ValueError("La ficha no tiene NAME o COMMENT")
     if num:
@@ -209,35 +259,23 @@ def listar_reglas_extra():
 
 def construir_partes(ficha):
     """(system, user): las reglas van como system para poder cachearlas en la API."""
+    texto = ficha.get("texto", "")
     datos = (
+        f"agencia: {ficha.get('agencia', '')}\n"
         f"numero: {ficha.get('numero', '')}\n"
         f"fecha: {ficha.get('fecha', '')}\n"
-        f"revision: {ficha.get('rev', '')}\n"
         f"slug: {ficha.get('slug', '')}\n"
         f"headline: {ficha.get('headline', '')}\n"
+        f"duracion: {duracion_de(texto) or 'no consta'}\n"
     )
+    pistas = ficha.get("pistas") or ""            # lo que situaciones.py ha detectado en el texto
     user = (
         "=== DATOS DE CODIGO ===\n" + datos
-        + "\n=== TEXTO DE LA FICHA ===\n" + ficha.get("texto", "")
-        + "\n=== FIN ===\n\nDevuelve ahora las cuatro lineas.\n"
+        + (("\n=== DETECTADO AUTOMATICAMENTE EN EL TEXTO (compruebalo, no lo copies a ciegas) ===\n" + pistas + "\n") if pistas else "")
+        + "\n=== TEXTO DE LA FICHA ===\n" + texto
+        + "\n=== FIN ===\n\nDevuelve ahora las lineas pedidas.\n"
     )
     return _reglas(), user
-
-
-def construir_prompt(ficha):
-    datos = (
-        f"numero: {ficha.get('numero', '')}\n"
-        f"fecha: {ficha.get('fecha', '')}\n"
-        f"revision: {ficha.get('rev', '')}\n"
-        f"slug: {ficha.get('slug', '')}\n"
-        f"headline: {ficha.get('headline', '')}\n"
-    )
-    return (
-        _reglas()
-        + "\n\n=== DATOS DE CODIGO ===\n" + datos
-        + "\n=== TEXTO DE LA FICHA ===\n" + ficha.get("texto", "")
-        + "\n=== FIN ===\n\nDevuelve ahora las cuatro lineas.\n"
-    )
 
 
 def _ruta_claude():
@@ -254,32 +292,135 @@ def _ruta_claude():
     return "claude"
 
 
-def _cmd_claude(model, extra_args):
-    return [_ruta_claude(), "-p", "--model", model, "--output-format", "text"] + list(extra_args or [])
+# Flags que pudiera traer claude_extra_args de un config.json antiguo y que fija el redactor: las
+# herramientas y los turnos. La lista antigua nombraba MultiEdit, que Claude Code ya no tiene, y eso
+# hacia que cada vez que el modelo intentaba usar una herramienta la llamada acabara en
+# 'Permission deny rule "MultiEdit" matches no known tool' + 'Reached max turns (1)'.
+FLAGS_FIJADOS = {"--tools", "--allowedTools", "--allowed-tools", "--disallowedTools", "--disallowed-tools",
+                 "--max-turns"}
+TURNOS_CON_IMAGENES = 4        # abrir los fotogramas con Read gasta turnos; sin herramientas basta uno
 
 
-def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240):
+def _cmd_claude(model, extra_args, con_imagenes=False):
+    """Orden de Claude Code. Sin herramientas y un solo turno (el modelo solo tiene que escribir las
+    cuatro lineas: asi un intento de usar una herramienta no se come la llamada), o con Read y unos
+    turnos mas cuando se le adjuntan fotogramas, que tiene que abrirlos."""
+    limpios, saltar = [], False
+    for a in list(extra_args or []):
+        if saltar:
+            saltar = False
+            continue
+        if a.split("=", 1)[0] in FLAGS_FIJADOS:
+            saltar = "=" not in a          # "--flag valor": salta tambien el valor; "--flag=valor": ya va junto
+            continue
+        limpios.append(a)
+    return ([_ruta_claude(), "-p", "--model", model, "--output-format", "text",
+             "--tools", "Read" if con_imagenes else "",
+             "--max-turns", str(TURNOS_CON_IMAGENES if con_imagenes else 1)] + limpios)
+
+
+def _matar(proceso):
+    """Mata el proceso y lo que haya lanzado: en Windows claude es un .cmd que arranca node, y matar
+    solo la shell deja a node vivo con las tuberias abiertas (y a la llamada esperando para siempre)."""
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proceso.pid)], capture_output=True, timeout=15)
+        else:
+            proceso.kill()
+        proceso.communicate(timeout=15)
+    except Exception:
+        pass
+
+
+class ModeloNoDisponible(RedactorError):
+    """El modelo no puede atender ahora y no es cosa de esta ficha: limite de uso agotado, servicio
+    saturado, sesion de Claude Code caducada. espera = segundos que conviene esperar antes de volver a
+    intentarlo (None: hace falta que alguien haga algo, como volver a entrar)."""
+
+    def __init__(self, mensaje, espera=None):
+        super().__init__(mensaje)
+        self.espera = espera
+
+
+# Mensajes de Claude Code que significan "ahora no", no "esta ficha no": (patron, espera en segundos o None)
+NO_DISPONIBLE = [
+    (re.compile(r"hit your (?:usage )?limit|usage limit|out of (?:usage|credits)|limit (?:reached|exceeded)|"
+                r"credit balance|quota", re.I), 15 * 60),
+    (re.compile(r"rate limit|too many requests|\b429\b|overloaded|\b529\b|\b503\b|service unavailable|"
+                r"internal server error|\b500\b|connection (?:error|refused|reset)|ECONNRE|ETIMEDOUT|"
+                r"fetch failed|network error|socket hang up", re.I), 5 * 60),
+    (re.compile(r"not logged in|please (?:run )?/?login|log in|authentication|unauthorized|invalid api key|"
+                r"\b401\b|token (?:has )?expired|oauth", re.I), None),
+]
+RESET_RE = re.compile(r"reset(?:s)?\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", re.I)
+
+
+def _espera_hasta_reset(texto):
+    """Si el mensaje dice a que hora se renueva el limite ("resets at 3am"), los segundos hasta entonces."""
+    m = RESET_RE.search(texto or "")
+    if not m:
+        return None
+    try:
+        hora, minuto, ampm = int(m.group(1)), int(m.group(2) or 0), (m.group(3) or "").lower()
+        if ampm == "pm" and hora < 12:
+            hora += 12
+        if ampm == "am" and hora == 12:
+            hora = 0
+        ahora = datetime.now()
+        objetivo = ahora.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+        if objetivo <= ahora:
+            objetivo += timedelta(days=1)
+        return int((objetivo - ahora).total_seconds()) + 60
+    except ValueError:
+        return None
+
+
+def clasificar_fallo(texto):
+    """(espera, motivo) si el texto del fallo es un "ahora no" del modelo; None si es un fallo normal."""
+    for rx, espera in NO_DISPONIBLE:
+        m = rx.search(texto or "")
+        if m:
+            if espera is not None:
+                espera = _espera_hasta_reset(texto) or espera
+            return espera, m.group(0)
+    return None
+
+
+def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imagenes=False):
     WORKDIR.mkdir(exist_ok=True)
-    cmd = _cmd_claude(model, extra_args)
+    cmd = _cmd_claude(model, extra_args, con_imagenes)
     env = dict(os.environ)
     if CFG.get("claude_thinking_tokens"):
         env["MAX_THINKING_TOKENS"] = str(CFG["claude_thinking_tokens"])
+
+    def lanzar(orden, shell):
+        # errors="replace": la consola de Windows en español escribe sus mensajes en cp850, y una
+        # ruta con tilde en un error no debe convertirse en un UnicodeDecodeError que tape el error real
+        return subprocess.Popen(orden, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, encoding="utf-8", errors="replace", cwd=str(WORKDIR), shell=shell, env=env)
+
     try:
-        r = subprocess.run(
-            cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
-            cwd=str(WORKDIR), timeout=timeout, env=env,
-        )
+        proceso = lanzar(cmd, False)
     except FileNotFoundError:
         # en Windows, claude puede ser un .cmd que solo arranca a traves de la shell
-        r = subprocess.run(
-            " ".join(cmd), input=prompt, capture_output=True, text=True, encoding="utf-8",
-            cwd=str(WORKDIR), timeout=timeout, shell=True, env=env,
-        )
+        proceso = lanzar(subprocess.list2cmdline(cmd), True)
+    try:
+        salida, errores = proceso.communicate(prompt, timeout=timeout)
     except subprocess.TimeoutExpired:
+        _matar(proceso)
         raise RedactorError(f"Claude Code no respondio en {timeout} s")
-    if r.returncode != 0:
-        raise RedactorError(f"Claude Code devolvio error {r.returncode}: {(r.stderr or '').strip()[:800]}")
-    return r.stdout
+    if proceso.returncode != 0:
+        # el motivo puede venir por stderr o, con --output-format text, por stdout (limite de uso, login...)
+        dicho = " | ".join(t.strip() for t in ((errores or ""), (salida or "")) if t.strip())
+        fallo = clasificar_fallo(dicho)
+        if fallo:
+            espera, motivo = fallo
+            raise ModeloNoDisponible(f"Claude Code no puede atender ahora ({motivo}): {dicho[:400]}", espera)
+        raise RedactorError(f"Claude Code devolvio error {proceso.returncode}: {dicho[:800] or 'sin mensaje'}")
+    return salida
+
+
+AVISOS_LLAMADA = []     # avisos que deja la ultima llamada al modelo (respuesta cortada...); redactar los recoge
 
 
 def llamar_api(system, user, timeout=120):
@@ -289,7 +430,7 @@ def llamar_api(system, user, timeout=120):
         raise RedactorError("redactor=api pero falta api_key en config.json")
     cuerpo = {
         "model": CFG["api_model"],
-        "max_tokens": int(CFG.get("api_max_tokens", 700)),
+        "max_tokens": int(CFG.get("api_max_tokens", 1200)),
         "system": [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
         "messages": [{"role": "user", "content": user}],
     }
@@ -300,31 +441,57 @@ def llamar_api(system, user, timeout=120):
             json=cuerpo, timeout=timeout,
         )
     except requests.RequestException as e:
-        raise RedactorError(f"API no accesible: {e}")
+        raise ModeloNoDisponible(f"API no accesible: {e}", 5 * 60)
     if r.status_code != 200:
+        if r.status_code in (401, 403):
+            raise ModeloNoDisponible(f"API devolvio {r.status_code} (clave no valida o sin permiso): {r.text[:300]}", None)
+        if r.status_code in (429, 500, 502, 503, 529):
+            raise ModeloNoDisponible(f"API devolvio {r.status_code} (limite o servicio saturado): {r.text[:300]}",
+                                     15 * 60 if r.status_code == 429 else 5 * 60)
         raise RedactorError(f"API devolvio {r.status_code}: {r.text[:500]}")
     datos = r.json()
-    return "".join(b.get("text", "") for b in datos.get("content", []) if b.get("type") == "text")
+    texto = "".join(b.get("text", "") for b in datos.get("content", []) if b.get("type") == "text")
+    if datos.get("stop_reason") == "max_tokens":
+        # cortada a medias: vale si las cuatro lineas estan enteras (el corte cayo en las _NORMAL);
+        # si falta RESTRICCIONES, mejor fallar que dar por bueno un SIN AVISO
+        if "RESTRICCIONES" not in parsear(texto)["_presentes"]:
+            raise RedactorError(f"La API corto la respuesta en {cuerpo['max_tokens']} tokens antes de RESTRICCIONES: "
+                                "sube api_max_tokens en config.json")
+        AVISOS_LLAMADA.append(f"La API corto la respuesta en {cuerpo['max_tokens']} tokens (faltan las lineas _NORMAL): sube api_max_tokens")
+    return texto
 
 
-def llamar_modelo(system, user, timeout=None):
-    """Enruta al backend configurado."""
+def llamar_modelo(system, user, timeout=None, con_imagenes=False):
+    """Enruta al motor configurado en "redactor": claude_code o api."""
     if CFG.get("redactor") == "api":
         return llamar_api(system, user, timeout=timeout or 120)
     return llamar_claude(system + "\n\n" + user, model=CFG["claude_model"], extra_args=CFG["claude_extra_args"],
-                         timeout=timeout or CFG["claude_timeout"])
+                         timeout=timeout or CFG["claude_timeout"], con_imagenes=con_imagenes)
+
+
+def linea_envio(ficha):
+    """numero · fecha · slug · headline, con los datos del extractor (nunca los que escriba el modelo)."""
+    return " · ".join(str(ficha.get(k) or "") for k in ("numero", "fecha", "slug", "headline"))
 
 
 def parsear(salida):
+    """Los campos de la respuesta del modelo. Un campo sigue en las lineas de debajo hasta la primera
+    en blanco: lo que venga despues de un hueco (una nota, una explicacion) no es parte del campo.
+    campos["_presentes"] dice que lineas ha escrito el modelo, para distinguir vacia de ausente."""
     campos = {c: "" for c in CAMPOS}
+    presentes = set()
     actual = None
     for linea in salida.splitlines():
-        m = re.match(r"^\s*\**\s*(ENVIO|NAME|COMMENT|RESTRICCIONES)\s*\**\s*:\s*(.*)$", linea, re.I)
+        m = re.match(r"^\s*\**\s*(ENVIO|NAME_NORMAL|COMMENT_NORMAL|RESTRICCIONES_NORMAL|NAME|COMMENT|RESTRICCIONES)\s*\**\s*:\s*(.*)$", linea, re.I)
         if m:
             actual = m.group(1).upper()
-            campos[actual] = m.group(2).strip()
+            presentes.add(actual)
+            campos[actual] = m.group(2).strip().strip("*").strip()
         elif actual and linea.strip():
             campos[actual] = (campos[actual] + " " + linea.strip()).strip()
+        else:
+            actual = None                      # linea en blanco: se cierra el campo
+    campos["_presentes"] = presentes
     return campos
 
 
@@ -344,20 +511,138 @@ def normalizar(texto):
     return texto
 
 
-PAISES_GUERRA = ("PALESTINA", "UCRANIA", "RUSIA", "ISRAEL")
+# la agencia dice que la imagen lleva texto sobreimpreso (rotulos de verdad)
+ROTULOS_EXPLICITO_RE = re.compile(
+    r"GRAPHICS|CAPTIONS?\b|ON.SCREEN (?:TEXT|GRAPHICS?|CAPTIONS?)|BURN(?:T|ED).IN|LOWER.THIRDS?|CHYRONS?|SUBTITLE|"
+    r"\bAS AIRED\b|WITH (?:STATION |TV |CHANNEL )?LOGO|\bTICKER\b|SUPERS\b|\bCCTV\b|SECURITY CAMERA|SURVEILLANCE (?:CAMERA|FOOTAGE)")
+# material que suele llevarlos pero no seguro: emitido por una cadena
+ROTULOS_PROBABLE_RE = re.compile(r"AIRED ON|TV FOOTAGE|BROADCAST FOOTAGE|TELEVISION FOOTAGE|STATE TV|STATE TELEVISION|\bCGTN\b|\bIRIB\b|\bKCNA\b|\bKRT\b")
+
+
+def quitar_rotulos(comment):
+    """Quita ROTULOS de la frase INCLUYE del COMMENT (solo o con mas cosas), dejando la lista bien unida."""
+    def arreglar(m):
+        lista = m.group(1)
+        if lista.strip() == "ROTULOS":
+            return ""
+        lista = re.sub(r"^ROTULOS,\s*", "", lista)                 # ROTULOS, A Y B -> A Y B
+        lista = re.sub(r"^ROTULOS\s+Y\s+", "", lista)              # ROTULOS Y A -> A
+        lista = re.sub(r",\s*ROTULOS\s+Y\s+", " Y ", lista)        # A, ROTULOS Y B -> A Y B
+        lista = re.sub(r"\s+Y\s+ROTULOS$", "", lista)              # A Y ROTULOS -> A
+        if "," in lista and not re.search(r"\s+Y\s+", lista):     # A, B -> A Y B (se quito el ultimo)
+            i = lista.rfind(",")
+            lista = lista[:i] + " Y" + lista[i + 1:]
+        return "INCLUYE " + lista.strip() + "."
+    c = re.sub(r"INCLUYE ([^.]*\bROTULOS\b[^.]*)\.", arreglar, comment)
+    return " ".join(c.split())
+
+
+def quitar_cortesia(restricciones):
+    """Quita las frases ROTULAR CORTESIA DE ''X'' de RESTRICCIONES. Devuelve (quitadas, resto)."""
+    frases = [f.strip() for f in re.split(r"\.\s*", restricciones or "") if f.strip()]
+    quitadas = [f for f in frases if "CORTESIA" in f]
+    resto = [f for f in frases if "CORTESIA" not in f]
+    return quitadas, (". ".join(resto) + "." if resto else "SIN AVISO")
+
+
+def limpiar_restricciones(texto):
+    """Quita los +++ del formato antiguo: cada bloque pasa a ser una o varias frases terminadas en punto,
+    todas seguidas. '+++ A +++ +++ B. C +++' -> 'A. B. C.'  Lo que no lleve +++ se deja igual."""
+    texto = (texto or "").strip()
+    if "+++" not in texto:
+        return texto
+    bloques = [b.strip(" .") for b in texto.split("+++") if b.strip(" .")]
+    return " ".join(b + "." for b in bloques)
+
+
+def _huella(texto):
+    """Palabras del texto en mayusculas sin tildes ni signos, para comparar versiones sin que cuente la ortografia."""
+    return re.findall(r"[A-ZÑ0-9]+", normalizar(texto))
+
+
+def presentar_normal(campos, timeout=120):
+    """Segunda pasada opcional: devuelve NAME, COMMENT y RESTRICCIONES en escritura normal (mayuscula inicial,
+    nombres propios, tildes, siglas en mayusculas) sin cambiar ni una palabra. Si el modelo altera el texto,
+    ese campo vuelve en mayusculas tal cual. Devuelve dict con los tres campos y una lista de avisos."""
+    entrada = "\n".join(f"{c}: {campos.get(c, '')}" for c in ("NAME", "COMMENT", "RESTRICCIONES"))
+    prompt = (
+        "Estos tres textos son campos de una ficha de archivo audiovisual escritos en mayusculas sin tildes. "
+        "Reescribelos en escritura normal del español: mayuscula solo al inicio de frase y en nombres propios "
+        "(personas, lugares, instituciones, obras), minusculas en el resto, tildes y dieresis correctas, siglas "
+        "en mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). En NAME, ademas, la primera palabra con mayuscula inicial. "
+        "PROHIBIDO cambiar, añadir, quitar o reordenar palabras, cifras o signos: solo cambia mayusculas, minusculas y tildes. "
+        "Devuelve exactamente tres lineas con el mismo formato, NAME:, COMMENT: y RESTRICCIONES:, sin nada mas.\n\n" + entrada
+    )
+    salida = llamar_modelo("Eres un corrector ortotipografico. Respondes solo con las tres lineas pedidas.", prompt, timeout=timeout)
+    nuevo = parsear(salida)
+    resultado, avisos = {}, []
+    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
+        cand = " ".join((nuevo.get(c) or "").split())
+        if cand and _huella(cand) == _huella(campos.get(c, "")):
+            resultado[c] = cand
+        else:
+            resultado[c] = campos.get(c, "")
+            avisos.append(f"{c}: la version normal cambiaba palabras y se ha descartado")
+    return resultado, avisos
+
+
+# Deporte: para saber si la ficha es deportiva se mira el SLUG (en Reuters es SOCCER-..., TENNIS-...),
+# que es la senal fiable, y el headline solo con marcas inequivocas (competiciones y siglas). Asi una
+# noticia politica que mencione de pasada "football stadium" no cuenta como deporte.
+DEPORTES = (
+    # (marca en el slug, marca inequivoca en cualquier sitio, palabra que debe ir en el NAME)
+    (r"\bMOTOGP\b|MOTO ?GP", r"\bMOTOGP\b|MOTO ?GP", "MOTOCICLISMO"),
+    (r"FORMULA ?(1|ONE)|\bF1\b", r"FORMULA ?(1|ONE)\b|\bF1 (GP|RACE|GRAND PRIX)\b", "FORMULA 1"),
+    (r"\bSOCCER\b|\bFOOTBALL\b", r"CHAMPIONS LEAGUE|EUROPA LEAGUE|PREMIER LEAGUE|LALIGA|LA LIGA\b|\bFIFA\b|\bUEFA\b|WORLD CUP QUALIFIER", "FUTBOL"),
+    (r"\bTENNIS\b", r"\bUS OPEN\b|ROLAND GARROS|WIMBLEDON|\bATP\b|\bWTA\b|DAVIS CUP", "TENIS"),
+    (r"BASKETBALL", r"\bNBA\b|EUROLEAGUE|EUROBASKET", "BALONCESTO"),
+    (r"\bCYCLING\b", r"TOUR DE FRANCE|\bGIRO D|VUELTA A ESPANA", "CICLISMO"),
+    (r"ATHLETICS", r"WORLD ATHLETICS|DIAMOND LEAGUE", "ATLETISMO"),
+    (r"\bRUGBY\b", r"\bRUGBY\b", "RUGBY"),
+    (r"\bGOLF\b", r"RYDER CUP|\bPGA\b|MASTERS AUGUSTA", "GOLF"),
+    (r"\bSWIMMING\b|WATERPOLO|WATER POLO", r"WORLD AQUATICS", "NATACION"),
+    (r"HANDBALL", r"HANDBALL", "BALONMANO"),
+    (r"VOLLEYBALL", r"VOLLEYBALL", "VOLEIBOL"),
+    (r"\bBOXING\b", r"\bBOXING\b|\bWBC\b|\bWBA\b", "BOXEO"),
+    (r"\bJUDO\b|TAEKWONDO|KARATE", r"\bJUDO\b|TAEKWONDO", "ARTES MARCIALES"),
+    (r"\bSKIING\b|SNOWBOARD|BIATHLON", r"\bSKIING\b|BIATHLON", "ESQUI"),
+    (r"AMERICAN FOOTBALL|\bNFL\b", r"SUPER BOWL|\bNFL\b", "FUTBOL AMERICANO"),
+    (r"BASEBALL", r"\bMLB\b|WORLD SERIES", "BEISBOL"),
+    (r"\bHOCKEY\b", r"\bNHL\b|\bHOCKEY\b", "HOCKEY"),
+)
+PALABRAS_DEPORTE = r"\b(FUTBOL|TENIS|BALONCESTO|ARTES MARCIALES|CICLISMO|ATLETISMO|RUGBY|GOLF|NATACION|BALONMANO|VOLEIBOL|BOXEO|JUDO|TAEKWONDO|KARATE|ESQUI|BEISBOL|HOCKEY|MOTOCICLISMO|MOTOCROSS|AUTOMOVILISMO|WATERPOLO|PIRAGUISMO|REMO|GIMNASIA|HALTEROFILIA|ESGRIMA|TRIATLON|PADEL|BADMINTON|VELA|SURF)\b|FORMULA 1"
+
+
+def deporte_de(envio, texto=None):
+    """Devuelve el deporte de la ficha, o None. envio = la linea ENVIO (numero, fecha, slug, headline).
+    Se mira el slug y el titular, no el texto entero: una noticia politica que cita a la FIFA no es
+    una ficha de deporte."""
+    trozos = [t.strip() for t in (envio or "").split("\u00b7")]
+    slug = trozos[2].upper() if len(trozos) > 2 else ""
+    cabecera = (envio or "").upper()
+    for en_slug, inequivoca, palabra in DEPORTES:
+        if (slug and re.search(en_slug, slug)) or re.search(inequivoca, cabecera):
+            return palabra
+    return None
+
+
+PAISES_GUERRA = ("PALESTINA", "UCRANIA", "RUSIA", "ISRAEL", "JERUSALEN")
+GUERRA_RE = re.compile(r"\bGUERRA\b(?! (MUNDIAL|CIVIL|FRIA|COMERCIAL|DE PRECIOS|ARANCELARIA))")
 
 HABLADOS = ("DECLARACIONES", "RUEDA DE PRENSA", "COMPARECENCIA", "INTERVENCION", "ENTREVISTA")
 
 # Palabras que casi siempre delatan una N donde debia ir una Ñ.
 ENE_PERDIDA_RE = re.compile(
     r"\b(ESPANA|ESPANOL|ESPANOLA|ESPANOLES|ESPANOLAS|ANO|ANOS|NINO|NINA|NINOS|NINAS|"
-    r"DANO|DANOS|DANADO|DANADA|DANADOS|DANADAS|CANON|CANONES|MANANA|COMPANIA|COMPANIAS|"
-    r"SENAL|SENALES|SENOR|SENORA|SENORES|MONTANA|MONTANAS|PEQUENO|PEQUENA|PEQUENOS|PEQUENAS|"
-    r"ACOMPANADO|ACOMPANADA|ACOMPANADOS|ENSENANZA|SUENO|ENGANO|EXTRANO|EXTRANA|PUNO|BANO|CAMPANA|CAMPANAS)\b")
+    r"DANO|DANOS|DANADO|DANADA|DANADOS|DANADAS|MANANA|COMPANIA|COMPANIAS|"
+    r"SENOR|SENORA|SENORES|MONTANA|MONTANAS|PEQUENO|PEQUENA|PEQUENOS|PEQUENAS|"
+    r"ACOMPANADO|ACOMPANADA|ACOMPANADOS|ENSENANZA|SUENO|ENGANO|EXTRANO|EXTRANA|PUNO|BANO)\b")
+# (SENAL, CANON y CAMPANA son palabras de verdad, SEÑAL, CAÑON y CAMPAÑA tambien: no se pueden distinguir)
 
 # Transcripciones inglesas que hay que españolizar.
 TRANSCRIPCION_RE = re.compile(
-    r"\b(ZELENSKIY|ZELENSKYY|MIKHAIL|MOHAMMED|MUHAMMAD|LVIV|KHARKIV|ODESSA|KHERSON|"
+    r"\b(ZELENSKIY|ZELENSKYY|MIKHAIL|MOHAMMED|MUHAMMAD|LVIV|KHARKIV|ODESSA|KHERSON|DELHI|SHARAA|"
+    r"ABDULLAH|HUSSEIN|TAYYIP|YEVGENY|SERGEI|DMITRY|ANDRIY|OLEKSANDR|KYIV|ZAPORIZHZHIA|"
     r"[A-ZÑ]{4,}SKIY|KH[A-ZÑ]{3,})\b")
 
 # Anglicismos evitables: la parte generica de un nombre compuesto se traduce.
@@ -382,19 +667,77 @@ def pais_en_parentesis(comment):
     return next((x for x in dentro if x in PAISES), None)
 
 
+HABLANTE_RE = re.compile(
+    r"(?:\(SOUNDBITE\)|\bSOUNDBITE)\s*\([A-Za-z ]+\)\s*([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,3})|"
+    r"\bSOT\b[:\s]+([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,3})|"
+    r"INTERVIEW WITH\s+([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,3})")
+ANONIMO_RE = re.compile(r"^(UNIDENTIFIED|UNNAMED|VOX|RESIDENT|LOCAL|MAN|WOMAN|PROTESTER|PASSER|SHOPPER|FAN|SUPPORTER|VOTER|WORKER|STUDENT|TOURIST|VILLAGER)", re.I)
+CUTAWAY_RE = re.compile(r"CUTAWAY|GVS? OF (PRESS|PRESSER|NEWS CONFERENCE|JOURNALISTS|MEDIA|ROOM)|WIDE OF (PRESS|PRESSER|ROOM)|"
+                        r"REPORTERS|JOURNALISTS|MEDIA IN ROOM|PODIUM|MICROPHONES|CAMERAS|WALKING (TO|UP TO) (THE )?PODIUM", re.I)
+
+
+def hablantes(texto):
+    """Nombres de quienes hablan segun el shotlist (Reuters/AP SOUNDBITE (Idioma) NOMBRE, ...; EBU SOT NOMBRE
+    o INTERVIEW WITH NOMBRE), en mayusculas sin tildes y sin repetir; los anonimos (UNIDENTIFIED...) no."""
+    salida = []
+    for m in HABLANTE_RE.finditer(texto or ""):
+        nombre = (m.group(1) or m.group(2) or m.group(3) or "").strip()
+        if nombre and not ANONIMO_RE.match(nombre):
+            n = normalizar(nombre)
+            if n not in salida:
+                salida.append(n)
+    return salida
+
+
+def planos_numerados(texto):
+    """Lineas de plano del shotlist: numeradas (Reuters/AP) o con guion (EBU)."""
+    return re.findall(r"^\s*(?:\d+\.|-)\s*(.+)$", texto or "", flags=re.M)
+
+
+def planos_reales(texto):
+    """Planos del shotlist que no son SOUNDBITE ni planos de sala (cutaways, periodistas, atril)."""
+    return [p for p in planos_numerados(texto)
+            if not re.search(r"SOUNDBITE|\bSOT\b|\bSAYING\b|\bSPEAKING\b", p, re.I) and not CUTAWAY_RE.search(p)]
+
+
+def _sin_planos(comment):
+    """True si el descriptor hablado va justo tras el LUGAR y en el COMMENT no se describe ninguna imagen
+    (salvo la propia palabra INCLUYE, que es lo que se quiere detectar)."""
+    tras_lugar = re.sub(r"^[^.]*\.\s*", "", comment, count=1)
+    if not any(tras_lugar.startswith(h) for h in HABLADOS + ("EXTRACTO DE", "TESTIMONIOS DE", "ENCUESTA A")):
+        return False
+    return not re.search(r"\bPLANOS\b|\bRECURSOS\b|\bIMAGENES\b|\bVISTAS\b|\bFOTOS\b", comment)
+
+
+def _solo_hablado(comment):
+    """True si el COMMENT es solo material hablado: el descriptor va justo tras el LUGAR y no hay
+    ningun hecho visible detras (ni INCLUYE con planos ni otra frase que describa imagenes)."""
+    tras_lugar = re.sub(r"^[^.]*\.\s*", "", comment, count=1)
+    if not any(tras_lugar.startswith(h) for h in HABLADOS + ("EXTRACTO DE", "TESTIMONIOS DE", "ENCUESTA A")):
+        return False
+    # si en algun punto se describen imagenes, el envio no es solo hablado
+    return not re.search(r"\bINCLUYE\b|\bPLANOS\b|\bRECURSOS\b|\bIMAGENES\b|\bVISTAS\b|\bFOTOS\b", comment)
+
+
 def validar(campos):
     avisos = []
     name, comment, restr = campos["NAME"], campos["COMMENT"], campos["RESTRICCIONES"]
     if not name:
         avisos.append("NAME vacio")
     else:
-        if len(name) > 90:
-            avisos.append(f"NAME de {len(name)} caracteres (max 90)")
-        if len(name.split()) > 12:
-            avisos.append(f"NAME de {len(name.split())} palabras (max 12)")
-        if "GUERRA" in name and name.split()[0] not in PAISES_GUERRA:
+        if len(name) > TOPE_NAME:
+            avisos.append(f"NAME de {len(name)} caracteres (tope {TOPE_NAME}; lo normal son {MAX_NAME})")
+        if GUERRA_RE.search(name) and name.split()[0] not in PAISES_GUERRA:
             avisos.append(f"GUERRA en el NAME con {name.split()[0]} al frente: solo se usa con "
-                          f"PALESTINA, UCRANIA, RUSIA o ISRAEL")
+                          f"PALESTINA, UCRANIA, RUSIA, ISRAEL o JERUSALEN")
+        if re.search(r"\bCON MOTIVO (?!DE\b|DEL\b)", name):
+            avisos.append("CON MOTIVO sin su DE en el NAME")
+        if re.search(r"\bRECURSOS\b", name):
+            avisos.append("RECURSOS no va en el NAME: PAIS, lo que se ve y la noticia (RECURSOS DE queda para el COMMENT)")
+    if re.search(r"\bSECUELAS?\b", name + " " + comment):
+        avisos.append("SECUELAS no se usa: la palabra del archivo es DAÑOS (DAÑOS DE, DAÑOS TRAS)")
+        if "CHAMPIONS" in name and "LIGA DE CAMPEONES" in comment:
+            avisos.append("El NAME dice CHAMPIONS y el COMMENT LIGA DE CAMPEONES: una sola forma")
         if "," in name:
             avisos.append("NAME con coma: el NAME es una cadena de palabras clave sin puntuacion; "
                           "el cargo va al COMMENT")
@@ -424,10 +767,37 @@ def validar(campos):
         m = re.search(r"\b(HALLADOS|HALLADAS|VIVIENDAS|MASIVO|DOCENTES|CONSISTORIO|IMAGENES DE (?!ARCHIVO|SATELITE))", comment)
         if m:
             avisos.append(f"Palabra poco llana ({m.group(1).strip()}): usa la corriente (ENCONTRADOS, CASAS, COLECTIVO, PROFESORES, AYUNTAMIENTO, RECURSOS DE)")
-        if re.search(r"\b(EL TERRITORIO|EL PAIS|LA CIUDAD|EL MANDATARIO|EL DIRIGENTE|LA MANDATARIA|EL LIDER)\b", comment):
+        # como sujeto de frase (no dentro de LAS CALLES DE LA CIUDAD, que es literal)
+        if re.search(r"(?:^|\. |\bY )(EL TERRITORIO|EL PAIS|LA CIUDAD|EL MANDATARIO|EL DIRIGENTE|LA MANDATARIA|EL LIDER)\b", comment):
             avisos.append("Sustituto de cronica (EL TERRITORIO, EL PAIS, EL MANDATARIO...): repite el nombre propio")
-        if not re.match(r"^[A-ZÑ][A-ZÑ0-9 (),.\-]*?\.(\s|$)", comment):
+        lugar = comment.split(".")[0].strip()
+        if (not re.match(r"^[A-ZÑ][A-ZÑ0-9 (),.\-]*?\.(\s|$)", comment) or len(lugar.split()) > 6
+                or lugar.startswith(HABLADOS + ("RECURSOS", "EXTRACTO", "SALUDO", "RESUMEN", "VISTAS", "SECUELAS", "DAÑOS",
+                                                "LLEGADA", "MOMENTO", "IMAGENES", "ARCHIVO", "PHOTOCALL", "ALFOMBRA",
+                                                "TESTIMONIO", "ENCUESTA", "PUBLICACION", "FOTOS"))):
             avisos.append("COMMENT no empieza por LUGAR.")
+        if re.search(r"\b(PRESUNT[OA]S?|SUPUEST[OA]S?)\b", comment):
+            avisos.append("PRESUNTO o SUPUESTO: los cargos y acusaciones se enuncian como tales")
+        if re.search(r"\b(EL|ESTE|ESTA|LOS) (LUNES|MARTES|MIERCOLES|JUEVES|VIERNES|SABADO|DOMINGO)\b", comment):
+            avisos.append("Dia de la semana en el COMMENT: fuera las referencias temporales")
+        if re.search(r"ELECCIONES DE MITAD DE MANDATO", comment):
+            avisos.append("ELECCIONES DE MITAD DE MANDATO: se dice ELECCIONES DE MEDIO MANDATO")
+        m = re.search(r"[%$€£]|\bKMS?\b", comment)
+        if m:
+            avisos.append(f"Simbolo o abreviatura ({m.group(0)}): POR CIENTO, DOLARES, EUROS, KILOMETROS en letra")
+        m = re.search(r"\b(UN|UNA|DOS|TRES|CUATRO|CINCO|SEIS|SIETE|OCHO|NUEVE|DIEZ|ONCE|DOCE|QUINCE|VEINTE|TREINTA)\s+"
+                      r"(AÑOS|MESES|DIAS|HORAS|EUROS|DOLARES|LIBRAS|METROS|KILOMETROS|POR CIENTO)\b", comment)
+        if m:
+            avisos.append(f"Cantidad con unidad en letra ({m.group(0)}): con unidad va siempre en cifra")
+        m = CARGO_DELANTE_RE.search(comment)
+        if m:
+            avisos.append(f"Cargo delante del nombre ({m.group(0)[:50]}): NOMBRE APELLIDO, CARGO")
+        tras = re.sub(r"^[^.]*\.\s*", "", comment, count=1)
+        if tras.startswith("IMAGENES DE ARCHIVO") and "ARCHIVO" not in name:
+            avisos.append("El COMMENT empieza por IMAGENES DE ARCHIVO y el NAME no lleva ARCHIVO tras el pais")
+        if tras.startswith("RECURSOS DE") and any(h in comment for h in HABLADOS):
+            avisos.append("RECURSOS DE es para planos sin declaraciones: si alguien habla, el descriptor es el del "
+                          "hecho (DAÑOS DE, LLEGADA DE...) o el hablado")
         pais = pais_en_parentesis(comment)
         if pais:
             avisos.append(f"LUGAR con el pais entre parentesis ({pais}): los parentesis son solo para "
@@ -436,12 +806,20 @@ def validar(campos):
             avisos.append("COMMENT con fecha de calendario")
         if re.search(r"\b(HOY|AYER|ESTA SEMANA)\b", comment):
             avisos.append("COMMENT con referencia temporal relativa")
-        if len(comment) > MAX_COMMENT:
-            avisos.append(f"COMMENT de {len(comment)} caracteres (tope {MAX_COMMENT})")
-    if restr and restr != "SIN AVISO" and "+++" not in restr:
-        avisos.append("RESTRICCIONES sin formato +++")
-    en_name = next((h for h in HABLADOS if h in name), None)
-    en_comment = next((h for h in HABLADOS if h in comment), None)
+        if len(comment) > TOPE_COMMENT:
+            avisos.append(f"COMMENT de {len(comment)} caracteres (objetivo {MAX_COMMENT}, margen hasta {TOPE_COMMENT})")
+        m_inc = re.search(r"INCLUYE (.+)$", comment)
+        if (_sin_planos(comment) and m_inc
+                and not re.search(r"DECLARACIONES|TESTIMONIOS|ENCUESTA|RUEDA DE PRENSA|INTERVENCION|COMPARECENCIA|ENTREVISTA|ROTULOS|VERTICAL|SUBTITUL", m_inc.group(1))):
+            avisos.append("El envio es solo material hablado: sobra el INCLUYE, no hay material secundario que listar")
+        elif len(comment) > TOPE_SOLO_HABLADO and _solo_hablado(comment):
+            avisos.append(f"COMMENT de {len(comment)} caracteres y el envio es solo material hablado "
+                          f"(tope {TOPE_SOLO_HABLADO}): recorta lo que dice cada uno")
+    if restr and restr != "SIN AVISO" and not restr.endswith("."):
+        avisos.append("RESTRICCIONES: cada aviso termina en punto")
+    # el descriptor es el primero que aparece en cada campo (por posicion, no por orden de la lista)
+    en_name = min((h for h in HABLADOS if h in name), key=name.find, default=None)
+    en_comment = min((h for h in HABLADOS if h in comment), key=comment.find, default=None)
     if en_name and en_comment and en_name != en_comment:
         avisos.append(f"El NAME dice {en_name} y el COMMENT dice {en_comment}: el descriptor del material "
                       f"es el mismo en los dos campos")
@@ -461,7 +839,7 @@ def validar(campos):
     # transcripcion inglesa sin españolizar
     m = TRANSCRIPCION_RE.search(todo)
     if m:
-        avisos.append(f"Transcripcion inglesa ({m.group(1)}): españolizar (ZELENSKI, MIJAIL, LEOPOLIS, JARKOV)")
+        avisos.append(f"Transcripcion inglesa ({m.group(1)}): españolizar (ZELENSKI, MIJAIL, LEOPOLIS, JARKOV, AL CHARAA)")
     # anglicismo evitable
     m = ANGLICISMO_RE.search(todo)
     if m:
@@ -469,9 +847,14 @@ def validar(campos):
     m = re.search(r"\bCOLAPSO\b", todo)
     if m:
         avisos.append("COLAPSO es falso amigo de COLLAPSE: se dice DERRUMBE o HUNDIMIENTO")
-    for formula in ("TESTIMONIOS DE", "ENCUESTA A"):
-        if formula in comment and f"INCLUYE {formula}" not in comment and not comment.startswith(formula):
-            avisos.append(f"{formula} sin INCLUYE: el material hablado secundario entra por INCLUYE")
+    if re.search(r"\bELECCIONES INTERMEDIAS\b", todo):
+        avisos.append("ELECCIONES INTERMEDIAS es traduccion literal de MIDTERM: se dice ELECCIONES DE MEDIO MANDATO")
+    # tras el LUGAR (primera frase) TESTIMONIOS o ENCUESTA pueden ser el material principal; como secundario entran por INCLUYE
+    tras_lugar = re.sub(r"^[^.]*\.\s*", "", comment, count=1)
+    for formula in (r"TESTIMONIOS? DEL?\b", r"ENCUESTA A"):
+        m = re.search(formula, comment)
+        if m and not re.search(r"INCLUYE " + formula, comment) and not re.match(formula, tras_lugar):
+            avisos.append(f"{m.group(0)} sin INCLUYE: el material hablado secundario entra por INCLUYE")
             break
     # pais inicial repetido como gentilicio en NAME
     if name:
@@ -519,29 +902,47 @@ def validar(campos):
     return avisos
 
 
-MAX_COMMENT = 600
+MAX_NAME = 65           # longitud normal del NAME (PAIS y lo esencial)
+TOPE_NAME = 100         # margen maximo: por encima, aviso
+TOPE_SOLO_HABLADO = 300   # envio que es solo material hablado, sin hecho visible: no da para mas
+MAX_COMMENT = 400      # objetivo: a esto se recorta
+TOPE_COMMENT = 500     # margen: por debajo de esto no se toca ni se avisa
 
 
-def acortar_comment(comment, model="sonnet", extra_args=None, timeout=120):
-    """Segunda pasada: reescribe un COMMENT demasiado largo. Devuelve el nuevo texto o el original si no mejora."""
-    prompt = (
-        f"Este es el COMMENT de una ficha de archivo audiovisual y tiene {len(comment)} caracteres. "
-        f"Reescribelo en menos de {MAX_COMMENT - 50} caracteres conservando: el LUGAR inicial con su punto, "
-        "las personas con nombre y cargo (acorta los cargos si hace falta, quita los testimonios secundarios antes que los nombres), "
-        "el hecho principal y la frase INCLUYE si la hay. Estilo nominal, sin frases que empiecen por verbo, "
-        "todo en mayusculas sin tildes, sin fechas, termina en punto. Devuelve solo el texto del COMMENT, sin etiqueta ni explicaciones.\n\n"
-        + comment
-    )
-    try:
-        salida = llamar_modelo("Eres un documentalista de archivo audiovisual. Respondes solo con el texto pedido.", prompt, timeout=timeout)
-    except RedactorError:
-        return comment
-    nuevo = " ".join(salida.strip().split())
-    nuevo = re.sub(r"^\**\s*COMMENT\s*\**\s*:\s*", "", nuevo, flags=re.I)
-    nuevo = normalizar(nuevo)
-    if nuevo and len(nuevo) < len(comment) and re.match(r"^[A-ZÑ][A-ZÑ0-9 ()\-]*\.", nuevo):
-        return nuevo
-    return comment
+def acortar_comment(comment, model="sonnet", extra_args=None, timeout=120, intentos=2):
+    """Segunda pasada: reescribe un COMMENT demasiado largo. Insiste hasta 'intentos' veces
+    y se queda con la version mas corta que sea valida. Si ninguna sirve, devuelve el original."""
+    mejor = comment
+    for intento in range(1, intentos + 1):
+        objetivo = MAX_COMMENT - 50
+        prompt = (
+            f"Este es el COMMENT de una ficha de archivo audiovisual y tiene {len(mejor)} caracteres. "
+            f"Reescribelo en MENOS DE {objetivo} CARACTERES, que es obligatorio, conservando: el LUGAR inicial "
+            "con su punto, las personas con nombre y cargo (acorta los cargos si hace falta), el hecho principal "
+            "y la frase INCLUYE si la hay. Quita en este orden: 1) contexto del STORY (antecedentes, cifras "
+            "generales, frase final de cronica, fechas), 2) el detalle de lo que dice cada persona, dejando quien es "
+            "y el asunto, 3) adjetivos y matices. Nunca quites a una persona que habla, el LUGAR, el descriptor del "
+            "material, un resultado deportivo ni una pieza del INCLUYE. Estilo nominal, "
+            "todo en mayusculas sin tildes pero con Ñ, sin fechas, termina en punto. Devuelve solo el texto del "
+            "COMMENT, sin etiqueta ni explicaciones.\n\n" + mejor
+        )
+        try:
+            salida = llamar_modelo("Eres un documentalista de archivo audiovisual. Respondes solo con el texto pedido.",
+                                   prompt, timeout=timeout)
+        except RedactorError:
+            break
+        cand = " ".join(salida.strip().split())
+        cand = re.sub(r"^\**\s*COMMENT\s*\**\s*:\s*", "", cand, flags=re.I)
+        cand = normalizar(cand)
+        # mismo criterio de LUGAR que el validador: admite comas y puntos dentro del parentesis
+        valido = bool(cand) and re.match(r"^[A-ZÑ][A-ZÑ0-9 (),.\-]*?\.(\s|$)", cand) and cand.endswith(".")
+        if valido and len(cand) < len(mejor):
+            mejor = cand
+            if len(mejor) <= TOPE_COMMENT:
+                return mejor
+        else:
+            break
+    return mejor
 
 
 def adjuntar_imagenes(user, rutas):
@@ -549,8 +950,8 @@ def adjuntar_imagenes(user, rutas):
     se copian al directorio de trabajo y se pasan por nombre de fichero."""
     instruccion = (
         f"\n\nADJUNTO {len(rutas)} FOTOGRAMAS del video, repartidos por su duracion y en orden. "
-        "Mirelos antes de decidir el descriptor del material y antes de escribir el COMMENT, porque el shotlist "
-        "muchas veces no dice en que acto se habla. Resuelva con ellos, en este orden:\n"
+        "Miralos antes de decidir el descriptor del material y antes de escribir el COMMENT, porque el shotlist "
+        "muchas veces no dice en que acto se habla. Resuelve con ellos, en este orden:\n"
         "1. QUE CLASE DE ACTO ES. Atril con carteleria del convocante y periodistas sentados: RUEDA DE PRENSA. "
         "Dos personas sentadas en butacas o en un atril doble con las banderas de sus paises detras, hablando a la "
         "prensa: son DECLARACIONES dichas EN COMPARECENCIA CONJUNTA, que es el marco y no el descriptor, y es el acto en si, no algo posterior a una reunion. Una persona ante un "
@@ -560,12 +961,14 @@ def adjuntar_imagenes(user, rutas):
         "entrevistador: ENTREVISTA.\n"
         "2. SI ES UN VIDEO PREPARADO. Producto sobre fondo neutro, animaciones, rotulacion de marca, planos de "
         "estudio encadenados: es VIDEO PROMOCIONAL, y entonces no se cataloga a quien habla.\n"
-        "3. QUE SE VE DE VERDAD. Lugar, interior o exterior, cuanta gente hay y que hacen. Sirve para el INCLUYE "
-        "y para no describir planos que no existen.\n"
+        "3. QUE SE VE DE VERDAD. Lugar, interior o exterior, cuanta gente hay y que hacen. Sirve para no describir "
+        "planos que no existen.\n"
         "4. MARCAS DEL MATERIAL. Texto sobreimpreso o mosca de cadena (INCLUYE ROTULOS), imagen vertical, vision "
         "nocturna, camara termica, vista de dron, camara de seguridad.\n"
-        "Si lo que ve contradice al shotlist, mande lo que ve. No describa los fotogramas uno a uno ni los "
-        "mencione en la ficha.")
+        "Los fotogramas sirven solo para elegir entre RUEDA DE PRENSA, DECLARACIONES, COMPARECENCIA, INTERVENCION y "
+        "ENTREVISTA cuando el shotlist no lo dice, y para las marcas del material. No añaden planos: en el COMMENT "
+        "solo entra lo que esta en el shotlist. Si un fotograma contradice un plano del shotlist, manda el shotlist "
+        "y no se menciona. No describas los fotogramas uno a uno ni los menciones en la ficha.")
     if CFG.get("redactor") == "api":
         bloques = [{"type": "text", "text": user + instruccion}]
         for r in rutas:
@@ -605,41 +1008,106 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
     acortar = CFG["acortar_comment"]
     system, user = construir_partes(ficha)
     tope = int(CFG.get("miniaturas", 0) or 0)
-    imgs = list(ficha.get("miniaturas") or [])[:tope] if tope else []
-    if imgs and CFG.get("escenas", True):
+    todas = list(ficha.get("miniaturas") or [])     # las que se hayan sacado (para el modelo o para el clasificador)
+    imgs = todas[:tope] if tope else []             # las que se adjuntan al modelo
+    imagen = None                                  # (clase, confianza, fiable) del clasificador de escenas
+    if todas and CFG.get("escenas", True):
         try:
             import escenas as _escenas
             if _escenas.hay_modelo():
-                etiqueta, confianza, detalle = _escenas.clasificar(imgs)
-                umbral = float(CFG.get("escenas_umbral", 0.6))
-                if etiqueta and confianza >= umbral:
+                etiqueta, confianza, detalle = _escenas.clasificar(todas)
+                fiab = _escenas.fiabilidad(etiqueta)
+                fiable = (bool(etiqueta) and confianza >= float(CFG.get("escenas_umbral", 0.6))
+                          and (fiab is None or fiab >= float(CFG.get("escenas_fiabilidad_min", 0.85))))
+                imagen = (etiqueta, confianza, fiable)
+                ficha["escena"] = {"clase": etiqueta, "confianza": round(confianza, 2), "fiabilidad": fiab,
+                                   "detalle": detalle, "fiable": fiable}
+                # el shotlist manda: la imagen solo se le cuenta al modelo cuando el texto no dice el acto
+                if fiable and not (ficha.get("acto") or {}).get("clase"):
                     user += (f"\n\nESCENA RECONOCIDA POR EL CLASIFICADOR LOCAL: "
-                             f"{etiqueta.replace('_', ' ').upper()} (confianza {confianza:.2f}). "
-                             "Es lo que muestran los fotogramas del video. Uselo para elegir el descriptor "
-                             "del material y para no describir planos que no existen. Si el shotlist dice "
-                             "otra cosa, mande lo que se ve.")
-                    if CFG.get("escenas_sin_imagenes", True):
-                        imgs = []      # con etiqueta fiable no hace falta gastar cuota en imagenes
+                             f"{DESCRIPTOR_ACTO.get(etiqueta, etiqueta.replace('_', ' ').upper())} "
+                             f"(la ven {confianza:.0%} de los fotogramas). "
+                             "Es lo que muestran los fotogramas del video. Usalo solo para elegir el descriptor "
+                             "del material (RUEDA DE PRENSA, DECLARACIONES, COMPARECENCIA, INTERVENCION, ENTREVISTA) "
+                             "cuando el shotlist no lo dice. No añade planos: en el COMMENT solo entra lo que esta "
+                             "en el shotlist.")
+                if fiable and CFG.get("escenas_sin_imagenes", True):
+                    imgs = []      # con etiqueta fiable no hace falta gastar cuota en imagenes
         except Exception:
-            pass
+            imagen = None
     if imgs:
         user = adjuntar_imagenes(user, imgs)
-    salida = llamar_modelo(system, user)
+    AVISOS_LLAMADA.clear()
+    salida = llamar_modelo(system, user, con_imagenes=bool(imgs))
+    avisos_llamada = list(AVISOS_LLAMADA)
     campos = parsear(salida)
+    presentes = campos.pop("_presentes")
     if not campos["NAME"] and not campos["COMMENT"]:
         raise RedactorError("No se han encontrado las lineas NAME/COMMENT en la respuesta:\n" + salida[:1500])
     campos["NAME"] = normalizar(campos["NAME"])
     campos["COMMENT"] = normalizar(campos["COMMENT"])
-    if acortar and len(campos["COMMENT"]) > MAX_COMMENT:
+    if acortar and len(campos["COMMENT"]) > TOPE_COMMENT:
         campos["COMMENT"] = acortar_comment(campos["COMMENT"])
-    campos["RESTRICCIONES"] = normalizar(campos["RESTRICCIONES"]) or "SIN AVISO"
-    if not campos["ENVIO"]:
-        campos["ENVIO"] = " · ".join(str(ficha.get(k, "")) for k in ("numero", "fecha", "slug", "headline"))
-    avisos = validar(campos)
+    campos["RESTRICCIONES"] = limpiar_restricciones(normalizar(campos["RESTRICCIONES"])) or "SIN AVISO"
+    # la linea ENVIO la compone el programa: el modelo podia cambiar el numero, la fecha o el slug
+    campos["ENVIO"] = linea_envio(ficha)
+    avisos = validar(campos) + avisos_llamada
+    if "RESTRICCIONES" not in presentes:
+        avisos.append("RESTRICCIONES: el modelo no ha escrito la linea (respuesta cortada?); se ha puesto SIN AVISO, "
+                      "comprobar las restricciones en la agencia")
+    # lo detectado en el texto frente a lo que ha escrito el modelo
+    avisos += cruzar_restricciones(campos["RESTRICCIONES"], ficha.get("situaciones"))
+    # ROTULAR CORTESIA solo cuando la agencia pide el credito (must credit, courtesy of, please credit...):
+    # la fuente del material ("Source: IRIB", "DPA VIDEO - NO ACCESS GERMANY") no es un credito obligatorio
+    if ficha.get("situaciones") and "CORTESIA" in campos["RESTRICCIONES"] \
+            and "credito" not in (ficha["situaciones"].get("claves") or []):
+        quitadas, campos["RESTRICCIONES"] = quitar_cortesia(campos["RESTRICCIONES"])
+        if quitadas:
+            avisos = [a for a in avisos if not ("sin respaldo" in a and "CORTESIA" in a)]   # ya lo dice el de abajo
+            avisos.append("Quitado " + " / ".join(quitadas) + ": la agencia no pide credito obligatorio "
+                          "(si lo pide con otras palabras, añadelo a mano)")
+    # el tipo de acto que dice la ficha frente al del shotlist y al de la imagen
+    avisos += comparar_acto(ficha, campos, imagen)
+    # version en escritura normal generada en la misma llamada (generar_normal); solo se acepta si no cambia palabras
+    normal, vino_alguno = {}, False
+    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
+        cand = " ".join((campos.pop(c + "_NORMAL", "") or "").split())
+        if cand:
+            vino_alguno = True
+        if cand and _huella(cand) == _huella(campos[c]):
+            normal[c] = cand
+        else:
+            if cand:
+                avisos.append(f"{c}: la version en texto normal cambiaba palabras y se ha descartado")
+            normal[c] = campos[c]        # ese campo se ensena en mayusculas; los demas no se pierden
+    if vino_alguno:
+        campos["NORMAL"] = normal
     texto_ficha = (ficha.get("texto") or "").upper()
     todo = campos["NAME"] + " " + campos["COMMENT"]
     hablado = next((h for h in HABLADOS if h in todo), None)
-    hay_soundbite = "SOUNDBITE" in texto_ficha
+    # Reuters y AP marcan las declaraciones con SOUNDBITE; los shotlists de EBU usan SOT o INTERVIEW
+    hay_soundbite = bool(re.search(r"SOUNDBITE|\bSOT\b|\bSOTS\b|INTERVIEW WITH", texto_ficha))
+    # quien habla segun el shotlist tiene que estar en el COMMENT: son la clave de busqueda
+    for nombre in hablantes(ficha.get("texto") or ""):
+        apellido = nombre.split()[-1]
+        if len(apellido) > 2 and apellido not in campos["COMMENT"]:
+            avisos.append(f"Habla {nombre} segun el shotlist y no consta en el COMMENT")
+    # planos: los de verdad son los numerados que no son SOUNDBITE ni planos de sala
+    planos = planos_reales(ficha.get("texto") or "")
+    if hay_soundbite and not planos and "INCLUYE" in campos["COMMENT"] and not re.search(
+            r"INCLUYE (DECLARACIONES|TESTIMONIOS|ENCUESTA|RUEDA|INTERVENCION|COMPARECENCIA|ENTREVISTA|ROTULOS|FOTOS|PUBLICACION)", campos["COMMENT"]):
+        avisos.append("Segun el shotlist el envio es solo hablado (sin planos de recurso, los de sala no cuentan): sobra el INCLUYE")
+    if planos and _sin_planos(campos["COMMENT"]):
+        avisos.append(f"El shotlist tiene {len(planos)} plano(s) de recurso y el COMMENT no los cita")
+    if not planos_numerados(ficha.get("texto") or "") and "INCLUYE" in campos["COMMENT"]:
+        avisos.append("INCLUYE sin shotlist: esos planos no constan en el envio")
+    # el LUGAR sale de la dateline
+    lugar = campos["COMMENT"].split(".")[0].strip()
+    datelines = {d.strip() for d in re.findall(r"^(?:VIDEO SHOWS|SHOWS)\s*:?\s*([^(\n]+)\(", texto_ficha, flags=re.M)}
+    if re.search(r"UNKNOWN LOCATION|UNDISCLOSED LOCATION|LOCATION NOT GIVEN|LOCATION UNKNOWN", texto_ficha) and lugar != "UBICACION DESCONOCIDA":
+        avisos.append("La agencia no da el lugar: el LUGAR es UBICACION DESCONOCIDA")
+    if len(datelines) > 1 and "VARIAS LOCALIZACIONES" not in lugar and "(" not in lugar:
+        avisos.append(f"El envio tiene {len(datelines)} datelines distintas y el LUGAR es una sola ciudad: revisar si es VARIAS LOCALIZACIONES")
     if hablado and not hay_soundbite:
         avisos.append(f"Dice {hablado} pero el shotlist no tiene SOUNDBITE: deberia ser RECURSOS ... CON MOTIVO DE")
     if hay_soundbite and not hablado:
@@ -649,8 +1117,30 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
             and re.search(r"SCREEN ?GRAB|SCREENSHOT|SOCIAL MEDIA POST|TRUTH SOCIAL|\bPOST ON\b|POSTED ON", texto_ficha)
             and not hay_soundbite):
         avisos.append("Es una captura de redes: PUBLICACION EN REDES SOCIALES, no DECLARACIONES")
-    if re.search(r"AIRED ON|TV FOOTAGE|BROADCAST FOOTAGE|\bCCTV\b|\bCGTN\b|GRAPHICS|CAPTIONS|ON.SCREEN TEXT|BURN(T|ED).IN|LOWER THIRD|CHYRON|SUBTITLE", texto_ficha) and "ROTULOS" not in campos["COMMENT"]:
-        avisos.append("Material emitido o con graficos y el COMMENT no dice INCLUYE ROTULOS")
+    # deporte: en toda ficha deportiva el NAME lo lleva detras del pais (patron G del criterio)
+    deporte = deporte_de(campos.get("ENVIO", ""), texto_ficha)
+    if deporte and not re.search(PALABRAS_DEPORTE, campos["NAME"]):
+        avisos.append(f"La ficha es de deporte ({deporte}) y el NAME no lo dice: el deporte va detras del pais")
+
+    # INCLUYE ROTULOS solo cuando la agencia dice que la imagen lleva texto (o el modelo lo ha visto en los
+    # fotogramas). Que el material venga de una cadena (IRIB, CGTN, "aired on") no basta: suele llevar
+    # rotulos, pero no siempre, y poniendolo de oficio salian falsos positivos.
+    dice_rotulos = bool(ROTULOS_EXPLICITO_RE.search(texto_ficha))
+    de_cadena = bool(ROTULOS_PROBABLE_RE.search(texto_ficha))
+    if "ROTULOS" in campos["COMMENT"] and not dice_rotulos:
+        if imgs:
+            avisos.append("INCLUYE ROTULOS no lo dice la agencia (solo los fotogramas): comprobar en el video")
+        else:
+            campos["COMMENT"] = quitar_rotulos(campos["COMMENT"])
+            avisos.append("Quitado INCLUYE ROTULOS: la agencia no dice que la imagen lleve texto sobreimpreso"
+                          + (" (material de cadena: comprobar en el video)" if de_cadena else ""))
+    elif dice_rotulos and "ROTULOS" not in campos["COMMENT"]:
+        avisos.append("La agencia dice que la imagen lleva texto o graficos y el COMMENT no dice INCLUYE ROTULOS")
+    elif de_cadena and "ROTULOS" not in campos["COMMENT"]:
+        avisos.append("Material de cadena o de camara de seguridad: suele llevar rotulos, comprobar en el video")
+    if (re.search(r"\bSTILLS?\b|STILL (PHOTO|IMAGE)|PHOTOGRAPHS?|\bPHOTOS\b", texto_ficha)
+            and not re.search(r"\bFOTOS\b|FOTOGRAFIAS", campos["COMMENT"])):
+        avisos.append("El envio trae fotos fijas y el COMMENT no las menciona: van en el INCLUYE")
     if re.search(r"VERTICAL (VIDEO|FORMAT)|\b9:16\b|PORTRAIT", texto_ficha) and "VERTICAL" not in campos["COMMENT"]:
         avisos.append("La ficha indica video vertical y el COMMENT no lo dice")
     # aficionado si, handout civil no: el cedido por un gobierno o institucion no se menciona
@@ -687,6 +1177,8 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
 
 def formatear(campos, avisos=None):
     lineas = [f"{c}: {campos.get(c, '')}" for c in CAMPOS]
+    if campos.get("ALERTA"):
+        lineas.append(campos["ALERTA"])
     if avisos:
         lineas.append("AVISOS: " + " | ".join(avisos))
     return "\n".join(lineas)

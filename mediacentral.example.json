@@ -1,0 +1,14 @@
+{
+  "servidor_url": "https://TU-PC.TU-RED.ts.net",
+  "servidor_clave": "la-clave-de-la-pagina",
+  "mediacentral_url": "https://DIRECCION-DE-MEDIACENTRAL",
+  "navegador": "chrome",
+  "ignorar_certificado": true,
+  "catalogador": "I23785",
+  "texto_pendiente": "TRATAR AGENCIAS",
+  "presentacion": "mayusculas",
+  "espera_ficha_min": 8,
+  "abrir_con_doble_clic": true,
+  "comprobar_al_final": true,
+  "campos": {}
+}

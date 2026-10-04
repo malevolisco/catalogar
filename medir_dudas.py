@@ -76,7 +76,7 @@ def main():
         ap.error("no hay envios que analizar")
 
     cfg = cargar_config()
-    from extractor import Extractor, NeedsLogin, NotFound, AntiBot
+    from extractor import Extractor, NeedsLogin, AntiBot
 
     cuenta = {"RESUELTO": 0, "DUDA-ACTO": 0, "DUDA-PROMO": 0, "SIN VOZ": 0}
     filas = []

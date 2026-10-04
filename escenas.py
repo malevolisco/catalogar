@@ -7,8 +7,9 @@ y sin gastar cuota de Claude. Convierte cada fotograma en una lista de numeros c
 CLIP y lo compara con los centros de las clases que usted mismo ha entrenado con
 entrenar_escenas.py.
 
-No decide la ficha: devuelve una etiqueta y una confianza, y el redactor solo la usa
-como pista cuando la confianza pasa del umbral.
+No decide la ficha: devuelve una etiqueta y una confianza (la parte de fotogramas que
+votan por ella). El redactor solo la usa si la confianza pasa de escenas_umbral y la
+clase ha demostrado al entrenar un acierto de al menos escenas_fiabilidad_min.
 
 Requisitos:  pip install onnxruntime pillow numpy
 El modelo (352 MB) se descarga solo la primera vez a modelos/clip_vision.onnx
@@ -97,6 +98,29 @@ def hay_modelo():
     return CENTROS.exists()
 
 
+_centros = {"marca": None, "clases": [], "centros": None, "fiabilidad": {}}
+
+
+def _modelo():
+    """Clases, centros y fiabilidad por clase del escenas_modelo.npz, releido solo si ha cambiado."""
+    marca = CENTROS.stat().st_mtime_ns
+    if _centros["marca"] != marca:
+        datos = np.load(CENTROS, allow_pickle=True)
+        clases = [str(c) for c in datos["clases"]]
+        fiab = {}
+        if "fiabilidad" in datos.files:                # los modelos entrenados antes no la tienen
+            fiab = {c: float(f) for c, f in zip(clases, datos["fiabilidad"])}
+        _centros.update(marca=marca, clases=clases, centros=datos["centros"].astype(np.float32), fiabilidad=fiab)
+    return _centros
+
+
+def fiabilidad(clase):
+    """Acierto medido de esa clase al entrenar (0-1), o None si el modelo no lo trae."""
+    if not clase or not CENTROS.exists():
+        return None
+    return _modelo()["fiabilidad"].get(clase)
+
+
 def precargar(verboso=True):
     """Descarga y carga el modelo antes de empezar un lote, para que no se pare a
     mitad. Devuelve True si el clasificador queda listo para usarse."""
@@ -114,32 +138,39 @@ def precargar(verboso=True):
         return False
 
 
-def clasificar(rutas, temperatura=25.0):
+def votar(vs, centros):
+    """Cada fotograma vota por su clase mas cercana. Devuelve (indice ganador, parte de votos, votos).
+    Empate: gana la clase mas parecida de media."""
+    sims = vs @ centros.T                              # fotogramas x clases
+    votos = np.bincount(sims.argmax(axis=1), minlength=len(centros))
+    maximo = votos.max()
+    empatadas = np.flatnonzero(votos == maximo)
+    i = int(empatadas[np.argmax(sims.mean(axis=0)[empatadas])])
+    return i, float(maximo) / len(vs), votos
+
+
+def clasificar(rutas):
     """Clasifica el conjunto de fotogramas de un envio.
 
     Devuelve (etiqueta, confianza, detalle) o (None, 0.0, motivo) si no puede.
-    Promedia los vectores de todos los fotogramas: interesa la escena del envio,
-    no la de cada cuadro suelto.
+    Vota cada fotograma por separado y descarta el primero y el ultimo, que suelen ser negros,
+    cortinillas o el plano de otra cosa: la confianza es la parte de fotogramas que coinciden.
     """
     if not CENTROS.exists():
         return None, 0.0, "sin entrenar"
+    rutas = list(rutas or [])
+    if len(rutas) >= 4:
+        rutas = rutas[1:-1]
     if not rutas:
         return None, 0.0, "sin fotogramas"
-    datos = np.load(CENTROS, allow_pickle=True)
-    clases = list(datos["clases"])
-    centros = datos["centros"].astype(np.float32)
+    m = _modelo()
     vs = vectores(rutas)
     if len(vs) == 0:
         return None, 0.0, "no se pudo leer ningun fotograma"
-    medio = vs.mean(axis=0)
-    medio /= (np.linalg.norm(medio) or 1.0)
-    sim = centros @ medio
-    exp = np.exp((sim - sim.max()) * temperatura)
-    prob = exp / exp.sum()
-    i = int(np.argmax(prob))
-    orden = np.argsort(-prob)[:3]
-    detalle = ", ".join(f"{clases[j]} {prob[j]:.2f}" for j in orden)
-    return clases[i], float(prob[i]), detalle
+    i, parte, votos = votar(vs, m["centros"])
+    orden = [j for j in np.argsort(-votos) if votos[j]][:3]
+    detalle = ", ".join(f"{m['clases'][j]} {votos[j]}/{len(vs)}" for j in orden)
+    return m["clases"][i], parte, detalle
 
 
 if __name__ == "__main__":
@@ -156,3 +187,6 @@ if __name__ == "__main__":
     print(f"{len(fotos)} fotogramas")
     print(f"Escena: {etiqueta}   confianza {confianza:.2f}")
     print(f"Reparto: {detalle}")
+    f = fiabilidad(etiqueta)
+    if f is not None:
+        print(f"Acierto de esa clase al entrenar: {f:.0%}")
