@@ -41,14 +41,16 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 HECHO: reconocimiento de actos, MediaCentral (doble clic, autoguardado, campos por fila), falsos positivos de KILL,
 rotulos y cortesia, Created en CSV, pausa por modelo no disponible, reglas editoriales nuevas (daños, NAME mas corto,
 formula de COMMENT, testimonios cortos, visitas, Groenlandia), respuestas por correo sin fichas de otros catalogadores,
-lanzador Catalogator completo (probado con un servidor GitHub simulado).
+lanzador Catalogator completo (probado con un servidor GitHub simulado), primera compilacion en GitHub Actions.
 
-EN CURSO: el repositorio `malevolisco/catalogar` (publico) ya tiene los archivos y la etiqueta `v2026.10.04`, pero faltaba
-`.github/workflows/release.yml` (el navegador ignoro la carpeta al arrastrar). Se crea desde Actions -> "set up a workflow
-yourself" y se lanza a mano con Run workflow + `v2026.10.04`. Aun no se ha visto la primera compilacion.
+PRIMERA COMPILACION (4 oct): correcta. Release `v2026.10.04` publicada con `Catalogator.exe` (~103 MB, lleva Python,
+Playwright, onnxruntime y numpy dentro) y `catalogator-app.zip` (33 ficheros). Avisos sin importancia: `onnx`, `pytest`
+y `tzdata` no encontrados (no se usan). Se renombro `main.yml` -> `release.yml` y se subieron checkout@v5 / setup-python@v6
+(las versiones anteriores usan Node 20, que GitHub retira). Dentro del exe Playwright NO tiene su Chromium propio
+(en modo compilado lo busca dentro del exe): `extractor.py` y `mediacentral.py` abren Chrome o Edge, que si funcionan.
 
 ## Pendiente
-1. Ver el resultado de la primera compilacion en Windows; arreglar lo que falle de PyInstaller.
+1. Probar `Catalogator.exe` en el PC de Adrian (primer arranque, actualizacion, navegador Edge/Chrome).
 2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
 3. Menu **Ajustes** en la ventana (agenda, correo con boton Probar, redaccion, clave de la pagina, MediaCentral). Propuesto, falta el OK.
 4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
