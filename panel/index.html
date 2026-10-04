@@ -1,633 +1,891 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catalogar · agencias</title>
+<title>catalogar</title>
 <style>
   :root {
-    --fondo: #22272d; --panel: #2b3238; --linea: #3a434b; --texto: #e8ecef; --tenue: #98a4b0;
-    --etiqueta: #b7c1cb; --accion: #2fb07e; --accion-oscuro: #248c64; --aviso: #e0a33a;
-    --error: #e05a52; --foco: #7fd4b3; --ancho-etiqueta: 7.5rem;
+    --papel:#f6f7f9; --hoja:#ffffff; --tinta:#1b1e24; --gris:#6a7280; --linea:#e2e5ea;
+    --tally:#c8392b; --hecho:#2f6f4e; --espera:#8a6d1f; --azul:#274b8f;
+    --sans: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace;
+    --radio:3px;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--fondo); color: var(--texto);
-    font: 15px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
-  a { color: var(--foco); }
-  button, input, textarea { font: inherit; color: inherit; }
-  button { cursor: pointer; }
-  button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; }
+  body { background:var(--papel); color:var(--tinta); font:15px/1.5 var(--sans); -webkit-text-size-adjust:100%; }
+  .oculto { display:none !important; }
+  :focus-visible { outline:2px solid var(--azul); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
 
-  header { display: flex; align-items: baseline; gap: 1rem; padding: 1rem 1.25rem .75rem; border-bottom: 1px solid var(--linea); }
-  header h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
-  header .sub { color: var(--tenue); font-size: .9rem; }
-  header details { margin-left: auto; }
-  header summary { color: var(--tenue); cursor: pointer; list-style: none; }
-  header summary::-webkit-details-marker { display: none; }
-  header summary:hover { color: var(--texto); }
+  /* ---------- controles ---------- */
+  button, select, input, textarea { font:inherit; color:inherit; }
+  .b { border:1px solid var(--linea); background:var(--hoja); border-radius:var(--radio);
+       padding:6px 12px; cursor:pointer; text-decoration:none; display:inline-block; color:var(--tinta); }
+  .b:hover:not(:disabled) { border-color:var(--gris); }
+  .b:disabled { opacity:.45; cursor:default; }
+  .b.principal { background:var(--tinta); color:var(--hoja); border-color:var(--tinta); }
+  .b.principal:hover { background:#2c313a; }
+  .b.riesgo:hover { border-color:var(--tally); color:var(--tally); }
+  .b.mini { padding:3px 9px; font-size:13px; }
+  input[type=text], input[type=password], textarea, select {
+    width:100%; background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); padding:7px 10px; }
+  textarea { resize:vertical; min-height:74px; font-family:var(--mono); font-size:13.5px; }
+  label { display:block; font-size:13px; color:var(--gris); margin-bottom:5px; }
 
-  .ajustes { position: absolute; right: 1.25rem; margin-top: .5rem; width: min(26rem, calc(100vw - 2.5rem));
-    background: var(--panel); border: 1px solid var(--linea); border-radius: 6px; padding: 1rem; z-index: 5; }
-  .ajustes label { display: block; color: var(--etiqueta); font-size: .85rem; margin-top: .6rem; }
-  .ajustes input { width: 100%; margin-top: .2rem; padding: .45rem .55rem; background: var(--fondo); border: 1px solid var(--linea); border-radius: 4px; }
-  .ajustes .fila { display: flex; gap: .5rem; align-items: center; margin-top: .8rem; }
-  .ajustes .estado-repo { font-size: .85rem; color: var(--tenue); }
-  .ajustes p.nota { font-size: .8rem; color: var(--tenue); margin: .8rem 0 0; }
+  /* ---------- cabecera ---------- */
+  header { position:sticky; top:0; z-index:5; background:var(--hoja); border-bottom:1px solid var(--linea); }
+  .barra { display:flex; align-items:center; gap:18px; padding:0 20px; max-width:1180px; margin:0 auto; }
+  .marca { font-weight:600; letter-spacing:-.01em; padding:13px 0; }
+  nav { display:flex; gap:2px; margin-right:auto; }
+  nav button { background:none; border:0; padding:15px 12px 12px; cursor:pointer; color:var(--gris);
+               border-bottom:3px solid transparent; }
+  nav button.activa { color:var(--tinta); border-bottom-color:var(--tinta); }
+  .herramientas { display:flex; align-items:center; gap:8px; }
+  .herramientas select { width:auto; padding:5px 8px; font-size:13.5px; }
 
-  nav.pestanas { display: flex; gap: .25rem; padding: .5rem 1.25rem 0; border-bottom: 1px solid var(--linea); }
-  nav.pestanas button { background: transparent; border: 1px solid transparent; border-bottom: 0; color: var(--tenue);
-    padding: .45rem .9rem; border-radius: 5px 5px 0 0; margin-bottom: -1px; }
-  nav.pestanas button:hover { color: var(--texto); }
-  nav.pestanas button.activa { color: var(--texto); background: var(--panel); border-color: var(--linea); }
+  /* piloto de estado: rojo solo cuando algo esta en marcha */
+  .pulso { display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--gris);
+           border-top:1px solid var(--linea); padding:7px 20px; max-width:1180px; margin:0 auto; }
+  .piloto { width:8px; height:8px; border-radius:50%; background:var(--linea); flex:none; }
+  .pulso.activa .piloto { background:var(--tally); animation:latir 1.6s ease-in-out infinite; }
+  .pulso.activa { color:var(--tinta); }
+  @keyframes latir { 0%,100% { opacity:1 } 50% { opacity:.25 } }
+  .pulso .dato { color:var(--gris); }
+  .pulso .sep { width:1px; height:12px; background:var(--linea); }
 
-  main { display: grid; grid-template-columns: 19rem 1fr; gap: 0; min-height: calc(100vh - 6.5rem); }
-  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--linea); } }
-  aside { border-right: 1px solid var(--linea); padding: 1rem 1.25rem; }
-  aside.oculto { display: none; }
-  aside label { display: block; color: var(--etiqueta); font-size: .85rem; margin-top: .8rem; }
-  aside textarea { width: 100%; min-height: 8.5rem; margin-top: .25rem; padding: .5rem .6rem; resize: vertical;
-    background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; letter-spacing: .02em; }
-  aside input { width: 100%; margin-top: .25rem; padding: .45rem .6rem; background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; }
-  .principal { width: 100%; margin-top: 1rem; padding: .6rem; background: var(--accion); color: #0f1a15; border: 0; border-radius: 4px; font-weight: 600; }
-  .principal:hover { background: var(--accion-oscuro); color: var(--texto); }
-  .principal:disabled { opacity: .5; cursor: default; }
-  .ayuda { color: var(--tenue); font-size: .8rem; margin-top: .4rem; }
+  main { max-width:1180px; margin:0 auto; padding:22px 20px 60px; }
 
-  .pendientes { margin-top: 1.25rem; }
-  .pendiente { padding: .6rem .7rem; border: 1px solid var(--linea); border-radius: 4px; margin-top: .5rem;
-    font-size: .9rem; display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
-  .pendiente .t { color: var(--tenue); font-variant-numeric: tabular-nums; }
-  .pendiente.tarde { border-color: var(--aviso); }
+  /* ---------- entrada de trabajo ---------- */
+  .entrada { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); padding:18px 20px; margin-bottom:26px; }
+  .entrada h2 { font-size:15px; margin:0 0 14px; font-weight:600; }
+  .rejilla { display:grid; grid-template-columns:1fr 160px auto; gap:14px; align-items:end; }
+  .bloque { display:flex; gap:12px; align-items:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--linea); flex-wrap:wrap; }
+  .bloque input[type=file] { flex:1; min-width:200px; font-size:13.5px; }
+  .pista { font-size:13px; color:var(--gris); margin:6px 0 0; }
 
-  .historial { margin-top: 1.5rem; }
-  .historial h2 { font-size: .85rem; font-weight: 500; color: var(--etiqueta); margin: 0 0 .4rem; }
-  .historial ul { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow: auto; }
-  .historial li { display: flex; justify-content: space-between; gap: .5rem; padding: .3rem .4rem; border-radius: 3px; cursor: pointer; font-size: .88rem; }
-  .historial li:hover { background: var(--panel); }
-  .historial li span { color: var(--tenue); white-space: nowrap; }
-  .historial .vacio { color: var(--tenue); font-size: .85rem; }
+  /* ---------- lotes ---------- */
+  .lote { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); margin-bottom:16px; }
+  .lote > summary { list-style:none; cursor:pointer; padding:13px 18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .lote > summary::-webkit-details-marker { display:none; }
+  .lote > summary::before { content:"▸"; color:var(--gris); font-size:12px; }
+  .lote[open] > summary::before { content:"▾"; }
+  .lote .nombre { font-weight:600; }
+  .lote .cuando { color:var(--gris); font-size:13px; }
+  .lote .acciones { margin-left:auto; display:flex; gap:7px; }
+  .avance { font-size:13px; color:var(--gris); }
+  .avance b { font-weight:600; color:var(--tinta); }
+  .avance .fallos { color:var(--tally); }
 
-  section.contenido { padding: 1rem 1.25rem 3rem; }
-  .vacio-grande { color: var(--tenue); max-width: 34rem; margin-top: .5rem; }
-  .oculto { display: none !important; }
+  /* ---------- ficha ---------- */
+  .ficha { border-top:1px solid var(--linea); padding:15px 18px 17px 15px; border-left:3px solid transparent; }
+  .ficha.trabajando { border-left-color:var(--tally); }
+  .ficha.fallo { border-left-color:var(--tally); }
+  .ficha.lista { border-left-color:var(--hecho); }
+  .titular { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .titular .envio { font-family:var(--mono); font-weight:600; font-size:14px; }
+  .titular .origen { color:var(--gris); font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .marca-estado { font-size:12.5px; color:var(--gris); }
+  .marca-estado.aprobada { color:var(--hecho); }
+  .campo { display:grid; grid-template-columns:104px 1fr auto; gap:10px; align-items:start; padding:4px 0; }
+  .campo .nombre-campo { font-size:12.5px; color:var(--gris); padding-top:4px; }
+  .campo .texto { font-family:var(--mono); font-size:13.5px; line-height:1.55; white-space:pre-wrap;
+                  word-break:break-word; padding:3px 6px; margin:-3px -6px; border-radius:var(--radio); cursor:copy; }
+  .campo .texto:hover { background:var(--papel); }
+  .campo .cuenta { font-size:12px; color:var(--gris); font-variant-numeric:tabular-nums; padding-top:5px; }
+  .campo .cuenta.roza { color:var(--espera); }
+  .campo .cuenta.pasa { color:var(--tally); font-weight:600; }
+  .campo textarea { grid-column:2 / span 2; }
+  .notas { font-size:13px; color:var(--espera); margin-top:9px; padding-left:114px; }
+  .notas.alerta { color:var(--tally); font-weight:600; }
+  .notas p { margin:3px 0; }
+  .fallo-texto { color:var(--tally); font-size:13.5px; }
+  .acciones-ficha { display:flex; gap:7px; margin-top:12px; padding-left:114px; flex-wrap:wrap; }
 
-  .ficha { background: var(--panel); border: 1px solid var(--linea); border-radius: 6px; padding: .9rem 1rem 1rem; margin-bottom: 1rem; max-width: 62rem; }
-  .ficha .cabecera { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-bottom: .5rem; }
-  .ficha .cabecera .envio { font-size: .95rem; }
-  .ficha .cabecera .acciones { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
-  .ficha.error { border-color: var(--error); }
-  .ficha.sesion { border-color: var(--aviso); }
-  .ficha.aprobada { border-color: var(--accion); }
+  /* filtro y seleccion */
+  .filtro { display:flex; gap:10px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
+  .filtro input { flex:1; min-width:220px; }
+  .filtro .pista { margin:0; }
+  .ficha .titular input[type=checkbox] { width:16px; height:16px; margin:0 2px 0 0; cursor:pointer; accent-color:var(--tinta); }
+  .ficha.seleccionada { background:#f1f4f8; }
+  .ficha.filtrada-fuera { display:none; }
+  .lote.sin-visibles { display:none; }
+  .enviada-a { font-size:12.5px; color:var(--hecho); }
+  #barra-sel { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--tinta); color:var(--hoja);
+               border-radius:var(--radio); padding:10px 14px; display:flex; gap:10px; align-items:center; z-index:6;
+               box-shadow:0 6px 24px rgba(0,0,0,.18); max-width:95vw; flex-wrap:wrap; }
+  #barra-sel select { width:auto; background:#2c313a; color:var(--hoja); border-color:#3a404b; padding:5px 8px; }
+  #barra-sel .b { background:transparent; color:var(--hoja); border-color:#4a515d; }
+  #barra-sel .b.principal { background:var(--hoja); color:var(--tinta); border-color:var(--hoja); }
+  label.casilla { display:inline-flex; align-items:center; gap:6px; margin:0; cursor:pointer; font-size:13px; }
+  #barra-sel label.casilla { color:var(--hoja); }
+  #menu { position:fixed; z-index:7; background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio);
+          box-shadow:0 6px 24px rgba(0,0,0,.14); min-width:220px; padding:4px 0; }
+  #menu .item { padding:8px 14px; cursor:pointer; font-size:14px; }
+  #menu .item:hover { background:var(--papel); }
+  #menu .cab { padding:6px 14px 4px; font-size:12px; color:var(--gris); }
+  .vacio { color:var(--gris); padding:30px 2px; }
+  .vacio strong { display:block; color:var(--tinta); font-weight:600; margin-bottom:4px; }
 
-  .campo { display: grid; grid-template-columns: var(--ancho-etiqueta) 1fr auto; gap: .6rem; align-items: start; padding: .45rem 0; border-top: 1px solid var(--linea); }
-  .campo .etiqueta { color: var(--etiqueta); text-align: right; padding-top: .1rem; }
-  .campo .valor { white-space: pre-wrap; word-break: break-word; }
-  .campo .valor.restric-si { color: var(--aviso); font-weight: 600; }
-  .campo .valor.avisos { color: var(--aviso); font-size: .9rem; }
-  .campo .valor.vacio { color: var(--tenue); }
-  .campo .valor.copiable { cursor: pointer; border-radius: 3px; transition: background-color .15s, box-shadow .15s; }
-  .campo .valor.copiable:hover { background: rgba(127, 212, 179, .07); box-shadow: 0 0 0 .3rem rgba(127, 212, 179, .07); }
-  .campo .valor.copiado { background: rgba(47, 176, 126, .18); box-shadow: 0 0 0 .3rem rgba(47, 176, 126, .18); }
-  @media (prefers-reduced-motion: reduce) { .campo .valor.copiable { transition: none; } }
-  .campo textarea { width: 100%; background: var(--fondo); border: 1px solid var(--linea); border-radius: 4px; padding: .4rem .5rem; min-height: 3.2rem; resize: vertical; }
-  @media (max-width: 560px) { .campo { grid-template-columns: 1fr auto; } .campo .etiqueta { grid-column: 1 / -1; text-align: left; font-size: .8rem; } }
+  /* ---------- listas de reglas y fichas aprobadas ---------- */
+  .lista { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); }
+  .lista .fila { display:flex; gap:14px; align-items:flex-start; padding:13px 18px; border-top:1px solid var(--linea); }
+  .lista .fila:first-child { border-top:0; }
+  .lista .cuerpo { flex:1; min-width:0; }
+  .lista .orden { color:var(--gris); font-variant-numeric:tabular-nums; font-size:13px; padding-top:2px; }
 
-  .copiar { background: transparent; border: 1px solid var(--linea); color: var(--etiqueta); border-radius: 4px; padding: .2rem .55rem; font-size: .8rem; white-space: nowrap; }
-  .copiar:hover { border-color: var(--etiqueta); color: var(--texto); }
-  .copiar.ok { border-color: var(--accion); color: var(--accion); }
-  .copiar.destacado { border-color: var(--accion); color: var(--accion); }
-  .copiar:disabled { opacity: .55; cursor: default; }
-  .texto-error { color: var(--error); white-space: pre-wrap; }
+  /* ---------- entrada de clave ---------- */
+  .puerta { max-width:360px; margin:16vh auto 0; padding:0 20px; }
+  .puerta h1 { font-size:20px; margin:0 0 6px; }
+  .puerta p { color:var(--gris); margin:0 0 22px; font-size:14px; }
+  .clave { position:relative; }
+  .clave input { padding-right:44px; }
+  .clave button { position:absolute; right:4px; top:4px; bottom:4px; width:34px; border:0; background:none;
+                  cursor:pointer; color:var(--gris); border-radius:var(--radio); }
+  .clave button:hover { color:var(--tinta); }
+  .puerta .error { color:var(--tally); font-size:13.5px; min-height:20px; margin:10px 0 0; }
 
-  .lista { max-width: 62rem; }
-  .lista .elemento { display: flex; gap: .75rem; align-items: baseline; padding: .55rem .7rem; border: 1px solid var(--linea); border-radius: 5px; margin-bottom: .5rem; background: var(--panel); }
-  .lista .elemento .n { color: var(--tenue); font-variant-numeric: tabular-nums; min-width: 1.5rem; }
-  .lista .elemento .cuerpo { flex: 1; }
-  .lista .elemento .cuerpo .sub { color: var(--tenue); font-size: .85rem; margin-top: .15rem; }
-  .caja-anadir { max-width: 62rem; margin-bottom: 1.25rem; }
-  .caja-anadir textarea { width: 100%; min-height: 4.5rem; padding: .5rem .6rem; background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; resize: vertical; }
-  .caja-anadir .fila { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
+  /* ---------- aviso flotante ---------- */
+  #aviso { position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(10px);
+           background:var(--tinta); color:var(--hoja); padding:10px 18px; border-radius:var(--radio);
+           font-size:14px; max-width:min(560px, 92vw); opacity:0; pointer-events:none; transition:opacity .16s, transform .16s; }
+  #aviso.visible { opacity:1; transform:translateX(-50%) translateY(0); }
+  #aviso.malo { background:var(--tally); }
 
-  .toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--panel);
-    border: 1px solid var(--linea); color: var(--texto); padding: .5rem .9rem; border-radius: 4px; opacity: 0; transition: opacity .15s; pointer-events: none; z-index: 10; }
-  .toast.visible { opacity: 1; }
-  .toast.error { border-color: var(--error); }
-  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  @media (max-width:720px) {
+    .rejilla { grid-template-columns:1fr; }
+    .campo { grid-template-columns:1fr; }
+    .campo .cuenta { padding-top:0; }
+    .campo textarea { grid-column:1; }
+    .notas, .acciones-ficha { padding-left:0; }
+    .barra { gap:10px; flex-wrap:wrap; }
+    nav { order:3; width:100%; margin-right:0; }
+  }
 </style>
 </head>
 <body>
+
+<!-- ============ clave ============ -->
+<section id="puerta" class="puerta oculto">
+  <h1>catalogar</h1>
+  <p>Fichas de archivo a partir del número de envío.</p>
+  <label for="clave">Clave</label>
+  <div class="clave">
+    <input id="clave" type="password" autocomplete="current-password">
+    <button type="button" id="ojo" aria-label="Mostrar la clave" title="Mostrar la clave">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path id="ojo-forma" d="M1.8 12S5.5 5 12 5s10.2 7 10.2 7-3.7 7-10.2 7S1.8 12 1.8 12Z"/>
+        <circle cx="12" cy="12" r="3.1"/>
+        <line id="ojo-raya" class="oculto" x1="4" y1="20" x2="20" y2="4"/>
+      </svg>
+    </button>
+  </div>
+  <p class="error" id="puerta-error"></p>
+  <button class="b principal" id="entrar" style="width:100%">Entrar</button>
+</section>
+
+<!-- ============ aplicación ============ -->
+<div id="app" class="oculto">
 <header>
-  <h1>Catalogar</h1>
-  <span class="sub">Reuters Connect y AP Newsroom, por número de envío</span>
-  <details id="detalles-ajustes">
-    <summary>Ajustes</summary>
-    <div class="ajustes">
-      <label>Repositorio de la cola (usuario/repositorio)
-        <input id="repo" placeholder="adrian/catalogar" autocomplete="off" spellcheck="false"></label>
-      <label>Token de GitHub con permiso Issues: lectura y escritura
-        <input id="token" type="password" placeholder="github_pat_…" autocomplete="off"></label>
-      <label>Segundos entre comprobaciones
-        <input id="intervalo" type="number" min="5" max="120" value="10"></label>
-      <div class="fila">
-        <button id="probar" class="copiar">Probar conexión</button>
-        <span id="estado-repo" class="estado-repo"></span>
-      </div>
-      <p class="nota">Repositorio y token se guardan solo en este navegador. El token debe limitarse a ese repositorio y al permiso de Issues.</p>
+  <div class="barra">
+    <span class="marca">catalogar</span>
+    <nav>
+      <button data-vista="fichas" class="activa">Fichas</button>
+      <button data-vista="reglas">Reglas</button>
+      <button data-vista="aprobadas">Fichas aprobadas</button>
+    </nav>
+    <div class="herramientas">
+      <select id="modo" aria-label="Cómo se muestran y se copian las fichas">
+        <option value="mayusculas">MAYÚSCULAS</option>
+        <option value="normalizado">Texto normal</option>
+      </select>
+      <button class="b mini" id="comprobar-sesion">Comprobar sesión</button>
+      <button class="b mini" id="abrir-sesion">Iniciar sesión agencias</button>
+      <button class="b mini principal oculto" id="sesion-lista">Ya he iniciado sesión</button>
+      <button class="b mini" id="salir">Salir</button>
     </div>
-  </details>
+  </div>
+  <div class="pulso" id="pulso">
+    <span class="piloto"></span>
+    <span id="pulso-texto">Conectando</span>
+    <span class="sep"></span>
+    <span class="dato" id="pulso-sesion"></span>
+    <span class="sep"></span>
+    <span class="dato" id="pulso-criterio"></span>
+  </div>
 </header>
 
-<nav class="pestanas">
-  <button id="tab-fichas" class="activa">Fichas</button>
-  <button id="tab-reglas">Reglas</button>
-  <button id="tab-ejemplos">Fichas aprobadas</button>
-</nav>
-
 <main>
-  <aside id="lateral">
-    <label for="numeros">Números de envío
-      <textarea id="numeros" placeholder="0624&#10;4681323&#10;8999 30/08/2026" spellcheck="false"></textarea></label>
-    <div class="ayuda">Uno por línea. Cuatro cifras es Reuters; siete, AP. Una fecha detrás del número, si hace falta.</div>
-    <label for="fecha">Fecha común, opcional (DD/MM/AAAA)
-      <input id="fecha" placeholder="06/09/2026" inputmode="numeric" autocomplete="off"></label>
-    <button id="enviar" class="principal">Catalogar</button>
-    <div class="ayuda">Ctrl+Intro también envía.</div>
-    <div class="pendientes" id="pendientes"></div>
-    <div class="historial">
-      <h2>Historial en este navegador</h2>
-      <ul id="historial"></ul>
-      <div id="historial-vacio" class="vacio">Todavía no hay envíos.</div>
-    </div>
-  </aside>
-
-  <section class="contenido">
-    <div id="vista-fichas">
-      <p class="vacio-grande" id="vacio-fichas">Escribe uno o varios números y pulsa Catalogar. Las fichas van apareciendo según el worker las termina; no hace falta esperar al lote entero. Después, pulsa sobre el texto de cualquier campo para copiarlo.</p>
-      <div id="resultados"></div>
-    </div>
-
-    <div id="vista-reglas" class="oculto">
-      <div class="caja-anadir">
-        <label for="regla" style="color:var(--etiqueta);font-size:.85rem">Nueva regla, en español normal y con ejemplo si ayuda</label>
-        <textarea id="regla" placeholder="En cumbres y festivales, el NAME empieza por PAIS y el evento en forma corta: ITALIA FESTIVAL CINE VENECIA ..."></textarea>
-        <div class="fila">
-          <button id="enviar-regla" class="copiar destacado">Añadir regla</button>
-          <button id="refrescar-reglas" class="copiar">Ver las reglas guardadas</button>
+  <!-- ---- fichas ---- -->
+  <section id="vista-fichas">
+    <div class="entrada">
+      <h2>Catalogar envíos</h2>
+      <div class="rejilla">
+        <div>
+          <label for="numeros">Números de envío, pegados como vengan</label>
+          <textarea id="numeros" spellcheck="false" placeholder="0624 4681323 2026_10420363&#10;hazme el 7612 y el 7613&#10;0611=06/09/2026"></textarea>
         </div>
-        <div class="ayuda">Se guarda en casa en reglas_extra.md y se aplica desde la siguiente ficha.</div>
+        <div>
+          <label for="fecha">Fecha común</label>
+          <input type="text" id="fecha" placeholder="06/09/2026" inputmode="numeric">
+          <p class="pista">Opcional</p>
+          <label class="casilla" style="margin-top:6px" title="Por defecto, un envío que ya está catalogado en otro lote se copia tal cual, sin volver a la agencia ni al modelo. Marca esto para rehacerlo."><input type="checkbox" id="rehacer"> Rehacer las ya hechas</label>
+        </div>
+        <button class="b principal" id="enviar-numeros">Catalogar</button>
       </div>
-      <div class="lista" id="lista-reglas"></div>
+      <div class="bloque">
+        <label for="lista" style="margin:0">Lista de trabajo de MediaCentral (.csv o .xlsx)</label>
+        <input type="file" id="lista" accept=".csv,.txt,.tsv,.xlsx">
+        <button class="b" id="enviar-lista">Subir y catalogar</button>
+      </div>
+      <p class="pista" id="lista-pista">Se coge el número que abre la columna Name. Las filas que ya tienen catalogador se saltan.</p>
+      <div class="bloque" style="display:block">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap">
+          <label for="reparto">Reparto por correo al terminar <span id="reparto-estado" style="font-weight:400"></span></label>
+          <label class="casilla" title="Fuerza el formal para todos. Quien no está en la agenda ya lo recibe formal siempre; los de la agenda, informal salvo que tengan formal: true en config.json."><input type="checkbox" id="reparto-formal"> Formal</label>
+        </div>
+        <textarea id="reparto" spellcheck="false" style="min-height:56px; font-family:var(--sans)" placeholder="andrea: 10&#10;pepe: trump, eeuu&#10;resto: yo"></textarea>
+        <p class="pista" id="reparto-pista">Una línea por persona, con su nombre de la agenda o su dirección completa: un número (las primeras que queden libres) o palabras separadas por comas (las fichas que las contengan). A quien no está en la agenda le llega en formal. Vacío: no se manda nada.</p>
+      </div>
     </div>
 
-    <div id="vista-ejemplos" class="oculto">
-      <div class="caja-anadir">
-        <div class="fila" style="margin-top:0">
-          <button id="refrescar-ejemplos" class="copiar">Ver las fichas aprobadas</button>
-        </div>
-        <div class="ayuda">Se aprueban con el botón Buena de cada ficha. El worker las guarda en ejemplos.md y las usa como modelo. Con más de doce, el prompt se alarga y la redacción tarda más.</div>
-      </div>
-      <div class="lista" id="lista-ejemplos"></div>
+    <div class="filtro">
+      <input type="text" id="filtro" placeholder="Filtrar por tema: ebola, trump, congo…" autocomplete="off">
+      <button class="b mini" id="sel-visibles">Seleccionar las visibles</button>
+      <button class="b mini" id="sel-ninguna">Quitar selección</button>
+      <p class="pista" id="filtro-cuenta"></p>
+    </div>
+    <div id="lotes"></div>
+    <div class="vacio oculto" id="sin-lotes">
+      <strong>Todavía no hay nada catalogado</strong>
+      Escribe un número de envío arriba y pulsa Catalogar.
     </div>
   </section>
-</main>
 
-<div class="toast" id="toast"></div>
+  <!-- ---- reglas ---- -->
+  <section id="vista-reglas" class="oculto">
+    <div class="entrada">
+      <h2>Añadir una regla</h2>
+      <label for="regla">Manda sobre el resto del criterio. Úsalas con cuentagotas: los casos concretos se enseñan aprobando fichas.</label>
+      <textarea id="regla" placeholder="En archivo, ARCHIVO va justo después del país."></textarea>
+      <div style="margin-top:12px"><button class="b principal" id="anadir-regla">Añadir regla</button></div>
+    </div>
+    <div id="lista-reglas"></div>
+  </section>
+
+  <!-- ---- fichas aprobadas ---- -->
+  <section id="vista-aprobadas" class="oculto">
+    <p class="pista" style="margin:0 0 14px">Estas fichas entran como modelo en cada encargo. Más de doce alargan la redacción; mejor pocas y variadas.</p>
+    <div id="lista-aprobadas"></div>
+  </section>
+</main>
+</div>
+
+<div id="barra-sel" class="oculto">
+  <span id="sel-cuenta"></span>
+  <select id="sel-destino" aria-label="A quién enviar"></select>
+  <label class="casilla" title="Fuerza el formal para todos. Quien no está en la agenda ya lo recibe formal siempre; los de la agenda, informal salvo que tengan formal: true en config.json."><input type="checkbox" id="sel-formal"> Formal</label>
+  <button class="b principal mini" id="sel-enviar">Enviar por correo</button>
+  <button class="b mini" id="sel-cerrar">Quitar selección</button>
+</div>
+<div id="menu" class="oculto"></div>
+<div id="aviso" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
-  "use strict";
-  const API = "https://api.github.com";
-  const CAMPOS = ["NAME", "COMMENT", "RESTRICCIONES", "AVISOS"];
-  const ETIQUETAS = { NAME: "Name", COMMENT: "Comment", RESTRICCIONES: "Restricciones", AVISOS: "Avisos" };
-  const AVISO_TARDE_MS = 3 * 60 * 1000;
-  const ABANDONO_MS = 20 * 60 * 1000;
+  const $ = id => document.getElementById(id);
+  const CAMPOS = ["ENVIO", "NAME", "COMMENT", "RESTRICCIONES"];
+  const LIMITES = { NAME: [80, 120], COMMENT: [600, 700] };   // [normal, tope]
+  const editando = new Set();
+  const seleccion = new Map();        // "lote|ficha" -> {lote, ficha}
+  let agendaNombres = [], hayCopia = false, filtro = "";
+  let agenda = {}, formales = [], copiaDir = "";          // para saber el tono de cada destino
+  let reloj = null, modo = "mayusculas", modoFijado = false, ultima = "";
 
-  const $ = (id) => document.getElementById(id);
-  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
-
-  const almacen = {
-    get(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
-  };
-
-  // ---------- ajustes ----------
-  const ajustes = almacen.get("catalogar_ajustes", { repo: "", token: "", intervalo: 10 });
-  $("repo").value = ajustes.repo; $("token").value = ajustes.token; $("intervalo").value = ajustes.intervalo;
-  function guardarAjustes() {
-    ajustes.repo = $("repo").value.trim(); ajustes.token = $("token").value.trim();
-    ajustes.intervalo = Math.max(5, parseInt($("intervalo").value, 10) || 10);
-    almacen.set("catalogar_ajustes", ajustes);
-  }
-  ["repo", "token", "intervalo"].forEach(id => $(id).addEventListener("change", guardarAjustes));
-  if (!ajustes.repo || !ajustes.token) $("detalles-ajustes").open = true;
-
-  async function github(metodo, ruta, cuerpo) {
-    const r = await fetch(API + ruta, {
-      method: metodo,
-      headers: {
-        "Authorization": "Bearer " + ajustes.token,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        ...(cuerpo ? { "Content-Type": "application/json" } : {}),
-      },
-      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-    });
-    if (!r.ok) {
-      const detalle = await r.text().catch(() => "");
-      const msg = r.status === 401 ? "Token rechazado (401). Revisa el token en Ajustes."
-        : r.status === 404 ? "Repositorio no encontrado (404). Revisa usuario/repositorio y que el token tenga acceso."
-        : r.status === 403 ? "Sin permiso (403). El token necesita Issues: lectura y escritura."
-        : "GitHub devolvió " + r.status + ". " + detalle.slice(0, 200);
-      throw new Error(msg);
+  // ---------------------------------------------------------------- red
+  async function api(metodo, ruta, cuerpo, formulario) {
+    const opciones = { method: metodo, headers: {} };
+    if (cuerpo !== undefined) {
+      if (formulario) opciones.body = cuerpo;
+      else { opciones.headers["Content-Type"] = "application/json"; opciones.body = JSON.stringify(cuerpo); }
     }
-    return r.status === 204 ? null : r.json();
+    let r;
+    try { r = await fetch(ruta, opciones); }
+    catch (e) { throw new Error("El servidor no responde. Comprueba que sigue arrancado en casa."); }
+    if (r.status === 401 && ruta !== "/login") { pedirClave(); throw new Error("La sesión ha caducado: entra otra vez con la clave."); }
+    const datos = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(datos.detail || datos.error || ("El servidor ha devuelto un error " + r.status));
+    return datos;
   }
-
-  function comprobarAjustes() {
-    if (!ajustes.repo || !ajustes.token) { $("detalles-ajustes").open = true; avisar("Faltan repositorio o token en Ajustes.", true); return false; }
-    return true;
+  function avisar(texto, malo) {
+    const a = $("aviso");
+    a.textContent = texto;
+    a.className = "visible" + (malo ? " malo" : "");
+    clearTimeout(a._t);
+    a._t = setTimeout(() => { a.className = ""; }, malo ? 6000 : 2400);
   }
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
-  $("probar").addEventListener("click", async () => {
-    guardarAjustes();
-    const s = $("estado-repo"); s.textContent = "Comprobando…";
+  // ---------------------------------------------------------------- clave
+  function pedirClave() {
+    clearInterval(reloj); reloj = null;
+    editando.clear(); ultima = "";        // que la pagina no se quede sin refrescar por una edicion a medias
+    $("app").classList.add("oculto");
+    $("puerta").classList.remove("oculto");
+    $("clave").focus();
+  }
+  async function entrar() {
+    $("puerta-error").textContent = "";
     try {
-      const info = await github("GET", "/repos/" + ajustes.repo);
-      s.textContent = info.private ? "Conectado con " + info.full_name + " (privado)." : "Conectado con " + info.full_name + ". Atención: el repositorio es público.";
-    } catch (e) { s.textContent = e.message; }
+      await api("POST", "/login", { clave: $("clave").value });
+      $("clave").value = "";
+      empezar();
+    } catch (e) { $("puerta-error").textContent = e.message; }
+  }
+  $("entrar").addEventListener("click", entrar);
+  $("clave").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+  $("ojo").addEventListener("click", () => {
+    const c = $("clave"), oculta = c.type === "password";
+    c.type = oculta ? "text" : "password";
+    $("ojo-raya").classList.toggle("oculto", !oculta);
+    $("ojo").setAttribute("aria-label", oculta ? "Ocultar la clave" : "Mostrar la clave");
+    c.focus();
+  });
+  $("salir").addEventListener("click", async () => { try { await api("POST", "/logout"); } catch (e) {} pedirClave(); });
+
+  // Tono de un destino, igual que lo decide el servidor (correo.es_formal): formal si se marca la
+  // casilla, si no esta en la agenda o si la persona tiene formal: true en la agenda. El servidor manda.
+  const destinosEnvio = () => [...agendaNombres, ...(hayCopia ? ["yo"] : []), "__otro"];
+  function esFormal(destino, forzar) {
+    if (forzar || destino === "__otro") return true;
+    if (destino === "yo") return false;
+    if (agendaNombres.includes(destino)) return formales.includes(destino);
+    const dir = String(destino).trim().toLowerCase();
+    const conocidas = [...Object.values(agenda), copiaDir].map(x => String(x).trim().toLowerCase());
+    const nombre = agendaNombres.find(n => String(agenda[n]).trim().toLowerCase() === dir);
+    return !conocidas.includes(dir) || (nombre !== undefined && formales.includes(nombre));
+  }
+  const etiquetaDestino = d => (d === "__otro" ? "otra dirección…" : d) + (esFormal(d, false) ? " · formal" : "");
+
+  async function pedirAgenda() {
+    try {
+      const a = await api("GET", "/api/agenda");
+      const nombres = Object.keys(a.documentalistas || {});
+      agendaNombres = nombres; hayCopia = !!a.copia;
+      agenda = a.documentalistas || {}; formales = a.formales || []; copiaDir = a.copia || "";
+      $("reparto-estado").textContent = !a.correo_configurado ? "· correo sin configurar en config.json"
+        : !nombres.length ? "· sin agenda: añade documentalistas en config.json"
+        : "· conoce a: " + nombres.map(n => formales.includes(n) ? n + " (formal)" : n).join(", ")
+          + (a.copia ? ", yo" : "") + " · fuera de la agenda, formal";
+      $("reparto").disabled = !a.correo_configurado;
+      $("sel-destino").innerHTML = destinosEnvio().map(d => `<option value="${esc(d)}">${esc(etiquetaDestino(d))}</option>`).join("");
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------- filtro por tema
+  const normaliza = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  function pasaFiltro(f) {
+    if (!filtro) return true;
+    const pajar = normaliza([f.etiqueta, f.headline, f.NAME, f.COMMENT, f.ENVIO].join(" "));
+    return filtro.split(/[,;]+/).map(x => normaliza(x.trim())).filter(Boolean).some(k => pajar.includes(k));
+  }
+  function aplicarFiltro() {
+    let visibles = 0;
+    document.querySelectorAll("#lotes .lote").forEach(l => {
+      let n = 0;
+      l.querySelectorAll(".ficha[data-ficha]").forEach(div => {
+        const ok = pasaFiltro(JSON.parse(div.dataset.ficha));
+        div.classList.toggle("filtrada-fuera", !ok);
+        if (ok) n++;
+      });
+      l.classList.toggle("sin-visibles", !!filtro && n === 0);
+      if (filtro && n > 0) l.open = true;
+      visibles += n;
+    });
+    $("filtro-cuenta").textContent = filtro ? visibles + (visibles === 1 ? " ficha coincide" : " fichas coinciden") : "";
+  }
+  $("filtro").addEventListener("input", () => { filtro = $("filtro").value.trim(); aplicarFiltro(); });
+
+  // ---------------------------------------------------------------- selección
+  const claveSel = (lote, f) => lote.id + "|" + f.id;
+  function marcar(lote, f, si) {
+    const k = claveSel(lote, f);
+    if (si) seleccion.set(k, { lote: lote.id, ficha: f.id }); else seleccion.delete(k);
+    pintarBarra();
+  }
+  function pintarBarra() {
+    const n = seleccion.size;
+    $("barra-sel").classList.toggle("oculto", n === 0);
+    $("sel-cuenta").textContent = n + (n === 1 ? " ficha seleccionada" : " fichas seleccionadas");
+    document.querySelectorAll(".ficha[data-clave]").forEach(div => {
+      const on = seleccion.has(div.dataset.clave);
+      div.classList.toggle("seleccionada", on);
+      const c = div.querySelector("input[type=checkbox]"); if (c) c.checked = on;
+    });
+  }
+  $("sel-visibles").addEventListener("click", () => {
+    document.querySelectorAll(".ficha[data-clave]:not(.filtrada-fuera)").forEach(div => {
+      const [l, f] = div.dataset.clave.split("|");
+      seleccion.set(div.dataset.clave, { lote: l, ficha: f });
+    });
+    pintarBarra();
+    if (!seleccion.size) avisar("No hay fichas hechas visibles.", true);
+  });
+  $("sel-ninguna").addEventListener("click", () => { seleccion.clear(); pintarBarra(); });
+  $("sel-cerrar").addEventListener("click", () => { seleccion.clear(); pintarBarra(); });
+  $("sel-enviar").addEventListener("click", () => enviarSeleccion($("sel-destino").value));
+
+  async function enviarSeleccion(destino) {
+    if (!seleccion.size) return avisar("No hay nada seleccionado.", true);
+    if (destino === "__otro") {
+      destino = prompt("Dirección de correo:"); if (!destino) return;
+    }
+    const fichas = [...seleccion.values()];
+    const formal = $("sel-formal").checked;
+    const previsto = esFormal(destino, formal) ? "formal" : "informal";
+    if (!confirm(`¿Enviar ${fichas.length} ficha${fichas.length === 1 ? "" : "s"} a ${destino}, en ${previsto}?`)) return;
+    $("sel-enviar").disabled = true; avisar("Enviando…");
+    try {
+      const r = await api("POST", "/api/enviar", { fichas, a: destino, nota: filtro, formal });
+      avisar(`Enviadas ${r.fichas} ficha${r.fichas === 1 ? "" : "s"} a ${r.a} (${r.direccion}), en ${r.formal ? "formal" : "informal"}.`);
+      seleccion.clear(); ultima = ""; refrescar();
+    } catch (e) { avisar(e.message, true); }
+    $("sel-enviar").disabled = false;
+    pintarBarra();
+  }
+
+  // ---------------------------------------------------------------- menú del botón derecho
+  function abrirMenu(x, y) {
+    const m = $("menu");
+    const n = seleccion.size;
+    m.innerHTML = `<div class="cab">Enviar ${n} ficha${n === 1 ? "" : "s"} a</div>`
+      + destinosEnvio().map(d => `<div class="item" data-d="${esc(d)}">${esc(etiquetaDestino(d))}</div>`).join("")
+      + `<div class="cab"></div><div class="item" data-d="__quitar">Quitar selección</div>`;
+    m.classList.remove("oculto");
+    m.style.left = Math.min(x, window.innerWidth - m.offsetWidth - 8) + "px";
+    m.style.top = Math.min(y, window.innerHeight - m.offsetHeight - 8) + "px";
+    m.querySelectorAll(".item").forEach(it => it.addEventListener("click", () => {
+      cerrarMenu();
+      if (it.dataset.d === "__quitar") { seleccion.clear(); pintarBarra(); return; }
+      enviarSeleccion(it.dataset.d);
+    }));
+  }
+  function cerrarMenu() { $("menu").classList.add("oculto"); }
+  document.addEventListener("click", e => { if (!$("menu").contains(e.target)) cerrarMenu(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarMenu(); });
+  window.addEventListener("scroll", cerrarMenu, { passive: true });
+  function empezar() {
+    $("puerta").classList.add("oculto");
+    $("app").classList.remove("oculto");
+    ultima = "";
+    refrescar(); pedirReglas(); pedirAprobadas(); pedirAgenda();
+    if (!reloj) reloj = setInterval(refrescar, 5000);
+  }
+
+  // ---------------------------------------------------------------- vistas
+  document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
+    ["fichas", "reglas", "aprobadas"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    if (b.dataset.vista === "reglas") pedirReglas();
+    if (b.dataset.vista === "aprobadas") pedirAprobadas();
+  }));
+
+  // ---------------------------------------------------------------- modo de presentación
+  try { const g = localStorage.getItem("catalogar_modo"); if (g) { modo = g; modoFijado = true; } } catch (e) {}
+  $("modo").value = modo;
+  $("modo").addEventListener("change", () => {
+    modo = $("modo").value; modoFijado = true;
+    try { localStorage.setItem("catalogar_modo", modo); } catch (e) {}
+    ultima = ""; refrescar();
+  });
+  function ver(f, c) {
+    if (c !== "ENVIO" && modo === "normalizado" && f.normal && f.normal[c]) return f.normal[c];
+    return f[c] || "";
+  }
+
+  // ---------------------------------------------------------------- sesión de agencias
+  $("abrir-sesion").addEventListener("click", async () => {
+    try {
+      await api("POST", "/api/navegador/login");
+      avisar("Ventana abierta en el ordenador de casa. Inicia sesión en las agencias y pulsa Ya he iniciado sesión.");
+      refrescar();
+    } catch (e) { avisar(e.message, true); }
+  });
+  $("sesion-lista").addEventListener("click", async () => {
+    try { await api("POST", "/api/navegador/login/terminar"); avisar("Sesión guardada."); refrescar(); }
+    catch (e) { avisar(e.message, true); }
+  });
+  $("comprobar-sesion").addEventListener("click", async () => {
+    $("comprobar-sesion").disabled = true;
+    avisar("Entrando en las agencias…");
+    try {
+      const r = await api("POST", "/api/navegador/comprobar");
+      avisar(r.ok ? "Sesión correcta en las agencias." : r.problema, !r.ok);
+      refrescar();
+    } catch (e) { avisar(e.message, true); }
+    $("comprobar-sesion").disabled = false;
   });
 
-  // ---------- pestañas ----------
-  const vistas = { fichas: ["vista-fichas", "tab-fichas"], reglas: ["vista-reglas", "tab-reglas"], ejemplos: ["vista-ejemplos", "tab-ejemplos"] };
-  function mostrar(cual) {
-    for (const k of Object.keys(vistas)) {
-      $(vistas[k][0]).classList.toggle("oculto", k !== cual);
-      $(vistas[k][1]).classList.toggle("activa", k === cual);
-    }
-    $("lateral").classList.toggle("oculto", cual !== "fichas");
-    if (cual === "reglas" && !$("lista-reglas").children.length) pedirLista("reglas");
-    if (cual === "ejemplos" && !$("lista-ejemplos").children.length) pedirLista("ejemplos");
-  }
-  $("tab-fichas").addEventListener("click", () => mostrar("fichas"));
-  $("tab-reglas").addEventListener("click", () => mostrar("reglas"));
-  $("tab-ejemplos").addEventListener("click", () => mostrar("ejemplos"));
-
-  // ---------- entrada de números ----------
-  const RE_ITEM = /^(?:AP)?(\d{7}|\d{4})(?:[\s=@]+(\d{2}\/\d{2}\/\d{4}))?$/i;
-  function leerTrabajos() {
-    const fechaComun = $("fecha").value.trim();
-    if (fechaComun && !/^\d{2}\/\d{2}\/\d{4}$/.test(fechaComun)) throw new Error("La fecha común debe ser DD/MM/AAAA.");
-    const lineas = $("numeros").value.split(/\n|,|;/).map(s => s.trim()).filter(Boolean);
-    const trabajos = [];
-    for (const l of lineas) {
-      const partes = l.split(/\s+/);
-      let i = 0;
-      while (i < partes.length) {
-        const m = RE_ITEM.exec(partes[i] + (partes[i + 1] && /^\d{2}\/\d{2}\/\d{4}$/.test(partes[i + 1]) ? " " + partes[++i] : ""));
-        if (!m) throw new Error('No entiendo "' + partes[i] + '". Usa 0624, 4681323 o 0624 06/09/2026.');
-        trabajos.push({ numero: m[1], fecha: m[2] || fechaComun || "" });
-        i++;
-      }
-    }
-    if (!trabajos.length) throw new Error("No hay ningún número.");
-    return trabajos;
-  }
-
-  // ---------- pendientes ----------
-  const pendientes = new Map();
-  function pintarPendientes() {
-    const cont = $("pendientes"); cont.innerHTML = "";
-    pendientes.forEach((p, num) => {
-      const d = el("div", "pendiente");
-      const esperado = Math.round((Date.now() - p.creado) / 1000);
-      if (esperado * 1000 > AVISO_TARDE_MS) d.classList.add("tarde");
-      const hechas = p.pintados || 0;
-      d.appendChild(el("span", "", "Issue #" + num + ": " + (hechas ? hechas + " de " + p.trabajos.length + " listas" : p.trabajos.map(t => t.numero).join(", "))));
-      d.appendChild(el("span", "t", esperado * 1000 > AVISO_TARDE_MS ? esperado + " s, ¿worker encendido?" : esperado + " s"));
-      cont.appendChild(d);
-    });
-  }
-  setInterval(pintarPendientes, 1000);
-
-  async function sondear(num) {
-    const p = pendientes.get(num); if (!p) return;
+  // ---------------------------------------------------------------- envío de trabajo
+  $("enviar-numeros").addEventListener("click", async () => {
+    const texto = $("numeros").value.trim();
+    if (!texto) { avisar("Escribe al menos un número de envío.", true); $("numeros").focus(); return; }
+    $("enviar-numeros").disabled = true;
     try {
-      const comentarios = await github("GET", "/repos/" + ajustes.repo + "/issues/" + num + "/comments?per_page=10");
-      if (comentarios.length) {
-        const cuerpo = comentarios[comentarios.length - 1].body || "";
-        const parcial = /^\s*Procesando\s+\d+\s+de\s+\d+/i.test(cuerpo);
-        const bloques = parsearComentario(cuerpo.replace(/^\s*Procesando[^\n]*\n/i, ""));
-        if (bloques.length > (p.pintados || 0)) {
-          const nuevos = bloques.slice(p.pintados || 0);
-          let registro = p.registro;
-          if (!registro) {
-            registro = { issue: num, cuando: Date.now(), trabajos: p.trabajos, bloques: [], repo: ajustes.repo, aprobadas: [] };
-            p.registro = registro;
-            guardarHistorial(registro);
-          }
-          registro.bloques = bloques;
-          pintarResultado({ ...registro, bloques: nuevos }, true);
-          actualizarHistorial(registro);
-          p.pintados = bloques.length;
-          avisar(parcial ? "Ficha " + bloques.length + " de " + p.trabajos.length + " lista." : "Lote terminado.");
-        }
-        if (!parcial) { pendientes.delete(num); pintarPendientes(); return; }
-        p.temporizador = setTimeout(() => sondear(num), ajustes.intervalo * 1000);
-        return;
-      }
-      if (Date.now() - p.creado > ABANDONO_MS && !(p.pintados || 0)) {
-        pendientes.delete(num); pintarPendientes();
-        avisar("La issue #" + num + " lleva 20 minutos sin respuesta. Sigue abierta en GitHub; el worker la procesará cuando arranque.", true);
-        return;
-      }
+      const r = await api("POST", "/api/lotes/numeros", { texto, fecha: $("fecha").value, reparto: $("reparto").value, formal: $("reparto-formal").checked, rehacer: $("rehacer").checked });
+      let mensaje = (r.fichas === 1 ? "Un envío en cola" : r.fichas + " envíos en cola") + " (" + r.agencias + ")"
+        + (r.lotes > 1 ? ", en " + r.lotes + " lotes." : ".");
+      if (r.ignorados.length) mensaje += " Ignorado: " + r.ignorados.join("; ") + ".";
+      avisar(mensaje, r.ignorados.length > 0);
+      $("numeros").value = ""; ultima = ""; refrescar();
     } catch (e) { avisar(e.message, true); }
-    p.temporizador = setTimeout(() => sondear(num), ajustes.intervalo * 1000);
-  }
-
-  $("enviar").addEventListener("click", enviar);
-  document.addEventListener("keydown", (ev) => { if (ev.ctrlKey && ev.key === "Enter") enviar(); });
-
-  async function enviar() {
-    guardarAjustes();
-    if (!comprobarAjustes()) return;
-    let trabajos;
-    try { trabajos = leerTrabajos(); } catch (e) { avisar(e.message, true); return; }
-    const boton = $("enviar"); boton.disabled = true;
+    $("enviar-numeros").disabled = false;
+  });
+  $("enviar-lista").addEventListener("click", async () => {
+    const f = $("lista").files[0];
+    if (!f) { avisar("Elige la lista .csv o .xlsx que has exportado de MediaCentral.", true); return; }
+    const fd = new FormData();
+    fd.append("fichero", f);
+    fd.append("reparto", $("reparto").value);
+    fd.append("formal", $("reparto-formal").checked ? "1" : "");
+    fd.append("rehacer", $("rehacer").checked ? "1" : "");
+    fd.append("fecha", $("fecha").value);
+    $("enviar-lista").disabled = true;
     try {
-      const lineas = trabajos.map(t => t.numero + (t.fecha ? " " + t.fecha : ""));
-      const titulo = trabajos.length === 1 ? lineas[0] : "Lote de " + trabajos.length + " envíos";
-      const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: titulo, body: lineas.join("\n") });
-      pendientes.set(issue.number, { trabajos: trabajos, creado: Date.now(), temporizador: null, pintados: 0, registro: null });
-      pintarPendientes(); $("numeros").value = "";
-      avisar("Enviado como issue #" + issue.number + ". Esperando al worker.");
-      setTimeout(() => sondear(issue.number), Math.min(8, ajustes.intervalo) * 1000);
+      const r = await api("POST", "/api/lotes/lista", fd, true);
+      let mensaje = (r.fichas === 1 ? "Un envío en cola" : r.fichas + " envíos en cola") + (r.lotes > 1 ? ", en " + r.lotes + " lotes." : ".");
+      if (r.total_descartes) mensaje += " " + r.total_descartes + " fila(s) fuera: " +
+        r.descartes.slice(0, 3).map(d => "fila " + d.fila + ", " + d.motivo).join("; ") +
+        (r.total_descartes > 3 ? "…" : "") + ".";
+      if (r.aviso) mensaje += " " + r.aviso;
+      avisar(mensaje, !!r.aviso);
+      $("lista").value = ""; ultima = ""; refrescar();
     } catch (e) { avisar(e.message, true); }
-    finally { boton.disabled = false; }
-  }
+    $("enviar-lista").disabled = false;
+  });
 
-  // ---------- parseo ----------
-  function parsearComentario(texto) {
-    const limpio = texto.replace(/```[a-z]*\n?/g, "").replace(/```/g, "").replace(/\r/g, "").trim();
-    return limpio.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(bloque => {
-      const campos = {}; let actual = null; const sueltas = [];
-      bloque.split("\n").forEach(linea => {
-        const m = /^\s*(ENVIO|NAME|COMMENT|RESTRICCIONES|AVISOS)\s*:\s*(.*)$/i.exec(linea);
-        if (m) { actual = m[1].toUpperCase(); campos[actual] = m[2].trim(); }
-        else if (actual && linea.trim() && actual !== "ENVIO") campos[actual] += " " + linea.trim();
-        else if (linea.trim()) sueltas.push(linea.trim());
-      });
-      const esError = !campos.NAME && !campos.COMMENT;
-      return { campos: campos, esError: esError, mensaje: sueltas.join("\n"), sesion: /SESION CADUCADA/i.test(bloque) };
-    });
-  }
-  const numeroDe = (envio) => (envio || "").split("·")[0].trim();
+  // ---------------------------------------------------------------- estado y lotes
+  async function refrescar() {
+    let d;
+    try { d = await api("GET", "/api/lotes"); }
+    catch (e) { $("pulso-texto").textContent = e.message; $("pulso").classList.remove("activa"); return; }
 
-  // ---------- fichas ----------
-  function pintarResultado(registro, arriba) {
-    const cont = $("resultados");
-    $("vacio-fichas").classList.add("oculto");
-    const frag = document.createDocumentFragment();
-    registro.bloques.forEach(b => frag.appendChild(construirFicha(b, registro)));
-    if (arriba) cont.prepend(frag); else cont.appendChild(frag);
-  }
+    const trabajando = !!d.trabajando;
+    $("pulso").classList.toggle("activa", trabajando);
+    $("pulso-texto").textContent = d.worker_vivo === false
+      ? "El hilo de trabajo se ha parado: reinicia el servidor (arrancar.bat)"
+      : d.modelo_parado
+      ? "MODELO EN PAUSA: " + d.modelo_parado + " (Volver a intentarlo en el lote fuerza otro intento)"
+      : trabajando
+      ? "Redactando " + d.trabajando
+      : (d.pendientes ? d.pendientes + (d.pendientes === 1 ? " envío en cola" : " envíos en cola") : "En espera");
+    $("pulso-sesion").textContent = "Agencias: " + d.sesion_agencia;
+    $("pulso-criterio").textContent = d.criterio + ", " + d.ejemplos + " fichas aprobadas, " + d.reglas + " reglas, " + d.modelo
+      + (d.buzon ? " · buzón cada " + d.buzon + " min" : "");
 
-  function construirFicha(b, registro) {
-    const f = el("div", "ficha" + (b.esError ? " error" : "") + (b.sesion ? " sesion" : ""));
-    if ((registro.aprobadas || []).indexOf(numeroDe(b.campos.ENVIO)) >= 0) f.classList.add("aprobada");
-    const cab = el("div", "cabecera");
-    cab.appendChild(el("div", "envio", b.campos.ENVIO || "Envío"));
-    const acc = el("div", "acciones");
-    if (!b.esError) {
-      const todo = el("button", "copiar", "Copiar las cuatro líneas");
-      todo.addEventListener("click", () => copiar(["ENVIO", "NAME", "COMMENT", "RESTRICCIONES"].map(k => k + ": " + (b.campos[k] || "")).join("\n"), todo));
-      acc.appendChild(todo);
+    const enLogin = d.sesion_agencia === "login en curso" || d.sesion_agencia === "login pendiente";
+    $("sesion-lista").classList.toggle("oculto", !enLogin);
+    $("abrir-sesion").classList.toggle("oculto", enLogin);
 
-      const buena = el("button", "copiar destacado", "Buena");
-      buena.title = "Guardar esta ficha como modelo para las siguientes";
-      buena.addEventListener("click", () => aprobar(b, registro, f, buena));
-      acc.appendChild(buena);
-
-      const corregir = el("button", "copiar", "Corregir");
-      corregir.addEventListener("click", () => modoEdicion(f, b, registro, corregir));
-      acc.appendChild(corregir);
+    if (!modoFijado && d.presentacion && d.presentacion !== modo) {
+      modo = d.presentacion; $("modo").value = modo; ultima = "";
     }
-    if (registro.repo && registro.issue) {
-      const a = el("a", "", "#" + registro.issue);
-      a.href = "https://github.com/" + registro.repo + "/issues/" + registro.issue; a.target = "_blank"; a.rel = "noopener";
-      acc.appendChild(a);
-    }
-    cab.appendChild(acc); f.appendChild(cab);
+    if (editando.size) return;
+    const firma = JSON.stringify(d.lotes) + modo;
+    if (firma === ultima) return;
 
-    if (b.esError) {
-      f.appendChild(el("div", "texto-error", b.mensaje || "El worker no devolvió NAME ni COMMENT."));
-      if (b.sesion) f.appendChild(el("div", "ayuda", "Hay que iniciar sesión en casa (login.py) y volver a enviar este número."));
-      return f;
-    }
-    CAMPOS.forEach(k => {
-      const v = b.campos[k] || "";
-      if (k === "AVISOS" && !v) return;
-      const c = el("div", "campo"); c.dataset.campo = k;
-      c.appendChild(el("div", "etiqueta", ETIQUETAS[k]));
-      const val = el("div", "valor", v || "—");
-      if (!v) val.classList.add("vacio");
-      if (k === "RESTRICCIONES" && v && v !== "SIN AVISO") val.classList.add("restric-si");
-      if (k === "AVISOS") val.classList.add("avisos");
-      if (k !== "AVISOS" && v) {
-        val.classList.add("copiable");
-        val.title = "Pulsa para copiar";
-        val.addEventListener("click", () => {
-          // si el usuario ha seleccionado texto a mano, respetar su selección
-          const sel = window.getSelection();
-          if (sel && sel.toString().length > 0) return;
-          copiar(val.textContent);
-          val.classList.add("copiado");
-          setTimeout(() => val.classList.remove("copiado"), 500);
-          avisar(ETIQUETAS[k] + " copiado.");
-        });
-      }
-      c.appendChild(val);
-      if (k !== "AVISOS" && v) { const bt = el("button", "copiar", "Copiar"); bt.addEventListener("click", () => copiar(val.textContent, bt)); c.appendChild(bt); }
-      else c.appendChild(el("span"));
-      f.appendChild(c);
-    });
-    return f;
-  }
-
-  function modoEdicion(ficha, b, registro, boton) {
-    if (ficha.dataset.editando === "1") return;
-    ficha.dataset.editando = "1";
-    boton.disabled = true;
-    const areas = {};
-    ["NAME", "COMMENT", "RESTRICCIONES"].forEach(k => {
-      const campo = ficha.querySelector('.campo[data-campo="' + k + '"]');
-      if (!campo) return;
-      const valor = campo.querySelector(".valor");
-      const ta = document.createElement("textarea");
-      ta.value = valor.textContent === "—" ? "" : valor.textContent;
-      valor.replaceWith(ta); areas[k] = ta;
-    });
-    const barra = el("div", "campo");
-    barra.appendChild(el("div", "etiqueta", ""));
-    const acciones = el("div", "");
-    const guardar = el("button", "copiar destacado", "Guardar y aprobar");
-    const cancelar = el("button", "copiar", "Cancelar");
-    cancelar.style.marginLeft = ".4rem";
-    acciones.appendChild(guardar); acciones.appendChild(cancelar);
-    barra.appendChild(acciones); barra.appendChild(el("span"));
-    ficha.appendChild(barra);
-
-    cancelar.addEventListener("click", () => ficha.replaceWith(construirFicha(b, registro)));
-    guardar.addEventListener("click", async () => {
-      ["NAME", "COMMENT", "RESTRICCIONES"].forEach(k => { if (areas[k]) b.campos[k] = areas[k].value.trim(); });
-      guardar.disabled = true;
-      const nuevo = construirFicha(b, registro);
-      ficha.replaceWith(nuevo);
-      actualizarHistorial(registro);
-      await aprobar(b, registro, nuevo, nuevo.querySelector(".copiar.destacado"));
-    });
-  }
-
-  async function aprobar(b, registro, ficha, boton) {
-    guardarAjustes();
-    if (!comprobarAjustes()) return;
-    if (boton) { boton.disabled = true; boton.textContent = "Guardando…"; }
-    const cuerpo = ["ENVIO", "NAME", "COMMENT", "RESTRICCIONES"].map(k => k + ": " + (b.campos[k] || "")).join("\n");
-    const num = numeroDe(b.campos.ENVIO);
+    $("sin-lotes").classList.toggle("oculto", d.lotes.length > 0);
+    const caja = $("lotes");
+    const abiertos = new Set([...caja.querySelectorAll("details[open]")].map(x => x.dataset.id));
+    const primeraVez = !caja.children.length;
+    // la firma se da por pintada solo al final: si algo falla a medias, el siguiente refresco vuelve a intentarlo
     try {
-      let issue = registro.issue;
-      if (!issue) {
-        const nueva = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: "Ficha aprobada " + num, body: "" });
-        issue = nueva.number;
-      }
-      await github("POST", "/repos/" + ajustes.repo + "/issues/" + issue + "/comments", { body: "```text\n" + cuerpo + "\n```" });
-      await github("POST", "/repos/" + ajustes.repo + "/issues/" + issue + "/comments", { body: "BUENA " + num });
-      if (ficha) ficha.classList.add("aprobada");
-      if (boton) { boton.textContent = "Aprobada"; boton.classList.add("ok"); }
-      avisar("Ficha enviada como aprobada. El worker la guardará como modelo.");
-      registro.aprobadas = (registro.aprobadas || []).concat(num);
-      actualizarHistorial(registro);
+      caja.innerHTML = "";
+      d.lotes.forEach((lote, i) => caja.appendChild(pintarLote(lote, (primeraVez && i === 0) || abiertos.has(lote.id))));
+      ultima = firma;
     } catch (e) {
+      ultima = "";
+      $("pulso-texto").textContent = "No se ha podido pintar la lista: " + e.message;
+      throw e;
+    }
+    const vivas = new Set([...document.querySelectorAll(".ficha[data-clave]")].map(x => x.dataset.clave));
+    [...seleccion.keys()].forEach(k => { if (!vivas.has(k)) seleccion.delete(k); });
+    aplicarFiltro(); pintarBarra();
+  }
+
+  function pintarLote(lote, abierto) {
+    const d = document.createElement("details");
+    d.className = "lote"; d.dataset.id = lote.id; d.open = abierto;
+    const hechas = lote.fichas.filter(f => f.estado === "hecha").length;
+    const fallos = lote.fichas.filter(f => f.estado === "error").length;
+    const enCola = lote.fichas.filter(f => f.estado === "pendiente").length;
+    d.innerHTML = `<summary>
+        <span class="nombre">${esc(lote.nombre)}</span>
+        <span class="cuando">${esc(lote.creado)}</span>
+        <span class="avance"><b>${hechas}</b> de ${lote.fichas.length}${fallos ? ` · <span class="fallos">${fallos} sin salir</span>` : ""}</span>
+        <span class="acciones">
+          ${enCola && !lote.parado ? `<button class="b mini riesgo" data-parar title="Lo que está en cola no se hace; la ficha en curso termina">Parar</button>` : ""}
+          ${fallos ? `<button class="b mini" data-reintentar>Volver a intentarlo</button>` : ""}
+          ${lote.estado !== "en curso" ? `<button class="b mini riesgo" data-borrar>Borrar</button>` : ""}
+        </span>
+      </summary>
+      ${lote.mensaje ? `<div class="ficha"><p class="fallo-texto">${esc(lote.mensaje)}</p></div>` : ""}
+      ${pintarEnvios(lote)}`;
+    lote.fichas.forEach(f => d.appendChild(pintarFicha(lote, f)));
+    d.querySelector("[data-enviar]")?.addEventListener("click", async e => {
+      e.preventDefault(); e.stopPropagation();
+      const actual = lote.reparto || "";
+      const reparto = prompt("Reparto (una línea por persona):", actual);
+      if (reparto === null || !reparto.trim()) return;
+      e.target.disabled = true; avisar("Enviando correos…");
+      try {
+        const r = await api("POST", `/api/lotes/${lote.id}/enviar`, { reparto });
+        const mal = r.envios.filter(x => !x.ok);
+        avisar(mal.length ? "Con fallos: " + mal.map(x => x.error).join(" | ") : "Correos enviados.", mal.length > 0);
+        ultima = ""; refrescar();
+      } catch (err) { avisar(err.message, true); e.target.disabled = false; }
+    });
+    d.querySelector("[data-enviar-a]")?.addEventListener("click", e => {
+      // todas las fichas hechas del lote, a una sola persona o direccion: el mismo menu del clic derecho
+      e.preventDefault(); e.stopPropagation();
+      seleccion.clear();
+      lote.fichas.filter(f => f.estado === "hecha").forEach(f => seleccion.set(claveSel(lote, f), { lote: lote.id, ficha: f.id }));
+      pintarBarra();
+      const r = e.target.getBoundingClientRect();
+      abrirMenu(r.left, r.bottom + 4);
+    });
+    d.querySelector("[data-borrar]")?.addEventListener("click", async e => {
+      e.preventDefault(); e.stopPropagation();
+      if (!confirm("Se borran estas fichas del ordenador de casa. ¿Seguir?")) return;
+      try { await api("DELETE", "/api/lotes/" + lote.id); ultima = ""; refrescar(); }
+      catch (err) { avisar(err.message, true); }
+    });
+    d.querySelector("[data-parar]")?.addEventListener("click", async e => {
+      e.preventDefault(); e.stopPropagation();
+      try {
+        const r = await api("POST", `/api/lotes/${lote.id}/parar`);
+        avisar(`Lote parado: ${r.paradas} ficha${r.paradas === 1 ? "" : "s"} sin hacer` + (r.en_curso ? "; la que está redactándose termina sola." : "."));
+        ultima = ""; refrescar();
+      } catch (err) { avisar(err.message, true); }
+    });
+    d.querySelector("[data-reintentar]")?.addEventListener("click", async e => {
+      e.preventDefault(); e.stopPropagation();
+      try {
+        const r = await api("POST", `/api/lotes/${lote.id}/reintentar`);
+        avisar(r.reintentadas + (r.reintentadas === 1 ? " ficha de nuevo en cola." : " fichas de nuevo en cola."));
+        ultima = ""; refrescar();
+      } catch (err) { avisar(err.message, true); }
+    });
+    return d;
+  }
+
+  function pintarEnvios(lote) {
+    if (lote.estado === "en curso" || lote.estado === "pendiente") {
+      return lote.reparto ? `<div class="ficha"><div class="notas" style="padding-left:0"><p>Al terminar se repartirá por correo${lote.formal ? " (formal)" : ""}:<br>${esc(lote.reparto).replace(/\n/g, "<br>")}</p></div></div>` : "";
+    }
+    const envios = lote.envios || [];
+    const sueltas = lote.sin_repartir || [];
+    const lineas = envios.map(x => x.ok
+      ? `<p>${esc(x.etiqueta)} (${esc(x.a)}): ${x.fichas.length} ficha${x.fichas.length === 1 ? "" : "s"} enviada${x.fichas.length === 1 ? "" : "s"}</p>`
+      : `<p class="fallo-texto">${esc(x.etiqueta || "correo")}: ${esc(x.error)}</p>`).join("")
+      + (sueltas.length ? `<p>Sin repartir, solo aquí (${sueltas.length}): ${esc(sueltas.join(", "))}</p>` : "");
+    return `<div class="ficha"><div class="notas" style="padding-left:0; color:var(--gris)">
+        ${envios.length ? `<p><b>Correos${lote.enviado ? " · " + esc(lote.enviado) : ""}</b></p>` + lineas : "<p>Sin repartir por correo.</p>"}
+        <p style="margin-top:8px"><button class="b mini" data-enviar>${envios.length ? "Volver a repartir" : "Repartir por correo"}</button>
+          ${lote.fichas.some(f => f.estado === "hecha") ? '<button class="b mini" data-enviar-a>Enviar lote a…</button>' : ""}</p>
+      </div></div>`;
+  }
+
+  function cuenta(c, texto) {
+    const lim = LIMITES[c];
+    if (!lim || !texto) return "";
+    const n = texto.length;
+    const clase = n > lim[1] ? "pasa" : (n > lim[0] ? "roza" : "");
+    return `<span class="cuenta ${clase}" title="${n} caracteres; lo normal hasta ${lim[0]}, tope ${lim[1]}">${n}</span>`;
+  }
+
+  function pintarFicha(lote, f) {
+    const div = document.createElement("div");
+    const clase = { hecha:"lista", error:"fallo", "en curso":"trabajando" }[f.estado] || "";
+    div.className = "ficha " + clase;
+    const marca = f.estado === "en curso" ? "redactando"
+                : f.estado === "pendiente" ? "en cola"
+                : f.copiada ? "ya hecha el " + f.copiada
+                : f.segundos ? f.segundos + " s" : "";
+    div.dataset.ficha = JSON.stringify({ etiqueta: f.etiqueta, headline: f.headline, NAME: f.NAME, COMMENT: f.COMMENT, ENVIO: f.ENVIO });
+    const enviadaA = (f.para ? `<span class="enviada-a">para ${esc(f.para)}</span> ` : "")
+      + (f.enviada || []).map(x => `<span class="enviada-a">enviada a ${esc(x.a)} ${esc(x.cuando)}</span>`).join(" ");
+    const titular = `<div class="titular">
+        ${f.estado === "hecha" ? `<input type="checkbox" aria-label="Seleccionar ${esc(f.etiqueta)}">` : ""}
+        <span class="envio">${esc(f.etiqueta)}</span>
+        <span class="origen">${esc(f.headline || "")}</span>
+        <span class="marca-estado">${esc(marca)}</span>
+        ${f.aprobada ? '<span class="marca-estado aprobada">aprobada</span>' : ""}
+        ${enviadaA}
+      </div>`;
+
+    if (f.estado === "error") {
+      div.innerHTML = titular + `<p class="fallo-texto">${esc(f.error)}</p>`;
+      return div;
+    }
+    if (f.estado !== "hecha") { div.innerHTML = titular; return div; }
+    div.dataset.clave = claveSel(lote, f);
+
+    const faltaNormal = modo === "normalizado" && !f.normal;
+    div.innerHTML = titular
+      + CAMPOS.map(c => `<div class="campo">
+            <span class="nombre-campo">${c}</span>
+            <div class="texto" title="Pulsa para copiar">${esc(ver(f, c))}</div>
+            ${cuenta(c, ver(f, c))}
+          </div>`).join("")
+      + (f.alerta ? `<div class="notas alerta"><p>${esc(f.alerta)}</p></div>` : "")
+      + ((f.avisos || []).length ? `<div class="notas">${f.avisos.map(a => `<p>${esc(a)}</p>`).join("")}</div>` : "")
+      + (faltaNormal ? `<div class="notas"><p>Sin versión en texto normal todavía; se muestra en mayúsculas.</p></div>` : "")
+      + `<div class="acciones-ficha">
+           <button class="b mini" data-copiar>Copiar las cuatro líneas</button>
+           <button class="b mini" data-buena>Buena</button>
+           <button class="b mini" data-corregir>Corregir</button>
+           ${faltaNormal ? '<button class="b mini" data-normal>Pasar a texto normal</button>' : ""}
+         </div>`;
+
+    div.querySelector("input[type=checkbox]").addEventListener("change", e => marcar(lote, f, e.target.checked));
+    div.addEventListener("contextmenu", e => {
+      if (e.target.closest("textarea, input, a, button")) return;
+      e.preventDefault();
+      if (!seleccion.has(claveSel(lote, f))) { seleccion.clear(); marcar(lote, f, true); }
+      abrirMenu(e.clientX, e.clientY);
+    });
+    div.querySelectorAll(".texto").forEach(t => t.addEventListener("click", () => copiar(t.textContent, "Campo copiado.")));
+    div.querySelector("[data-copiar]").addEventListener("click",
+      () => copiar(CAMPOS.map(c => c + ": " + ver(f, c)).join("\n"), "Ficha copiada."));
+    div.querySelector("[data-buena]").addEventListener("click", () => aprobar(lote, f, null));
+    div.querySelector("[data-corregir]").addEventListener("click", () => corregir(lote, f, div));
+    div.querySelector("[data-normal]")?.addEventListener("click", async e => {
+      e.target.disabled = true;
+      avisar("Pidiendo la versión en texto normal…");
+      try { await api("POST", `/api/fichas/${lote.id}/${f.id}/normalizar`); ultima = ""; refrescar(); }
+      catch (err) { avisar(err.message, true); e.target.disabled = false; }
+    });
+    return div;
+  }
+
+  function corregir(lote, f, div) {
+    editando.add(f.id);
+    div.querySelectorAll(".campo").forEach(campo => {
+      const c = campo.querySelector(".nombre-campo").textContent;
+      campo.innerHTML = `<span class="nombre-campo">${c}</span><textarea data-campo="${c}"></textarea>`;
+      const t = campo.querySelector("textarea");
+      t.value = f[c] || "";                       // se corrige siempre sobre la versión en mayúsculas
+      t.style.height = Math.min(260, Math.max(48, t.value.length / 1.6)) + "px";
+    });
+    const acciones = div.querySelector(".acciones-ficha");
+    acciones.innerHTML = `<button class="b mini principal" data-guardar>Guardar y aprobar</button>
+                          <button class="b mini" data-cancelar>Cancelar</button>`;
+    if (modo === "normalizado") {
+      const n = document.createElement("div");
+      n.className = "notas";
+      n.innerHTML = "<p>Se corrige sobre la versión en mayúsculas, que es la que se guarda.</p>";
+      acciones.before(n);
+    }
+    acciones.querySelector("[data-guardar]").addEventListener("click", () => {
+      const nuevos = {};
+      div.querySelectorAll("textarea[data-campo]").forEach(t => nuevos[t.dataset.campo] = t.value);
+      aprobar(lote, f, nuevos);
+    });
+    acciones.querySelector("[data-cancelar]").addEventListener("click", () => {
+      editando.delete(f.id); ultima = ""; refrescar();
+    });
+    div.querySelector("textarea")?.focus();
+  }
+
+  async function aprobar(lote, f, correcciones) {
+    try {
+      const r = await api("POST", `/api/fichas/${lote.id}/${f.id}/buena`, correcciones || {});
+      editando.delete(f.id);
+      if (r.avisos && r.avisos.length) avisar("Aprobada, con avisos: " + r.avisos.join(" | "), true);
+      else avisar("Aprobada. Ya son " + r.total + "." + (r.aviso ? " " + r.aviso : ""));
+      ultima = ""; refrescar(); pedirAprobadas();
+    } catch (e) {
+      // si la ficha o el lote ya no existen, se suelta la edicion: si no, la pagina deja de refrescar
+      if (/No existe/i.test(e.message)) { editando.delete(f.id); ultima = ""; refrescar(); }
       avisar(e.message, true);
-      if (boton) { boton.disabled = false; boton.textContent = "Buena"; }
     }
   }
 
-  // ---------- reglas y fichas aprobadas ----------
-  $("enviar-regla").addEventListener("click", async () => {
-    guardarAjustes();
+  // ---------------------------------------------------------------- reglas
+  async function pedirReglas() {
+    try { pintarReglas((await api("GET", "/api/reglas")).reglas); } catch (e) {}
+  }
+  function pintarReglas(reglas) {
+    const caja = $("lista-reglas");
+    if (!reglas.length) {
+      caja.innerHTML = `<div class="vacio"><strong>Sin reglas añadidas</strong>Todo el criterio viene del fichero de patrones.</div>`;
+      return;
+    }
+    caja.innerHTML = `<div class="lista">` + reglas.map((r, i) =>
+      `<div class="fila"><span class="orden">${i + 1}</span><div class="cuerpo">${esc(r)}</div>
+       <button class="b mini riesgo" data-i="${i + 1}">Quitar</button></div>`).join("") + `</div>`;
+    caja.querySelectorAll("button").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm("¿Quitar la regla " + b.dataset.i + "?")) return;
+      try { pintarReglas((await api("DELETE", "/api/reglas/" + b.dataset.i)).reglas); avisar("Regla quitada."); }
+      catch (e) { avisar(e.message, true); }
+    }));
+  }
+  $("anadir-regla").addEventListener("click", async () => {
     const texto = $("regla").value.trim();
-    if (!texto) { avisar("Escribe la regla primero.", true); return; }
-    if (!comprobarAjustes()) return;
+    if (!texto) { $("regla").focus(); return; }
     try {
-      const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: "REGLA: " + texto.slice(0, 200), body: texto.length > 200 ? texto : "" });
-      $("regla").value = "";
-      avisar("Regla enviada (issue #" + issue.number + "). Se aplica en cuanto el worker la guarde.");
-      setTimeout(() => pedirLista("reglas"), 15000);
+      const r = await api("POST", "/api/reglas", { texto });
+      $("regla").value = ""; pintarReglas(r.reglas); avisar("Regla añadida; ya se aplica.");
     } catch (e) { avisar(e.message, true); }
   });
-  $("refrescar-reglas").addEventListener("click", () => pedirLista("reglas"));
-  $("refrescar-ejemplos").addEventListener("click", () => pedirLista("ejemplos"));
 
-  async function comando(titulo) {
-    const issue = await github("POST", "/repos/" + ajustes.repo + "/issues", { title: titulo, body: "" });
-    for (let intento = 0; intento < 12; intento++) {
-      await new Promise(r => setTimeout(r, 5000));
-      const comentarios = await github("GET", "/repos/" + ajustes.repo + "/issues/" + issue.number + "/comments?per_page=5");
-      if (comentarios.length) return comentarios[comentarios.length - 1].body || "";
+  // ---------------------------------------------------------------- fichas aprobadas
+  async function pedirAprobadas() {
+    try { pintarAprobadas((await api("GET", "/api/ejemplos")).ejemplos); } catch (e) {}
+  }
+  function pintarAprobadas(lista) {
+    const caja = $("lista-aprobadas");
+    if (!lista.length) {
+      caja.innerHTML = `<div class="vacio"><strong>Sin fichas aprobadas</strong>Pulsa Buena en una ficha que esté bien y aparecerá aquí.</div>`;
+      return;
     }
-    throw new Error("El worker no ha respondido. ¿Está corriendo en el PC de casa?");
+    caja.innerHTML = `<div class="lista">` + lista.map((e, i) => `<div class="fila">
+        <span class="orden">${i + 1}</span>
+        <div class="cuerpo">
+          <div class="campo"><span class="nombre-campo">ENVIO</span><div class="texto">${esc(e.envio || e.numero)}</div></div>
+          <div class="campo"><span class="nombre-campo">NAME</span><div class="texto">${esc(e.name)}</div>${cuenta("NAME", e.name)}</div>
+          <div class="campo"><span class="nombre-campo">COMMENT</span><div class="texto">${esc(e.comment)}</div>${cuenta("COMMENT", e.comment)}</div>
+          <div class="campo"><span class="nombre-campo">RESTRICCIONES</span><div class="texto">${esc(e.restricciones)}</div></div>
+        </div>
+        <button class="b mini riesgo" data-n="${esc(e.numero)}">Quitar</button>
+      </div>`).join("") + `</div>`;
+    caja.querySelectorAll(".texto").forEach(t => t.addEventListener("click", () => copiar(t.textContent, "Campo copiado.")));
+    caja.querySelectorAll("button[data-n]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm("¿Quitar la ficha aprobada " + b.dataset.n + "?")) return;
+      try {
+        pintarAprobadas((await api("DELETE", "/api/ejemplos/" + encodeURIComponent(b.dataset.n))).ejemplos);
+        avisar("Ficha quitada."); refrescar();
+      } catch (e) { avisar(e.message, true); }
+    }));
   }
 
-  async function pedirLista(cual) {
-    guardarAjustes();
-    if (!comprobarAjustes()) return;
-    const destino = $(cual === "reglas" ? "lista-reglas" : "lista-ejemplos");
-    destino.innerHTML = ""; destino.appendChild(el("div", "ayuda", "Consultando al worker…"));
-    try {
-      const texto = await comando(cual === "reglas" ? "LISTAR REGLAS" : "LISTAR EJEMPLOS");
-      pintarLista(cual, texto);
-    } catch (e) { destino.innerHTML = ""; destino.appendChild(el("div", "texto-error", e.message)); }
-  }
-
-  function pintarLista(cual, texto) {
-    const destino = $(cual === "reglas" ? "lista-reglas" : "lista-ejemplos");
-    destino.innerHTML = "";
-    const lineas = (texto || "").split("\n").map(l => l.trim()).filter(l => /^\d+\.\s/.test(l));
-    if (!lineas.length) { destino.appendChild(el("div", "ayuda", cual === "reglas" ? "No hay reglas añadidas." : "No hay fichas aprobadas todavía.")); return; }
-    lineas.forEach(linea => {
-      const m = /^(\d+)\.\s*(.*)$/.exec(linea);
-      const idx = m[1], resto = m[2];
-      const fila = el("div", "elemento");
-      fila.appendChild(el("div", "n", idx + "."));
-      const cuerpo = el("div", "cuerpo");
-      if (cual === "ejemplos") {
-        const partes = resto.split("—");
-        cuerpo.appendChild(el("div", "", (partes[1] || partes[0]).trim()));
-        if (partes.length > 1) cuerpo.appendChild(el("div", "sub", partes[0].trim()));
-      } else {
-        cuerpo.appendChild(el("div", "", resto));
-      }
-      fila.appendChild(cuerpo);
-      const quitar = el("button", "copiar", "Quitar");
-      quitar.addEventListener("click", async () => {
-        quitar.disabled = true;
-        const num = cual === "ejemplos" ? numeroDe(resto.split("—")[0]) : idx;
-        try {
-          await comando(cual === "reglas" ? "QUITAR REGLA " + idx : "QUITAR EJEMPLO " + num);
-          avisar("Borrado.");
-          pedirLista(cual);
-        } catch (e) { avisar(e.message, true); quitar.disabled = false; }
-      });
-      fila.appendChild(quitar);
-      destino.appendChild(fila);
-    });
-  }
-
-  // ---------- utilidades ----------
-  async function copiar(texto, boton) {
-    try {
-      if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(texto);
-      else {
-        const ta = document.createElement("textarea"); ta.value = texto; ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
-      }
-      if (boton) { const t = boton.textContent; boton.textContent = "Copiado"; boton.classList.add("ok"); setTimeout(() => { boton.textContent = t; boton.classList.remove("ok"); }, 1200); }
-    } catch (e) { avisar("No se pudo copiar. Selecciona el texto y usa Ctrl+C.", true); }
-  }
-
-  function guardarHistorial(registro) {
-    const h = almacen.get("catalogar_historial", []);
-    h.unshift(registro); almacen.set("catalogar_historial", h.slice(0, 100)); pintarHistorial();
-  }
-  function actualizarHistorial(registro) {
-    const h = almacen.get("catalogar_historial", []);
-    for (let i = 0; i < h.length; i++) {
-      if (h[i].issue === registro.issue && h[i].cuando === registro.cuando) { h[i] = registro; break; }
+  // ---------------------------------------------------------------- copiar
+  async function copiar(texto, mensaje) {
+    try { await navigator.clipboard.writeText(texto); avisar(mensaje); }
+    catch (e) {
+      const t = document.createElement("textarea");
+      t.value = texto; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); avisar(mensaje); }
+      catch (err) { avisar("El navegador no deja copiar; selecciona el texto a mano.", true); }
+      t.remove();
     }
-    almacen.set("catalogar_historial", h); pintarHistorial();
   }
-  function pintarHistorial() {
-    const h = almacen.get("catalogar_historial", []);
-    const ul = $("historial"); ul.innerHTML = "";
-    $("historial-vacio").style.display = h.length ? "none" : "";
-    h.forEach(r => {
-      const li = el("li");
-      const nums = r.trabajos.map(t => t.numero).join(", ");
-      const err = r.bloques.some(b => b.esError);
-      li.appendChild(el("span", "", (err ? "⚠ " : "") + ((r.aprobadas || []).length ? "✓ " : "") + nums));
-      li.appendChild(el("span", "", new Date(r.cuando).toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })));
-      li.title = "Volver a mostrar";
-      li.addEventListener("click", () => { mostrar("fichas"); pintarResultado(r, true); window.scrollTo({ top: 0 }); });
-      ul.appendChild(li);
-    });
-  }
-  pintarHistorial();
 
-  let temporizadorToast = null;
-  function avisar(msg, esError) {
-    const t = $("toast"); t.textContent = msg; t.classList.toggle("error", !!esError); t.classList.add("visible");
-    clearTimeout(temporizadorToast); temporizadorToast = setTimeout(() => t.classList.remove("visible"), esError ? 6000 : 3000);
-  }
+  // ---------------------------------------------------------------- arranque
+  fetch("/api/estado").then(r => { if (r.ok) empezar(); else pedirClave(); }).catch(pedirClave);
 })();
 </script>
 </body>
