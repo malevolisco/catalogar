@@ -167,6 +167,14 @@
   .visor-origen { font-size:13px; color:var(--gris); }
   .visor-origen b { color:var(--tinta); font-weight:600; }
 
+  /* ---------- direccion de fuera (Tailscale) ---------- */
+  .direccion-fuera { display:inline-flex; align-items:center; gap:7px; margin-left:auto; }
+  .direccion-fuera code, .acceso code { font-family:var(--mono); font-size:13px; color:var(--tinta); background:var(--papel);
+                                         border:1px solid var(--linea); border-radius:var(--radio); padding:2px 7px; user-select:all; }
+  .acceso .fila-acceso { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+  .acceso .fila-acceso .et { width:150px; color:var(--gris); font-size:13.5px; }
+  .acceso code.grande { font-size:15px; padding:6px 10px; }
+
   /* ---------- sub-pestañas (Reglas y Admin) ---------- */
   .subnav { display:flex; gap:4px; margin:0 0 18px; border-bottom:1px solid var(--linea); flex-wrap:wrap; }
   .subnav button { background:none; border:0; padding:8px 12px; cursor:pointer; color:var(--gris); border-bottom:2px solid transparent; margin-bottom:-1px; }
@@ -316,6 +324,10 @@
     <span class="dato" id="pulso-sesion"></span>
     <span class="sep"></span>
     <span class="dato" id="pulso-criterio"></span>
+    <span class="direccion-fuera oculto" id="dir-chip" title="La dirección para entrar desde fuera de este PC">
+      <span class="sep"></span><span>Desde fuera:</span> <code id="dir-url"></code>
+      <button class="b mini" id="dir-copiar">Copiar</button>
+    </span>
   </div>
 </header>
 
@@ -435,6 +447,10 @@
     </div>
 
     <div id="admin-estado">
+      <div class="caja acceso" id="caja-acceso">
+        <h2>Entrar desde fuera de este PC</h2>
+        <div id="acceso-cuerpo"><p class="pista">Preguntando a Tailscale…</p></div>
+      </div>
       <div class="tiles" id="tiles-estado"></div>
       <div class="caja">
         <h2>Acciones</h2>
@@ -725,7 +741,8 @@
     $("puerta").classList.add("oculto");
     $("app").classList.remove("oculto");
     ultima = "";
-    refrescar(); pedirReglas(); pedirAprobadas(); pedirAgenda();
+    refrescar(); pedirReglas(); pedirAprobadas(); pedirAgenda(); pedirDireccion();
+    if (!relojDireccion) relojDireccion = setInterval(pedirDireccion, 120000);
     if (!reloj) reloj = setInterval(refrescar, 5000);
   }
 
@@ -1378,6 +1395,32 @@
     try { await api("POST", "/api/navegador/login/terminar"); avisar("Sesión guardada."); refrescar(); } catch (e) { avisar(e.message, true); }
   });
 
+  // ---------------------------------------------------------------- direccion de fuera (Tailscale)
+  let direccion = null, relojDireccion = null;
+  async function pedirDireccion() {
+    try { direccion = await api("GET", "/api/admin/direccion"); } catch (e) { return; }
+    $("dir-chip").classList.toggle("oculto", !direccion.url);
+    $("dir-url").textContent = direccion.url || "";
+    const c = $("acceso-cuerpo");
+    if (!direccion.url) { c.innerHTML = `<p class="pista" style="margin:0">${esc(direccion.motivo)}</p>`; return; }
+    c.innerHTML = `<div class="fila-acceso"><span class="et">Dirección</span><code class="grande">${esc(direccion.url)}</code>
+        <button class="b mini" data-copiar="url">Copiar</button></div>`
+      + (direccion.este_pc && direccion.clave ? `<div class="fila-acceso"><span class="et">Clave de la página</span><code class="grande" id="acceso-clave">••••••••••••</code>
+        <button class="b mini" id="acceso-ver">Ver</button><button class="b mini" data-copiar="clave">Copiar</button></div>
+        <div class="fila-acceso"><span class="et"></span><button class="b mini principal" data-copiar="las-dos">Copiar dirección y clave juntas</button></div>` : "")
+      + `<p class="pista" style="margin:4px 0 0">Ábrela en cualquier navegador (el móvil, el ordenador del trabajo) y entra con la clave. Funciona mientras Catalogator esté abierto en este PC.</p>`;
+    c.querySelectorAll("[data-copiar]").forEach(b => b.addEventListener("click", () => {
+      const q = b.dataset.copiar;
+      copiar(q === "url" ? direccion.url : q === "clave" ? direccion.clave : `Catalogator: ${direccion.url}\nClave: ${direccion.clave}`,
+             q === "url" ? "Dirección copiada." : q === "clave" ? "Clave copiada." : "Dirección y clave copiadas.");
+    }));
+    $("acceso-ver")?.addEventListener("click", e => {
+      const k = $("acceso-clave"), ver = k.textContent.startsWith("•");
+      k.textContent = ver ? direccion.clave : "••••••••••••"; e.target.textContent = ver ? "Ocultar" : "Ver";
+    });
+  }
+  $("dir-copiar").addEventListener("click", () => direccion?.url && copiar(direccion.url, "Dirección copiada: " + direccion.url));
+
   // ---------------------------------------------------------------- admin
   let relojAdmin = null, ultimoRegistro = 0, lineasRegistro = [], ajustesDatos = null;
   const tile = (et, va, clase) => `<div class="tile"><div class="et">${esc(et)}</div><div class="va ${clase || ""}">${esc(va)}</div></div>`;
@@ -1386,7 +1429,7 @@
   function abrirAdmin() {
     clearInterval(relojAdmin); relojAdmin = null;
     if (vistaActual !== "admin") return;
-    if (subAdmin === "estado") { pedirResumen(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "estado" ? pedirResumen() : abrirAdmin(), 5000); }
+    if (subAdmin === "estado") { pedirResumen(); pedirDireccion(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "estado" ? pedirResumen() : abrirAdmin(), 5000); }
     if (subAdmin === "registro") { pedirRegistro(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "registro" ? pedirRegistro() : abrirAdmin(), 2000); }
     if (subAdmin === "ajustes") pedirAjustes();
     if (subAdmin === "correos") pedirCorreos();
