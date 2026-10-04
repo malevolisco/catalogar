@@ -26,6 +26,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
+  La direccion de fuera (`tailscale funnel status --json`) sale arriba con boton Copiar y en Admin → Estado con la
+  clave, que solo se entrega a peticiones de este PC (sin X-Forwarded-For).
 
 ## El exe (lo nuevo)
 - `catalogator.py`: lanzador. Abre una ventana de escritorio propia (pywebview + WebView2) con el panel, sin navegador;

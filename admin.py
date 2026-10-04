@@ -124,6 +124,63 @@ def entrada_local(t: str = ""):
     return resp
 
 
+# ====================================================================== direccion de fuera (Tailscale Funnel)
+_DIRECCION = {"url": "", "hasta": 0.0, "motivo": ""}
+
+
+def _tailscale():
+    import shutil
+    ts = shutil.which("tailscale")
+    if not ts and sys.platform == "win32":
+        for r in (r"C:\Program Files\Tailscale\tailscale.exe", r"C:\Program Files (x86)\Tailscale\tailscale.exe"):
+            if Path(r).exists():
+                return r
+    return ts
+
+
+def direccion_fuera():
+    """La direccion publica con la que se entra desde fuera (https://equipo.red.ts.net), o "" y el motivo.
+    Se pregunta a Tailscale y se guarda un minuto."""
+    if time.time() < _DIRECCION["hasta"]:
+        return _DIRECCION["url"], _DIRECCION["motivo"]
+    import subprocess
+    url, motivo = "", ""
+    ts = _tailscale()
+    if not ts:
+        motivo = "Tailscale no está instalado en este PC: la página solo se ve aquí."
+    else:
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+        try:
+            r = subprocess.run([ts, "funnel", "status", "--json"], capture_output=True, text=True, timeout=15, creationflags=flags)
+            datos = json.loads(r.stdout or "{}")
+            # {"AllowFunnel": {"equipo.red.ts.net:443": true}, "Web": {"equipo.red.ts.net:443": {...}}}
+            for clave, si in (datos.get("AllowFunnel") or {}).items():
+                if si:
+                    host, _, puerto = clave.rpartition(":")
+                    url = f"https://{host}" + ("" if puerto in ("443", "") else f":{puerto}")
+                    break
+            if not url:
+                motivo = "Tailscale está instalado pero la página no está publicada (Funnel apagado)."
+        except Exception as e:
+            motivo = f"No he podido preguntar a Tailscale ({type(e).__name__})."
+    _DIRECCION.update(url=url, motivo=motivo, hasta=time.time() + 60)
+    return url, motivo
+
+
+def _es_este_pc(request):
+    """La peticion viene de este mismo PC (ventana de escritorio o navegador local), no de fuera por Funnel."""
+    return not request.headers.get("x-forwarded-for") and (request.client.host if request.client else "") in ("127.0.0.1", "::1")
+
+
+@router.get("/api/admin/direccion")
+def direccion(request: Request):
+    url, motivo = direccion_fuera()
+    datos = {"url": url, "motivo": motivo, "este_pc": _es_este_pc(request)}
+    if datos["este_pc"]:
+        datos["clave"] = g("CFG").get("servidor_clave", "")     # solo a quien esta delante del PC
+    return datos
+
+
 # ====================================================================== resumen y acciones
 def _version():
     try:

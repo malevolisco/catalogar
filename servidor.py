@@ -1436,6 +1436,12 @@ def main():
         ESTADO.sesion_agencia = "comprobando"
         WORKER.encargar("comprobar_arranque")
     log(f"Servidor en http://127.0.0.1:{puerto}  (Ctrl+C para parar)")
+
+    def _anunciar_direccion():
+        time.sleep(3)                          # el lanzador publica con Tailscale justo antes de arrancar
+        url, motivo = admin.direccion_fuera()
+        log(f"Direccion para entrar desde fuera: {url}" if url else f"Sin direccion de fuera: {motivo}")
+    threading.Thread(target=_anunciar_direccion, daemon=True).start()
     try:
         uvicorn.run(app, host="127.0.0.1", port=puerto, log_level="warning")
     finally:
