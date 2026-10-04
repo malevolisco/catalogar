@@ -542,20 +542,29 @@ class Ventana:
 
 HTML_ARRANQUE = """<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Catalogator</title>
 <style>
-  body { margin:0; background:#f6f7f9; color:#1b1e24; font:15px/1.5 system-ui, "Segoe UI", Arial, sans-serif; }
-  main { max-width:760px; margin:12vh auto 0; padding:0 24px; }
-  h1 { font-size:22px; margin:0 0 4px; font-weight:600; }
-  #estado { color:#6a7280; margin:0 0 18px; display:flex; align-items:center; gap:10px; }
-  .piloto { width:9px; height:9px; border-radius:50%; background:#c8392b; animation:latir 1.6s ease-in-out infinite; }
-  @keyframes latir { 0%,100% { opacity:1 } 50% { opacity:.25 } }
-  #lineas { background:#fff; border:1px solid #e2e5ea; border-radius:3px; padding:12px 14px; height:46vh; overflow:auto;
-            font:12.5px/1.6 Consolas, "Cascadia Mono", monospace; white-space:pre-wrap; color:#3b414b; }
+  html, body { margin:0; height:100%; }
+  body { background:#0f141c; color:#aeb7c5; font:14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, Arial, sans-serif;
+         display:flex; align-items:center; justify-content:center; }
+  main { width:min(640px, 90vw); }
+  .marca { display:flex; align-items:center; gap:14px; margin-bottom:26px; }
+  .marca svg { width:48px; height:48px; border-radius:12px; box-shadow:0 6px 18px rgba(47,91,211,.45); }
+  h1 { color:#fff; font-size:24px; font-weight:600; margin:0; letter-spacing:-.01em; }
+  .sub { color:#7d8797; font-size:13px; }
+  #estado { color:#e6eaf0; margin:0 0 12px; display:flex; align-items:center; gap:10px; font-weight:500; }
+  .barra { height:3px; border-radius:3px; background:#1c2533; overflow:hidden; margin-bottom:16px; }
+  .barra::after { content:""; display:block; height:100%; width:35%; border-radius:3px; background:linear-gradient(90deg,#4f7cff,#8fb0ff);
+                  animation:ir 1.4s ease-in-out infinite; }
+  @keyframes ir { 0% { transform:translateX(-100%) } 100% { transform:translateX(290%) } }
+  #lineas { background:#0b1017; border:1px solid #1d2532; border-radius:10px; padding:12px 14px; height:min(40vh, 300px); overflow:auto;
+            font:12px/1.65 "Cascadia Mono", Consolas, monospace; white-space:pre-wrap; color:#8892a3; }
 </style></head><body><main>
-<h1>Catalogator</h1>
-<p id="estado"><span class="piloto"></span><span id="estado-texto">Arrancando...</span></p>
+<div class="marca"><svg viewBox="0 0 32 32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#2346b0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lg)"/><path d="M21.5 10.2A8 8 0 1 0 21.5 21.8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><rect x="20.6" y="14.4" width="3.2" height="3.2" rx="1" fill="#fff"/></svg>
+<div><h1>Catalogator</h1><div class="sub">Archivo · fichas de agencia</div></div></div>
+<p id="estado"><span id="estado-texto">Arrancando...</span></p>
+<div class="barra"></div>
 <div id="lineas"></div>
 </main><script>
-  function anadir(t) { const d = document.getElementById("lineas"); d.textContent += t + "\n"; d.scrollTop = d.scrollHeight; }
+  function anadir(t) { const d = document.getElementById("lineas"); d.textContent += t + "\\n"; d.scrollTop = d.scrollHeight; }
   function estado(t) { document.getElementById("estado-texto").textContent = t; }
 </script></body></html>"""
 
@@ -609,7 +618,7 @@ class VentanaWeb:
         self.en_panel = False
         self.cargada = threading.Event()
         self.win = webview.create_window(NOMBRE, html=HTML_ARRANQUE, js_api=ApiLanzador(self), width=1320, height=900,
-                                         min_size=(900, 600), text_select=True, background_color="#f6f7f9")
+                                         min_size=(960, 640), text_select=True, background_color="#0f141c")
         self.win.events.loaded += lambda *a: self.cargada.set()
 
     def _js(self, codigo):

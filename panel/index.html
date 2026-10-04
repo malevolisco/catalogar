@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>catalogar</title>
+<title>Catalogator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%234f7cff%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%232346b0%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22url%28%23g%29%22/%3E%3Cpath%20d%3D%22M21.5%2010.2A8%208%200%201%200%2021.5%2021.8%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223.2%22%20stroke-linecap%3D%22round%22/%3E%3Crect%20x%3D%2220.6%22%20y%3D%2214.4%22%20width%3D%223.2%22%20height%3D%223.2%22%20rx%3D%221%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E">
 <style>
   :root {
     --papel:#f6f7f9; --hoja:#ffffff; --tinta:#1b1e24; --gris:#6a7280; --linea:#e2e5ea;
@@ -271,14 +272,130 @@
     .barra { gap:10px; flex-wrap:wrap; }
     nav { order:3; width:100%; margin-right:0; }
   }
+
+  /* ====================================================================== aspecto de aplicacion
+     (va al final: manda sobre lo de arriba) */
+  :root {
+    --papel:#f3f4f7; --hoja:#ffffff; --tinta:#151a22; --gris:#626b7a; --linea:#e3e6ec;
+    --tally:#d0352a; --hecho:#1f7a52; --espera:#9a6b0e; --azul:#2f5bd3;
+    --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --radio:8px; --sombra:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.04);
+    --lateral:236px; --lateral-fondo:#0f141c; --lateral-tinta:#aeb7c5;
+  }
+  body { font-size:14.5px; }
+  ::selection { background:#cfdcff; }
+  #app { min-height:100vh; }
+
+  /* barra lateral */
+  .lateral { position:fixed; inset:0 auto 0 0; width:var(--lateral); background:var(--lateral-fondo); color:var(--lateral-tinta);
+             display:flex; flex-direction:column; padding:18px 12px 14px; z-index:6; border-right:1px solid #0b0f15; }
+  .lateral .marca { display:flex; align-items:center; gap:11px; padding:4px 8px 22px; }
+  .logo { width:32px; height:32px; flex:none; border-radius:8px; box-shadow:0 2px 6px rgba(47,91,211,.35); }
+  .marca-nombre { color:#fff; font-weight:600; font-size:16px; letter-spacing:-.01em; line-height:1.2; }
+  .marca-sub { font-size:11.5px; color:#7d8797; line-height:1.3; font-weight:400; }
+  .lateral nav { display:flex; flex-direction:column; gap:2px; margin:0; }
+  .lateral nav button { display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:none; border:0;
+                        border-radius:7px; padding:9px 11px; color:var(--lateral-tinta); font-size:14px; cursor:pointer; position:relative; }
+  .lateral nav button:hover { background:#18202b; color:#e6eaf0; }
+  .lateral nav button.activa { background:#1c2738; color:#fff; }
+  .lateral nav button.activa::before { content:""; position:absolute; left:-12px; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background:#5b8cff; }
+  .ico { width:18px; height:18px; flex:none; opacity:.9; }
+  .lateral nav button.activa .ico { opacity:1; color:#8fb0ff; }
+
+  /* estado, abajo en la barra lateral */
+  .lateral .pulso { margin-top:auto; display:flex; flex-direction:column; align-items:stretch; gap:6px; max-width:none; padding:12px;
+                    border:1px solid #1d2532; border-radius:9px; background:#131a24; font-size:12.5px; color:var(--lateral-tinta); }
+  .pulso-cab { display:flex; align-items:center; gap:8px; color:#e6eaf0; font-weight:600; font-size:13px; }
+  .lateral .pulso .dato { color:#8892a3; line-height:1.4; word-break:break-word; }
+  .lateral .pulso.activa { color:var(--lateral-tinta); }
+  .lateral .piloto { width:8px; height:8px; background:#3b4556; }
+  .lateral .pulso:not(.activa) .piloto { background:#2fbf71; box-shadow:0 0 0 3px rgba(47,191,113,.15); }
+  .lateral .pulso.activa .piloto { background:#ff5b4d; box-shadow:0 0 0 3px rgba(255,91,77,.18); }
+  .lateral .direccion-fuera { display:flex; flex-direction:column; align-items:stretch; gap:5px; margin:6px 0 0; padding-top:8px; border-top:1px solid #1d2532; }
+  .lateral .direccion-fuera.oculto { display:none !important; }
+  .lateral .direccion-fuera code { background:#0c1118; color:#dfe6f2; border-color:#232c3a; font-size:11.5px; word-break:break-all; user-select:all; padding:5px 7px; }
+  .lateral .direccion-fuera .b { background:#1c2738; border-color:#2a3648; color:#e6eaf0; justify-content:center; }
+  .lateral .direccion-fuera .b:hover { background:#24324a; }
+
+  /* zona de trabajo */
+  .zona { margin-left:var(--lateral); min-height:100vh; }
+  .cabecera { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:16px; padding:0 32px; height:62px;
+              background:rgba(255,255,255,.86); backdrop-filter:saturate(1.4) blur(10px); border-bottom:1px solid var(--linea); }
+  .cabecera h1 { font-size:18px; font-weight:600; margin:0; letter-spacing:-.01em; margin-right:auto; }
+  .herramientas { gap:8px; }
+  .herramientas select { width:auto; height:32px; padding:4px 8px; font-size:13.5px; }
+  main { max-width:1240px; margin:0; padding:26px 32px 70px; }
+
+  /* tarjetas */
+  .entrada, .lote, .caja, .lista, .tile, .criterio, .sueltos, .grafico-wrap { border-radius:10px; box-shadow:var(--sombra); }
+  .entrada { padding:20px 22px; }
+  .entrada h2, .caja h2 { font-size:15.5px; letter-spacing:-.005em; }
+  .lote > summary { padding:14px 20px; }
+  .lote > summary::before { content:""; width:7px; height:7px; border-right:1.6px solid var(--gris); border-bottom:1.6px solid var(--gris);
+                            transform:rotate(-45deg); margin-right:2px; transition:transform .12s; }
+  .lote[open] > summary::before { content:""; transform:rotate(45deg); }
+  .ficha { padding:16px 20px 18px 17px; }
+  .tile { padding:14px 16px; }
+  .tile .et { font-size:12px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; color:#7a8393; }
+  .tile .va { font-size:22px; margin-top:4px; }
+  .tile .va.peq { font-size:15px; }
+
+  /* controles */
+  .b { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:7px; font-size:14px; font-weight:500;
+       border-color:#d6dae2; box-shadow:0 1px 1px rgba(16,24,40,.04); transition:background .1s, border-color .1s; }
+  .b:hover:not(:disabled) { background:#f7f8fa; border-color:#c4cad5; }
+  .b.mini { height:30px; padding:0 11px; font-size:13px; }
+  .b.principal { background:var(--azul); border-color:var(--azul); color:#fff; box-shadow:0 1px 2px rgba(47,91,211,.3); }
+  .b.principal:hover:not(:disabled) { background:#2549b4; border-color:#2549b4; }
+  .b.riesgo:hover:not(:disabled) { background:#fdf4f3; }
+  input[type=text], input[type=password], textarea, select { border-radius:7px; padding:8px 11px; border-color:#d6dae2;
+       transition:border-color .1s, box-shadow .1s; }
+  input[type=text]:focus, input[type=password]:focus, textarea:focus, select:focus { outline:none; border-color:var(--azul); box-shadow:0 0 0 3px rgba(47,91,211,.15); }
+  :focus-visible { outline-color:var(--azul); }
+  label { font-weight:500; color:#4b5361; }
+
+  /* sub-pestañas como control segmentado */
+  .subnav { display:inline-flex; gap:2px; padding:3px; background:#e8eaef; border-radius:9px; border:0; margin-bottom:20px; }
+  .subnav button { border:0; margin:0; padding:6px 14px; border-radius:7px; color:#4b5361; font-weight:500; font-size:13.5px; }
+  .subnav button:hover { color:var(--tinta); }
+  .subnav button.activa { background:var(--hoja); color:var(--tinta); box-shadow:0 1px 2px rgba(16,24,40,.12); border:0; }
+
+  /* navegador de agencias */
+  #visor-marco { border-radius:10px; box-shadow:var(--sombra); overflow:hidden; background:#fff; }
+  #visor-img { border-radius:0; }
+  .visor-pestanas button.activa { background:var(--azul); border-color:var(--azul); }
+
+  /* registro */
+  #registro { border-radius:10px; background:#0f141c; }
+
+  /* puerta */
+  .puerta { max-width:380px; margin:14vh auto 0; background:var(--hoja); border:1px solid var(--linea); border-radius:14px; padding:30px 30px 26px; box-shadow:0 10px 30px rgba(16,24,40,.08); }
+  .puerta-marca { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .puerta-marca h1 { margin:0; font-size:21px; }
+  #puerta .b.principal { height:40px; justify-content:center; margin-top:4px; }
+
+  /* avisos flotantes */
+  #aviso { left:calc(50% + var(--lateral) / 2); border-radius:9px; box-shadow:0 8px 24px rgba(16,24,40,.2); }
+  #barra-sel { left:calc(50% + var(--lateral) / 2); border-radius:11px; }
+
+  @media (max-width:900px) {
+    :root { --lateral:0px; }
+    .lateral { position:sticky; top:0; width:auto; height:auto; flex-direction:row; align-items:center; padding:8px 10px; gap:8px; overflow-x:auto; }
+    .lateral .marca { padding:0 6px 0 0; }
+    .marca-sub, .lateral .pulso, .lateral nav button span { display:none; }
+    .lateral nav { flex-direction:row; }
+    .lateral nav button.activa::before { display:none; }
+    .cabecera { padding:0 16px; height:auto; min-height:56px; flex-wrap:wrap; padding-top:8px; padding-bottom:8px; }
+    main { padding:18px 16px 60px; }
+  }
 </style>
 </head>
 <body>
 
 <!-- ============ clave ============ -->
 <section id="puerta" class="puerta oculto">
-  <h1>catalogar</h1>
-  <p>Fichas de archivo a partir del número de envío.</p>
+  <div class="puerta-marca"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg-puerta" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#2346b0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lg-puerta)"/><path d="M21.5 10.2A8 8 0 1 0 21.5 21.8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><rect x="20.6" y="14.4" width="3.2" height="3.2" rx="1" fill="#fff"/></svg><h1>Catalogator</h1></div>
+  <p>Fichas de archivo a partir del número de envío. Escribe la clave para entrar.</p>
   <label for="clave">Clave</label>
   <div class="clave">
     <input id="clave" type="password" autocomplete="current-password">
@@ -296,38 +413,38 @@
 
 <!-- ============ aplicación ============ -->
 <div id="app" class="oculto">
-<header>
-  <div class="barra">
-    <span class="marca">catalogar</span>
-    <nav>
-      <button data-vista="fichas" class="activa">Fichas</button>
-      <button data-vista="reglas">Reglas</button>
-      <button data-vista="aprobadas">Fichas aprobadas</button>
-      <button data-vista="navegador">Navegador</button>
-      <button data-vista="admin">Admin</button>
-    </nav>
-    <div class="herramientas">
-      <select id="modo" aria-label="Cómo se muestran y se copian las fichas">
-        <option value="mayusculas">MAYÚSCULAS</option>
-        <option value="normalizado">Texto normal</option>
-      </select>
-      <button class="b mini" id="comprobar-sesion">Comprobar sesión</button>
-      <button class="b mini" id="abrir-sesion">Iniciar sesión agencias</button>
-      <button class="b mini principal oculto" id="sesion-lista">Ya he iniciado sesión</button>
-      <button class="b mini" id="salir">Salir</button>
+<aside class="lateral">
+  <div class="marca"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#2346b0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lg)"/><path d="M21.5 10.2A8 8 0 1 0 21.5 21.8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><rect x="20.6" y="14.4" width="3.2" height="3.2" rx="1" fill="#fff"/></svg><div><div class="marca-nombre">Catalogator</div><div class="marca-sub">Archivo · fichas de agencia</div></div></div>
+  <nav aria-label="Secciones">
+    <button data-vista="fichas" data-titulo="Fichas" class="activa"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4M9.5 12h6M9.5 15.5h6M9.5 9h2.5"/></svg><span>Fichas</span></button>
+    <button data-vista="reglas" data-titulo="Reglas y criterio"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Reglas</span></button>
+    <button data-vista="aprobadas" data-titulo="Fichas aprobadas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.3 1.6 2.8-.2.9 2.6 2.3 1.7-.9 2.7.9 2.7-2.3 1.7-.9 2.6-2.8-.2L12 20.8l-2.3-1.6-2.8.2-.9-2.6-2.3-1.7.9-2.7-.9-2.7 2.3-1.7.9-2.6 2.8.2z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.4"/></svg><span>Fichas aprobadas</span></button>
+    <button data-vista="navegador" data-titulo="Navegador de agencias"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 8.5h17M6.5 6.5h.01M9 6.5h.01"/></svg><span>Navegador</span></button>
+    <button data-vista="admin" data-titulo="Administración"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14.2 2.6h-4l-.3 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.3 2.5h4l.3-2.5a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></svg><span>Admin</span></button>
+  </nav>
+  <div class="pulso" id="pulso">
+    <div class="pulso-cab"><span class="piloto"></span><span id="pulso-texto">Conectando</span></div>
+    <span class="dato" id="pulso-sesion"></span>
+    <span class="dato" id="pulso-criterio"></span>
+    <div class="direccion-fuera oculto" id="dir-chip" title="La dirección para entrar desde fuera de este PC">
+      <span class="dato">Desde fuera</span>
+      <code id="dir-url"></code>
+      <button class="b mini" id="dir-copiar">Copiar dirección</button>
     </div>
   </div>
-  <div class="pulso" id="pulso">
-    <span class="piloto"></span>
-    <span id="pulso-texto">Conectando</span>
-    <span class="sep"></span>
-    <span class="dato" id="pulso-sesion"></span>
-    <span class="sep"></span>
-    <span class="dato" id="pulso-criterio"></span>
-    <span class="direccion-fuera oculto" id="dir-chip" title="La dirección para entrar desde fuera de este PC">
-      <span class="sep"></span><span>Desde fuera:</span> <code id="dir-url"></code>
-      <button class="b mini" id="dir-copiar">Copiar</button>
-    </span>
+</aside>
+<div class="zona">
+<header class="cabecera">
+  <h1 id="titulo-vista">Fichas</h1>
+  <div class="herramientas">
+    <select id="modo" aria-label="Cómo se muestran y se copian las fichas">
+      <option value="mayusculas">MAYÚSCULAS</option>
+      <option value="normalizado">Texto normal</option>
+    </select>
+    <button class="b mini" id="comprobar-sesion">Comprobar sesión</button>
+    <button class="b mini" id="abrir-sesion">Iniciar sesión agencias</button>
+    <button class="b mini principal oculto" id="sesion-lista">Ya he iniciado sesión</button>
+    <button class="b mini" id="salir">Salir</button>
   </div>
 </header>
 
@@ -540,6 +657,7 @@
   </section>
 </main>
 </div>
+</div>
 
 <div id="barra-sel" class="oculto">
   <span id="sel-cuenta"></span>
@@ -751,6 +869,7 @@
   document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
     document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
     vistaActual = b.dataset.vista;
+    $("titulo-vista").textContent = b.dataset.titulo || b.textContent.trim();
     ["fichas", "reglas", "aprobadas", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
     if (b.dataset.vista === "navegador") arrancarVisor();
     if (b.dataset.vista === "reglas") { pedirReglas(); if (subReglas === "base") pedirCriterio(); }
@@ -1292,13 +1411,16 @@
 
   // ---------------------------------------------------------------- pestaña Navegador
   let visorSeq = -1, visorPidiendo = false, visorEstado = null, visorReloj = null, visorTexto = "", visorTextoT = null;
+  // la imagen llega como video (MJPEG) por una sola conexion; si falla, se pide imagen a imagen
+  let visorDirecto = false, visorDirectoT = 0, visorSondeo = false;
+  function cortarDirecto() { if (visorDirecto) { $("visor-img").removeAttribute("src"); visorDirecto = false; } }
   function irA(vista) { document.querySelector(`nav button[data-vista="${vista}"]`)?.click(); }
   function arrancarVisor() {
     if (visorReloj) return;
     const vuelta = async () => {
-      if (vistaActual !== "navegador") { clearTimeout(visorReloj); visorReloj = null; return; }
+      if (vistaActual !== "navegador") { clearTimeout(visorReloj); visorReloj = null; cortarDirecto(); return; }
       await pedirVisor();
-      visorReloj = setTimeout(vuelta, 250);
+      visorReloj = setTimeout(vuelta, visorSondeo ? 250 : 700);
     };
     vuelta();
   }
@@ -1317,9 +1439,17 @@
     $("visor-pestanas").innerHTML = e.activo && e.paginas.length > 1 ? e.paginas.map(p =>
       `<button class="b mini ${p.i === e.activa ? "activa" : ""}" data-i="${p.i}" title="${esc(p.url)}">${esc(p.titulo || p.url)}</button>`).join("") : "";
     $("visor-pestanas").querySelectorAll("button").forEach(b => b.addEventListener("click", () => ordenVisor({ t: "pestana", i: +b.dataset.i })));
-    if (e.activo && e.seq !== visorSeq && !visorPidiendo) {
+    const img = $("visor-img");
+    if (!e.activo) cortarDirecto();
+    else if (!visorSondeo && (!visorDirecto || Date.now() - visorDirectoT > 9 * 60000)) {
+      img.onerror = () => { visorSondeo = true; visorDirecto = false; };
+      img.onload = null;
+      img.src = "/api/visor/directo?n=" + Date.now();
+      visorDirecto = true; visorDirectoT = Date.now();
+    }
+    if (e.activo && visorSondeo && e.seq !== visorSeq && !visorPidiendo) {
       visorPidiendo = true;
-      const img = $("visor-img"), seq = e.seq;
+      const seq = e.seq;
       img.onload = img.onerror = () => { visorPidiendo = false; visorSeq = seq; };
       img.src = "/api/visor/imagen?s=" + seq;
     }
