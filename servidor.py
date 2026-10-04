@@ -52,6 +52,7 @@ import listas
 from actos import huella_fotogramas, guardar_para_entrenar
 from catalogar import guardar_csv, FECHA_RE
 import admin
+from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
 COLA_DIR = BASE_DIR / "cola"
@@ -252,6 +253,7 @@ def comprobar_sesion():
                    miniaturas=0, espera_login=0)
     try:
         ex.open()
+        VISOR.conectar(ex._ctx, "comprobando la sesión")
         agencias = [("Reuters", BASE), ("AP", AP_BASE)]
         if CFG.get("ebu", True):
             agencias.append(("EBU", EBU_BASE))
@@ -265,6 +267,7 @@ def comprobar_sesion():
     except Exception as e:
         return f"No se pudo comprobar ({type(e).__name__}: {str(e).splitlines()[0][:120]})"
     finally:
+        VISOR.desconectar()
         try:
             ex.close()
         except Exception:
@@ -277,22 +280,34 @@ def ventana_login(terminar, limite_minutos=10):
 
     IMPORTANTE: mientras esta ventana este abierta, el Worker esta parado aqui y la cola NO avanza. Por eso
     hay un tope: si nadie la cierra (o si el navegador se mata desde fuera y no nos enteramos), se sale sola."""
-    log("Login de agencias: abriendo Chrome con Reuters, AP y EBU. Inicia sesion en las pestañas y cierra la ventana (o pulsa el boton del panel).")
+    oculto = bool(CFG.get("navegador_oculto", True)) and not CFG.get("headless")
+    log("Login de agencias: abriendo Reuters, AP y EBU. " + ("Inicia sesion en la pestaña Navegador de la pagina y pulsa Ya he iniciado sesion."
+        if oculto else "Inicia sesion en las pestañas y cierra la ventana (o pulsa el boton del panel)."))
     pendientes = ESTADO.resumen().get("pendientes", 0)
     if pendientes:
         log(f"Login de agencias: OJO, hay {pendientes} envio(s) en cola parados hasta que termine el login.")
     pw = ctx = None
     try:
         pw = sync_playwright().start()
-        ctx, _ = abrir_contexto(pw, headless=False, canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"))
+        ctx, _ = abrir_contexto(pw, headless=False, canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
+                                oculto=oculto)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        page.goto(BASE)
-        ctx.new_page().goto(AP_BASE)
-        if CFG.get("ebu", True):
-            ctx.new_page().goto(EBU_BASE)
+        VISOR.conectar(ctx, "inicio de sesión")
+        # una agencia que no carga (caida, red lenta) no tumba el login de las demas: su pestaña se queda
+        # abierta con el error y se puede recargar a mano
+        for i, url in enumerate([BASE, AP_BASE] + ([EBU_BASE] if CFG.get("ebu", True) else [])):
+            try:
+                (page if i == 0 else ctx.new_page()).goto(url, timeout=45000)
+            except Exception as e:
+                log(f"Login de agencias: {url} no ha cargado ({str(e).splitlines()[0][:120]}); recargala en su pestaña")
+        VISOR.conectar(ctx, "inicio de sesión")       # con las tres pestañas ya abiertas, se enseña la primera
         t0 = time.time()
         while not terminar():
-            time.sleep(1)
+            fin = time.time() + 1
+            while time.time() < fin and not terminar():
+                VISOR.bombear(100)                    # clics y teclas de la pestaña Navegador, e imagenes
+            if not VISOR.activo:
+                time.sleep(1)
             if limite_minutos and (time.time() - t0) > limite_minutos * 60:
                 log(f"Login de agencias: {limite_minutos:g} minuto(s) sin terminar; cierro la ventana y sigo con la cola.")
                 break
@@ -305,6 +320,7 @@ def ventana_login(terminar, limite_minutos=10):
     except Exception as e:
         log(f"Login de agencias: fallo al abrir el navegador ({type(e).__name__}: {str(e).splitlines()[0][:160]})")
     finally:
+        VISOR.desconectar()
         for cerrar in ((ctx.close if ctx else None), (pw.stop if pw else None)):
             try:
                 if cerrar:
@@ -393,11 +409,13 @@ class Worker(threading.Thread):
         self.ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"),
                             ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0)
         self.ex.open()
+        VISOR.conectar(self.ex._ctx, "trabajo")
         ESTADO.sesion_agencia = "abierta"
         return self.ex
 
     def cerrar_navegador(self):
         if self.ex is not None:
+            VISOR.desconectar()
             try:
                 self.ex.close()
             except Exception:
@@ -422,8 +440,11 @@ class Worker(threading.Thread):
                 time.sleep(5)
 
     def _vuelta(self):
+        if VISOR.activo:
+            VISOR.bombear()                          # el navegador de trabajo abierto y parado: se puede tocar
         try:
-            encargo = self.encargos.get(timeout=2)   # primero los encargos de navegador
+            # con el navegador a la vista de la pagina se vuelve rapido aqui, para atender sus clics
+            encargo = self.encargos.get(timeout=0.25 if VISOR.activo else 2)   # primero los encargos de navegador
         except queue.Empty:
             encargo = None
         if encargo is not None:
