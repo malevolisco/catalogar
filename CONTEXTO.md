@@ -7,7 +7,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 (Reuters, AP, EBU) en fichas de archivo: ENVIO, NAME, COMMENT, RESTRICCIONES. Se llama **Catalogator**.
 
 ## Como esta montada
-- `servidor.py`: servidor FastAPI + panel web (`panel/index.html`) + un unico hilo de trabajo (cola en `cola/estado.json`).
+- `servidor.py`: servidor FastAPI + panel web (`panel/index.html`, diseño claro con pestañas Fichas / Reglas / Fichas aprobadas;
+  el del repositorio era uno antiguo que hablaba con GitHub y se sustituyo el 4 oct) + un unico hilo de trabajo (cola en `cola/estado.json`).
 - Buzon IMAP/SMTP: recibe peticiones por correo y responde con las fichas (no incluye las de otros catalogadores).
 - `redactor.py`: redacta con `claude -p` (Claude Code) o con API key. Si el modelo no esta disponible
   (limite de uso, 429/529/503, login) pausa la cola en vez de marcar errores en cascada.
