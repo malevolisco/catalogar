@@ -9,3 +9,5 @@ fonttools>=4.40
 numpy>=1.24
 onnxruntime>=1.17
 pillow>=10.0
+# ventana de escritorio del lanzador (Catalogator.exe); sin ella, la pagina se abre en el navegador
+pywebview>=5.0; sys_platform == "win32"

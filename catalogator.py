@@ -8,8 +8,11 @@ Un solo fichero, Catalogator.exe, que lleva dentro Python y todas las librerias.
      agencias) no se toca nunca.
   2. Si es la primera vez, prepara la carpeta de trabajo (y si encuentra una instalacion antigua de
      catalogar, se trae sus datos) y pide lo minimo: la clave de la pagina y como redactar.
-  3. Arranca el servidor, lo publica con Tailscale si esta instalado, y abre la pagina en el navegador.
-Una ventana pequeña dice en que va y tiene cuatro botones: abrir la pagina, la carpeta, el registro y salir.
+  3. Arranca el servidor, lo publica con Tailscale si esta instalado, y abre la pagina en su propia
+     ventana de escritorio (pywebview, con el motor Edge WebView2 de Windows): sin navegador y sin
+     teclear la clave. Desde fuera se sigue entrando por la direccion de Tailscale, con la clave.
+Si la ventana de escritorio no puede abrirse (falta WebView2), queda la ventana pequeña de antes, que
+abre la pagina en el navegador. Cerrar la ventana para el servidor.
 
 Donde vive todo:  %LOCALAPPDATA%\\Catalogator\\app   (Windows)   ~/.local/share/catalogator/app (otros)
 Se puede cambiar con un catalogator.json junto al exe: {"carpeta": "D:\\\\catalogar", "repo": "usuario/catalogar"}
@@ -21,6 +24,7 @@ Modos (para el propio lanzador; el usuario no los necesita):
   Catalogator.exe --servidor      (interno) arranca servidor.py desde la carpeta de la app
   Catalogator.exe --actualizar    solo comprueba e instala actualizaciones, en consola, y sale
   Catalogator.exe --consola       todo en consola, sin ventana (para ver errores de arranque)
+  Catalogator.exe --clasica       la ventana pequeña de antes, con la pagina en el navegador
 Desarrollo: python catalogator.py funciona igual, con el Python instalado.
 """
 import io
@@ -58,7 +62,8 @@ AQUI = EXE.parent
 # lo que es del usuario y nunca se sustituye al actualizar (el zip de la app tampoco lo trae)
 DATOS_USUARIO = ("config.json", "cola", "ejemplos.md", "reglas_extra.md", "fichas.csv", "perfil_chromium",
                  "perfil_mediacentral", "mediacentral.json", "mediacentral_registro.csv", "miniaturas", "escenas",
-                 "escenas_auto", "escenas_modelo.npz", "escenas_cache.npz", "modelos", "debug", "catalogator.log")
+                 "escenas_auto", "escenas_modelo.npz", "escenas_cache.npz", "modelos", "debug", "catalogator.log",
+                 "criterio_cambios.json")
 
 
 # ====================================================================== carpetas y ajustes del lanzador
@@ -523,6 +528,7 @@ class Ventana:
         messagebox.showinfo(titulo, texto, parent=self.raiz)
 
     def salir(self):
+        self.saliendo = True
         if self.proceso is not None and self.proceso.poll() is None:
             registrar("Parando el servidor...", self)
             matar(self.proceso)
@@ -532,6 +538,147 @@ class Ventana:
             pass
         if CAMBIO_EXE_PENDIENTE:
             subprocess.Popen(["cmd", "/c", str(CAMBIO_EXE_PENDIENTE)], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+HTML_ARRANQUE = """<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Catalogator</title>
+<style>
+  body { margin:0; background:#f6f7f9; color:#1b1e24; font:15px/1.5 system-ui, "Segoe UI", Arial, sans-serif; }
+  main { max-width:760px; margin:12vh auto 0; padding:0 24px; }
+  h1 { font-size:22px; margin:0 0 4px; font-weight:600; }
+  #estado { color:#6a7280; margin:0 0 18px; display:flex; align-items:center; gap:10px; }
+  .piloto { width:9px; height:9px; border-radius:50%; background:#c8392b; animation:latir 1.6s ease-in-out infinite; }
+  @keyframes latir { 0%,100% { opacity:1 } 50% { opacity:.25 } }
+  #lineas { background:#fff; border:1px solid #e2e5ea; border-radius:3px; padding:12px 14px; height:46vh; overflow:auto;
+            font:12.5px/1.6 Consolas, "Cascadia Mono", monospace; white-space:pre-wrap; color:#3b414b; }
+</style></head><body><main>
+<h1>Catalogator</h1>
+<p id="estado"><span class="piloto"></span><span id="estado-texto">Arrancando...</span></p>
+<div id="lineas"></div>
+</main><script>
+  function anadir(t) { const d = document.getElementById("lineas"); d.textContent += t + "\n"; d.scrollTop = d.scrollHeight; }
+  function estado(t) { document.getElementById("estado-texto").textContent = t; }
+</script></body></html>"""
+
+
+class ApiLanzador:
+    """Lo que la pagina puede pedirle al lanzador desde la ventana de escritorio (Admin → Aplicacion).
+    pywebview lo publica como window.pywebview.api; lo que empieza por _ no se publica."""
+
+    def __init__(self, ventana):
+        self._v = ventana
+
+    def info(self):
+        return {"lanzador": EXE_VERSION, "app": version_instalada() or "?", "carpeta": str(APP)}
+
+    def abrir_carpeta(self):
+        abrir_carpeta(APP)
+        return ""
+
+    def mediacentral(self):
+        orden = [str(EXE), "--mediacentral"] if CONGELADO else [sys.executable, str(Path(__file__).resolve()), "--mediacentral"]
+        flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0) if sys.platform == "win32" else 0
+        subprocess.Popen(orden, cwd=str(APP), creationflags=flags)
+        return "Se abre el relleno de MediaCentral en otra ventana."
+
+    def buscar_actualizaciones(self):
+        try:
+            tag, cambio = actualizar_app(self._v)
+        except Exception as e:
+            return f"No se ha podido actualizar: {type(e).__name__}: {str(e)[:200]}"
+        if not cambio:
+            return f"Ya tienes la ultima version ({tag or '?'})."
+        if CAMBIO_EXE_PENDIENTE:
+            return f"Version {tag} instalada. Necesita un Catalogator.exe nuevo: cierra la ventana y se abrira solo con el nuevo."
+        # el codigo nuevo lo carga el servidor al arrancar: se reinicia solo
+        self._v.reinicio_pedido = True
+        threading.Timer(1.5, lambda: matar(self._v.proceso)).start()
+        return f"Version {tag} instalada. Reinicio el servidor para usarla (unos segundos)."
+
+
+class VentanaWeb:
+    """La ventana de escritorio: primero una pantalla de arranque con lo que va pasando y, en cuanto el
+    servidor responde, la propia pagina (entrando con un token de un solo uso, sin clave)."""
+
+    def __init__(self, webview):
+        self.webview = webview
+        self.proceso = None
+        self.puerto = 8765
+        self.token = secrets.token_urlsafe(24)
+        self.saliendo = False
+        self.reinicio_pedido = False
+        self.en_panel = False
+        self.cargada = threading.Event()
+        self.win = webview.create_window(NOMBRE, html=HTML_ARRANQUE, js_api=ApiLanzador(self), width=1320, height=900,
+                                         min_size=(900, 600), text_select=True, background_color="#f6f7f9")
+        self.win.events.loaded += lambda *a: self.cargada.set()
+
+    def _js(self, codigo):
+        if self.en_panel or self.saliendo:
+            return
+        if self.cargada.wait(10):
+            try:
+                self.win.evaluate_js(codigo)
+            except Exception:
+                pass
+
+    def escribir(self, linea):
+        self._js(f"anadir({json.dumps(linea)})")
+
+    def poner_estado(self, texto):
+        self._js(f"estado({json.dumps(texto)})")
+
+    def abrir_pagina(self):
+        self.en_panel = True
+        self.win.load_url(f"http://127.0.0.1:{self.puerto}/local?t={self.token}")
+
+    def preguntar_si(self, titulo, texto):
+        self.cargada.wait(10)
+        try:
+            return bool(self.win.create_confirmation_dialog(titulo, texto))
+        except Exception:
+            return False
+
+    def pedir_texto(self, titulo, texto, inicial=""):
+        # no hay cuadro de texto nativo: la clave de la API se pone en Admin → Ajustes
+        registrar("Sin Claude Code: pon la clave de la API en la pagina, Admin → Ajustes → Redaccion", self)
+        return ""
+
+    def avisar(self, titulo, texto):
+        registrar(texto.replace("\n\n", " ").replace("\n", " "), self)
+        self.preguntar_si(titulo, texto)
+
+    def salir(self):
+        self.saliendo = True
+        if self.proceso is not None and self.proceso.poll() is None:
+            registrar("Parando el servidor...", None)
+            matar(self.proceso)
+        if CAMBIO_EXE_PENDIENTE:
+            subprocess.Popen(["cmd", "/c", str(CAMBIO_EXE_PENDIENTE)], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def ventana_escritorio():
+    """Abre la ventana de escritorio y no vuelve hasta que se cierra. False si no se ha podido abrir."""
+    try:
+        import webview
+    except Exception as e:
+        registrar(f"Sin ventana de escritorio ({type(e).__name__}): se usa el navegador")
+        return False
+    try:
+        v = VentanaWeb(webview)
+    except Exception as e:
+        registrar(f"No se ha podido crear la ventana de escritorio ({type(e).__name__}: {e}): se usa el navegador")
+        return False
+    registrar(f"{NOMBRE} lanzador {EXE_VERSION} · carpeta {APP} · repo {REPO}", v)
+    almacen = APP / "_ventana"
+    try:
+        almacen.mkdir(parents=True, exist_ok=True)
+        webview.start(arrancar, (v,), private_mode=False, storage_path=str(almacen))
+    except Exception as e:
+        registrar(f"La ventana de escritorio ha fallado ({type(e).__name__}: {e}): se usa el navegador")
+        if v.proceso is None:
+            return False                         # no llego a arrancar nada: se prueba con la ventana clasica
+    v.salir()
+    return True
 
 
 def abrir_carpeta(ruta):
@@ -556,6 +703,9 @@ class Consola:
 
     def poner_estado(self, texto):
         print("== " + texto, flush=True)
+
+    def abrir_pagina(self):
+        webbrowser.open(f"http://127.0.0.1:{self.puerto}")
 
     def preguntar_si(self, titulo, texto):
         return input(f"{texto} [s/n]: ").strip().lower().startswith("s")
@@ -607,17 +757,27 @@ def preparar(ventana):
     return True
 
 
+CODIGO_REINICIO = 75      # el servidor sale con este codigo cuando la pagina pide reiniciarlo (admin.py)
+
+
 def arrancar(ventana):
     if not preparar(ventana):
         return
     ventana.puerto = puerto_config()
     ventana.poner_estado("Arrancando el servidor...")
     publicar_tailscale(ventana.puerto, ventana)
+    lanzar_servidor(ventana, primera=True)
+
+
+def lanzar_servidor(ventana, primera=False):
     env = dict(os.environ, PYTHONUTF8="1")
+    if getattr(ventana, "token", ""):
+        env["CATALOGATOR_TOKEN_LOCAL"] = ventana.token      # la ventana de escritorio entra sin clave
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+    ventana.reinicio_pedido = False
     ventana.proceso = subprocess.Popen(orden_servidor(), cwd=str(APP), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                        text=True, encoding="utf-8", errors="replace", env=env, creationflags=flags)
-    threading.Thread(target=_volcar_salida, args=(ventana,), daemon=True).start()
+    threading.Thread(target=_volcar_salida, args=(ventana, ventana.proceso), daemon=True).start()
     for _ in range(60):
         if responde(ventana.puerto):
             ventana.poner_estado(f"En marcha: http://127.0.0.1:{ventana.puerto}  ·  version {version_instalada() or '?'}")
@@ -625,7 +785,8 @@ def arrancar(ventana):
                 ventana.b_abrir.configure(state="normal")
             except Exception:
                 pass
-            ventana.abrir_pagina() if hasattr(ventana, "abrir_pagina") else webbrowser.open(f"http://127.0.0.1:{ventana.puerto}")
+            if primera or getattr(ventana, "token", ""):
+                ventana.abrir_pagina()
             return
         if ventana.proceso.poll() is not None:
             ventana.poner_estado("El servidor se ha parado nada mas arrancar: mira el registro")
@@ -634,12 +795,20 @@ def arrancar(ventana):
     ventana.poner_estado("El servidor no responde: mira el registro")
 
 
-def _volcar_salida(ventana):
+def _volcar_salida(ventana, proceso):
     try:
-        for linea in ventana.proceso.stdout:
+        for linea in proceso.stdout:
             registrar(linea.rstrip("\n"), ventana)
     except Exception:
         pass
+    codigo = proceso.wait()
+    if getattr(ventana, "saliendo", False):
+        return
+    if codigo == CODIGO_REINICIO or getattr(ventana, "reinicio_pedido", False):
+        registrar("Reiniciando el servidor...", ventana)
+        ventana.poner_estado("Reiniciando el servidor...")
+        lanzar_servidor(ventana)
+        return
     ventana.poner_estado("El servidor se ha parado")
 
 
@@ -669,6 +838,8 @@ def main():
         finally:
             if c.proceso is not None and c.proceso.poll() is None:
                 matar(c.proceso)
+        return 0
+    if "--clasica" not in args and ventana_escritorio():
         return 0
     try:
         v = Ventana()

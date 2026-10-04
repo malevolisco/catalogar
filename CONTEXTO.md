@@ -20,10 +20,17 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   siguiente, campos Name / Titulo / Comments / Catalogador aprendidos por fila (el editor solo existe al hacer clic).
   Las restricciones NO se automatizan (proceso complejo con pestañas y desplegables).
 - Criterio editorial: `reglas_patrones.md` (reglas de la herramienta, van en la app), `reglas_extra.md` y `ejemplos.md`
-  (del usuario, se editan desde el panel, nunca se pisan al actualizar).
+  (del usuario, se editan desde el panel, nunca se pisan al actualizar). `criterio.py`: los cambios de Adrian sobre el
+  criterio base (editar/quitar/añadir lineas) van en `criterio_cambios.json` (suyo) y se aplican encima al redactar; si una
+  version nueva cambia una linea tocada, el cambio queda "suelto" y el panel pregunta.
+- `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
+  correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
+  (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
 
 ## El exe (lo nuevo)
-- `catalogator.py`: lanzador (ventana tkinter). Se baja de GitHub Releases `catalogator-app.zip` y se actualiza solo al abrir.
+- `catalogator.py`: lanzador. Abre una ventana de escritorio propia (pywebview + WebView2) con el panel, sin navegador;
+  si no puede, la ventana tkinter de antes con el navegador (`--clasica` la fuerza). Desde fuera, Tailscale + clave.
+  El navegador de agencias trabaja fuera de la pantalla (`navegador_oculto`, no headless) y solo sale si hace falta. Se baja de GitHub Releases `catalogator-app.zip` y se actualiza solo al abrir.
   La app vive en `%LOCALAPPDATA%\Catalogator\app`; los datos del usuario no se tocan; copia de seguridad en `_anterior/`.
 - `empaquetar.py` hace el zip de la app; `catalogator.spec` compila con PyInstaller; `.github/workflows/release.yml`
   compila en Windows al publicar una etiqueta `v*` (o a mano con "Run workflow" indicando la version).
@@ -44,7 +51,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 HECHO: reconocimiento de actos, MediaCentral (doble clic, autoguardado, campos por fila), falsos positivos de KILL,
 rotulos y cortesia, Created en CSV, pausa por modelo no disponible, reglas editoriales nuevas (daños, NAME mas corto,
 formula de COMMENT, testimonios cortos, visitas, Groenlandia), respuestas por correo sin fichas de otros catalogadores,
-lanzador Catalogator completo (probado con un servidor GitHub simulado), primera compilacion en GitHub Actions.
+lanzador Catalogator completo (probado con un servidor GitHub simulado), primera compilacion en GitHub Actions,
+panel nuevo, app de escritorio con Admin y criterio editable (4 oct).
 
 PRIMERA COMPILACION (4 oct): correcta. Release `v2026.10.04` publicada con `Catalogator.exe` (~103 MB, lleva Python,
 Playwright, onnxruntime y numpy dentro) y `catalogator-app.zip` (33 ficheros). Avisos sin importancia: `onnx`, `pytest`
@@ -57,15 +65,15 @@ PRIMERA PRUEBA EN EL PC (4 oct): el exe instala y arranca, pero `servidor.py` ca
 o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 
 ## Pendiente
-1. `actos.py` ya esta en `main`; publicar `v2026.10.04.1` y volver a probar el exe (y traer el `config.json` antiguo).
+1. Probar en Windows la version de escritorio (v2026.10.04.3): ventana propia, Admin, criterio editable, navegador oculto.
+   No se puede ver desde Linux: la ventana se probo con un pywebview simulado.
 2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
-3. Menu **Ajustes** en la ventana (agenda, correo con boton Probar, redaccion, clave de la pagina, MediaCentral). Propuesto, falta el OK.
-4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
-5. `ejemplos.md` tiene fichas aprobadas que contradicen reglas nuevas (RECURSOS en NAME, SECUELAS): revisar.
-6. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v45.md`…).
-7. Seguridad: regenerar el token de GitHub y la contraseña de aplicación de Gmail que se compartieron antes.
-8. Revisar `config.json` del usuario: agenda de documentalistas, `lote_max_envios`, `claude_extra_args: []`.
-9. Ideas sueltas: etiquetas de valor frente a VALORAR de AP, idioma de las declaraciones, excepcion de titulos de rango militar.
+3. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
+4. `ejemplos.md` tiene fichas aprobadas que contradicen reglas nuevas (RECURSOS en NAME, SECUELAS): revisar.
+5. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v45.md`…).
+6. Seguridad: regenerar el token de GitHub y la contraseña de aplicación de Gmail que se compartieron antes.
+7. Revisar `config.json` del usuario: agenda de documentalistas, `lote_max_envios`, `claude_extra_args: []`.
+8. Ideas sueltas: etiquetas de valor frente a VALORAR de AP, idioma de las declaraciones, excepcion de titulos de rango militar.
 
 ## Lo que NO se puede comprobar desde el entorno de Claude (Linux)
 La compilacion real en Windows y la pantalla real de MediaCentral: se prueban con simulaciones.

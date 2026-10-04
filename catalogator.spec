@@ -6,12 +6,13 @@
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas, binaries, hiddenimports = [("dist/catalogator-app.zip", ".")], [], []
-for paquete in ("playwright", "onnxruntime", "fontTools", "openpyxl", "PIL", "numpy"):
+# webview: la ventana de escritorio (pywebview, con WebView2 de Windows por pythonnet)
+for paquete in ("playwright", "onnxruntime", "fontTools", "openpyxl", "PIL", "numpy", "webview"):
     d, b, h = collect_all(paquete)
     datas += d; binaries += b; hiddenimports += h
 hiddenimports += collect_submodules("uvicorn") + collect_submodules("fastapi") + collect_submodules("multipart") \
     + ["requests", "email.mime.text", "email.mime.multipart", "imaplib", "smtplib", "tkinter", "tkinter.ttk",
-       "tkinter.scrolledtext", "tkinter.messagebox", "tkinter.simpledialog"]
+       "tkinter.scrolledtext", "tkinter.messagebox", "tkinter.simpledialog", "clr", "clr_loader"]
 
 a = Analysis(["catalogator.py"], pathex=["."], binaries=binaries, datas=datas, hiddenimports=hiddenimports,
              hookspath=[], excludes=["matplotlib", "scipy", "pandas", "IPython", "pytest"], noarchive=False)

@@ -51,6 +51,7 @@ DEFAULTS = {
     "escenas_fotogramas": 6,   # fotogramas que se sacan para reconocer y aprender la escena, aunque no se manden al modelo
     "miniaturas": 0,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
+    "navegador_oculto": True,   # ventana fuera de la pantalla (no es headless); sale sola si hay que iniciar sesion
     "navegador": "auto",        # auto | chrome | msedge | chromium | sistema (el instalado, para Raspberry)
     "navegador_ruta": "",       # ejecutable concreto, si hace falta (ej. /usr/bin/chromium)
     "ebu": True,                # EBU News Exchange activado

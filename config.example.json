@@ -14,6 +14,7 @@
   "script_max_paginas": 2,
   "reglas": "reglas_patrones.md",
   "headless": false,
+  "navegador_oculto": true,
   "navegador": "auto",
   "navegador_ruta": "",
   "espera_login": 60,

@@ -153,7 +153,94 @@
   #aviso.visible { opacity:1; transform:translateX(-50%) translateY(0); }
   #aviso.malo { background:var(--tally); }
 
+  /* ---------- sub-pestañas (Reglas y Admin) ---------- */
+  .subnav { display:flex; gap:4px; margin:0 0 18px; border-bottom:1px solid var(--linea); flex-wrap:wrap; }
+  .subnav button { background:none; border:0; padding:8px 12px; cursor:pointer; color:var(--gris); border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .subnav button.activa { color:var(--tinta); border-bottom-color:var(--tinta); }
+  .subnav .num { font-size:12px; color:var(--gris); margin-left:4px; font-variant-numeric:tabular-nums; }
+  .barra-herr { display:flex; gap:10px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
+  .barra-herr input[type=text] { flex:1; min-width:220px; }
+
+  /* ---------- reglas editables ---------- */
+  .regla-texto { white-space:pre-wrap; word-break:break-word; }
+  .lista .fila .botones { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+  .lista .fila textarea { font-family:var(--sans); font-size:14.5px; }
+  .chapa { display:inline-block; font-size:11.5px; padding:1px 7px; border-radius:10px; border:1px solid var(--linea); color:var(--gris); white-space:nowrap; }
+  .chapa.editada { color:var(--azul); border-color:#c9d5ec; background:#f2f5fb; }
+  .chapa.quitada { color:var(--tally); border-color:#efc9c4; background:#fdf3f2; }
+  .chapa.nueva { color:var(--hecho); border-color:#c6dccf; background:#f1f7f3; }
+  .criterio { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); }
+  .criterio h3 { font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--gris); margin:0; padding:14px 18px 8px; border-top:1px solid var(--linea); font-weight:600; }
+  .criterio h3:first-child { border-top:0; }
+  .linea-c { display:grid; grid-template-columns:1fr auto; gap:12px; padding:7px 18px 7px 15px; border-left:3px solid transparent; }
+  .linea-c:hover { background:var(--papel); }
+  .linea-c.sangrada .regla-texto { padding-left:22px; }
+  .linea-c.cabeza .regla-texto { font-weight:600; }
+  .linea-c.editado { border-left-color:var(--azul); }
+  .linea-c.nuevo { border-left-color:var(--hecho); }
+  .linea-c.borrado .regla-texto { text-decoration:line-through; color:var(--gris); }
+  .linea-c .botones { display:flex; gap:5px; align-items:flex-start; opacity:0; transition:opacity .1s; }
+  .linea-c:hover .botones, .linea-c:focus-within .botones, .linea-c.abierta .botones { opacity:1; }
+  .linea-c .original { font-size:13px; color:var(--gris); margin-top:5px; padding-left:10px; border-left:2px solid var(--linea); }
+  .linea-c textarea { font-family:var(--sans); font-size:14.5px; margin-top:4px; }
+  .linea-c .regla-texto { font-size:14.5px; line-height:1.55; }
+  .sueltos { border:1px solid #eed9a0; background:#fffaf0; border-radius:var(--radio); padding:12px 16px; margin-bottom:16px; }
+  .sueltos h4 { margin:0 0 6px; font-size:14px; }
+  .suelto { border-top:1px solid #f0e2bd; padding:10px 0; font-size:14px; }
+  .suelto:first-of-type { border-top:0; }
+  .suelto .par { display:grid; grid-template-columns:110px 1fr; gap:4px 10px; margin:6px 0; }
+  .suelto .par span { color:var(--gris); font-size:12.5px; }
+
+  /* ---------- admin ---------- */
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:10px; margin-bottom:18px; }
+  .tile { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); padding:12px 14px; }
+  .tile .et { font-size:12.5px; color:var(--gris); }
+  .tile .va { font-size:20px; font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; word-break:break-word; }
+  .tile .va.peq { font-size:15px; }
+  .tile .va.bien { color:var(--hecho); }
+  .tile .va.mal { color:var(--tally); }
+  .caja { background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); padding:16px 18px; margin-bottom:16px; }
+  .caja h2 { font-size:15px; margin:0 0 12px; font-weight:600; }
+  .acciones-admin { display:flex; gap:8px; flex-wrap:wrap; }
+  #registro { background:#15181d; color:#d9dee5; font-family:var(--mono); font-size:12.5px; line-height:1.55;
+              border-radius:var(--radio); padding:10px 12px; height:min(62vh, 640px); overflow:auto; white-space:pre-wrap; word-break:break-word; }
+  #registro .r-error { color:#ff8f84; }
+  #registro .r-aviso { color:#f1c96b; }
+  #registro .r-cuando { color:#7d8693; }
+  .ajustes-grupo { border:0; padding:0; margin:0 0 6px; }
+  .ajustes-grupo legend { font-weight:600; font-size:15px; padding:0; margin-bottom:10px; }
+  .campo-aj { display:grid; grid-template-columns:minmax(200px, 300px) 1fr; gap:6px 16px; align-items:start; padding:8px 0; border-top:1px solid var(--linea); }
+  .campo-aj:first-of-type { border-top:0; }
+  .campo-aj .nom { font-size:14px; padding-top:6px; }
+  .campo-aj .ayuda { font-size:12.5px; color:var(--gris); margin-top:3px; }
+  .campo-aj .reinicio { font-size:11.5px; color:var(--espera); }
+  .campo-aj input[type=checkbox] { width:18px; height:18px; margin-top:7px; accent-color:var(--tinta); }
+  table.tabla { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.tabla th { text-align:left; font-weight:600; font-size:12.5px; color:var(--gris); padding:7px 8px; border-bottom:1px solid var(--linea); white-space:nowrap; }
+  table.tabla td { padding:7px 8px; border-bottom:1px solid var(--linea); vertical-align:top; }
+  table.tabla td input[type=text], table.tabla td select { padding:5px 7px; font-size:13.5px; }
+  table.tabla tr.fallo td { background:#fdf6f5; }
+  .envoltura-tabla { overflow-x:auto; }
+  .resultado-prueba p { margin:6px 0 0; font-size:14px; }
+  .resultado-prueba .bien { color:var(--hecho); }
+  .resultado-prueba .mal { color:var(--tally); }
+  .aviso-reinicio { background:#fffaf0; border:1px solid #eed9a0; border-radius:var(--radio); padding:10px 14px; margin:12px 0 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+
+  /* graficos: una sola serie, sin leyenda; el valor en la punta o al pasar el raton */
+  .grafico-dias { display:flex; align-items:flex-end; gap:2px; height:170px; padding:8px 0 0; border-bottom:1px solid var(--linea); position:relative; }
+  .grafico-dias .col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; min-width:0; cursor:default; }
+  .grafico-dias .col:hover { background:var(--papel); }
+  .grafico-dias .bar { width:min(100%, 24px); background:var(--azul); border-radius:4px 4px 0 0; min-height:0; }
+  .grafico-dias .bar.cero { height:0 !important; }
+  .ejes-dias { display:flex; justify-content:space-between; font-size:12px; color:var(--gris); margin-top:5px; }
+  .grafico-ag .fila-ag { display:grid; grid-template-columns:90px 1fr 56px; gap:10px; align-items:center; padding:5px 0; }
+  .grafico-ag .pista-ag { height:18px; }
+  .grafico-ag .bar { height:18px; background:var(--azul); border-radius:0 4px 4px 0; min-width:2px; }
+  .grafico-ag .val { font-size:13px; font-variant-numeric:tabular-nums; }
+  #tooltip { position:fixed; z-index:9; background:var(--tinta); color:var(--hoja); font-size:12.5px; padding:5px 9px; border-radius:var(--radio); pointer-events:none; white-space:nowrap; }
+
   @media (max-width:720px) {
+    .campo-aj { grid-template-columns:1fr; }
     .rejilla { grid-template-columns:1fr; }
     .campo { grid-template-columns:1fr; }
     .campo .cuenta { padding-top:0; }
@@ -194,6 +281,7 @@
       <button data-vista="fichas" class="activa">Fichas</button>
       <button data-vista="reglas">Reglas</button>
       <button data-vista="aprobadas">Fichas aprobadas</button>
+      <button data-vista="admin">Admin</button>
     </nav>
     <div class="herramientas">
       <select id="modo" aria-label="Cómo se muestran y se copian las fichas">
@@ -265,19 +353,137 @@
 
   <!-- ---- reglas ---- -->
   <section id="vista-reglas" class="oculto">
-    <div class="entrada">
-      <h2>Añadir una regla</h2>
-      <label for="regla">Manda sobre el resto del criterio. Úsalas con cuentagotas: los casos concretos se enseñan aprobando fichas.</label>
-      <textarea id="regla" placeholder="En archivo, ARCHIVO va justo después del país."></textarea>
-      <div style="margin-top:12px"><button class="b principal" id="anadir-regla">Añadir regla</button></div>
+    <div class="subnav" id="subnav-reglas">
+      <button data-sub="mias" class="activa">Mis reglas<span class="num" id="num-mias"></span></button>
+      <button data-sub="base">Criterio base<span class="num" id="num-base"></span></button>
     </div>
-    <div id="lista-reglas"></div>
+
+    <div id="reglas-mias">
+      <div class="entrada">
+        <h2>Añadir una regla</h2>
+        <label for="regla">Tus reglas mandan sobre el criterio base. Úsalas con cuentagotas: los casos concretos se enseñan aprobando fichas.</label>
+        <textarea id="regla" placeholder="En archivo, ARCHIVO va justo después del país." style="font-family:var(--sans); font-size:14.5px"></textarea>
+        <div style="margin-top:12px"><button class="b principal" id="anadir-regla">Añadir regla</button></div>
+      </div>
+      <div class="barra-herr"><input type="text" id="buscar-mias" placeholder="Buscar en tus reglas…" autocomplete="off"></div>
+      <div id="lista-reglas"></div>
+    </div>
+
+    <div id="reglas-base" class="oculto">
+      <p class="pista" style="margin:0 0 12px">Es el criterio que trae cada versión. Lo que cambies aquí se guarda aparte: las actualizaciones no lo pisan, y si una versión nueva toca una línea que habías cambiado, te lo enseño para que decidas.</p>
+      <div class="barra-herr">
+        <input type="text" id="buscar-base" placeholder="Buscar en el criterio: NAME, RUEDA DE PRENSA, cortesía…" autocomplete="off">
+        <label class="casilla"><input type="checkbox" id="solo-cambios"> Solo mis cambios</label>
+        <span class="pista" id="resumen-base" style="margin:0"></span>
+      </div>
+      <div id="sueltos"></div>
+      <div id="lista-base"></div>
+    </div>
   </section>
 
   <!-- ---- fichas aprobadas ---- -->
   <section id="vista-aprobadas" class="oculto">
     <p class="pista" style="margin:0 0 14px">Estas fichas entran como modelo en cada encargo. Más de doce alargan la redacción; mejor pocas y variadas.</p>
     <div id="lista-aprobadas"></div>
+  </section>
+
+  <!-- ---- admin ---- -->
+  <section id="vista-admin" class="oculto">
+    <div class="subnav" id="subnav-admin">
+      <button data-sub="estado" class="activa">Estado</button>
+      <button data-sub="registro">Registro</button>
+      <button data-sub="ajustes">Ajustes</button>
+      <button data-sub="correos">Correos</button>
+      <button data-sub="estadisticas">Estadísticas</button>
+    </div>
+
+    <div id="admin-estado">
+      <div class="tiles" id="tiles-estado"></div>
+      <div class="caja">
+        <h2>Acciones</h2>
+        <div class="acciones-admin">
+          <button class="b" id="ad-comprobar">Comprobar sesión de agencias</button>
+          <button class="b" id="ad-login">Iniciar sesión en las agencias</button>
+          <button class="b" id="ad-reabrir">Reabrir el navegador de agencias</button>
+          <button class="b riesgo" id="ad-reiniciar">Reiniciar el servidor</button>
+        </div>
+        <p class="pista">Reiniciar aplica los ajustes que lo piden. La cola no se pierde: lo que estuviera a medias vuelve a empezar.</p>
+      </div>
+      <div class="caja oculto" id="caja-app">
+        <h2>Aplicación</h2>
+        <div class="acciones-admin">
+          <button class="b" data-app="buscar_actualizaciones">Buscar actualizaciones</button>
+          <button class="b" data-app="abrir_carpeta">Abrir la carpeta de datos</button>
+          <button class="b" data-app="mediacentral">Rellenar MediaCentral</button>
+        </div>
+        <p class="pista" id="app-info"></p>
+      </div>
+    </div>
+
+    <div id="admin-registro" class="oculto">
+      <div class="barra-herr">
+        <select id="reg-nivel" style="width:auto">
+          <option value="">Todo</option>
+          <option value="aviso">Avisos y errores</option>
+          <option value="error">Solo errores</option>
+        </select>
+        <input type="text" id="reg-buscar" placeholder="Buscar en el registro…" autocomplete="off">
+        <label class="casilla"><input type="checkbox" id="reg-seguir" checked> Seguir lo último</label>
+        <button class="b mini" id="reg-copiar">Copiar</button>
+      </div>
+      <div id="registro" role="log" aria-live="off"></div>
+    </div>
+
+    <div id="admin-ajustes" class="oculto">
+      <div id="form-ajustes"></div>
+      <div class="caja">
+        <h2>Agenda de documentalistas</h2>
+        <p class="pista" style="margin:0 0 10px">Usuario de MediaCentral: el de la columna Catalogador de las listas (por ejemplo I23785); varios, separados por comas.</p>
+        <div class="envoltura-tabla"><table class="tabla" id="tabla-agenda">
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Usuario MediaCentral</th><th>Formal</th><th>Fichas en</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div style="margin-top:10px"><button class="b mini" id="agenda-anadir">Añadir persona</button></div>
+      </div>
+      <div class="acciones-admin" style="position:sticky; bottom:0; background:var(--papel); padding:12px 0; border-top:1px solid var(--linea)">
+        <button class="b principal" id="ajustes-guardar">Guardar ajustes</button>
+        <button class="b" id="correo-probar">Probar el correo</button>
+        <span class="pista" id="ajustes-estado" style="margin:0; align-self:center"></span>
+      </div>
+      <div class="resultado-prueba" id="resultado-prueba"></div>
+      <div id="aviso-reinicio"></div>
+    </div>
+
+    <div id="admin-correos" class="oculto">
+      <div class="tiles" id="tiles-correos"></div>
+      <div class="barra-herr">
+        <select id="correos-tipo" style="width:auto">
+          <option value="">Todos</option>
+          <option value="recibido">Recibidos</option>
+          <option value="enviado">Enviados</option>
+          <option value="fallo">Con fallo</option>
+        </select>
+        <input type="text" id="correos-buscar" placeholder="Buscar por persona, asunto o lote…" autocomplete="off">
+      </div>
+      <div class="caja" style="padding:4px 8px"><div class="envoltura-tabla"><table class="tabla" id="tabla-correos">
+        <thead><tr><th>Cuándo</th><th></th><th>Quién</th><th>Fichas</th><th>Detalle</th></tr></thead>
+        <tbody></tbody>
+      </table></div></div>
+    </div>
+
+    <div id="admin-estadisticas" class="oculto">
+      <div class="tiles" id="tiles-estadisticas"></div>
+      <div class="caja">
+        <h2>Fichas hechas por día · últimos 30 días</h2>
+        <div class="grafico-dias" id="grafico-dias"></div>
+        <div class="ejes-dias" id="ejes-dias"></div>
+      </div>
+      <div class="caja">
+        <h2>Fichas hechas por agencia</h2>
+        <div class="grafico-ag" id="grafico-ag"></div>
+      </div>
+      <p class="pista" id="nota-estadisticas"></p>
+    </div>
   </section>
 </main>
 </div>
@@ -290,6 +496,7 @@
   <button class="b mini" id="sel-cerrar">Quitar selección</button>
 </div>
 <div id="menu" class="oculto"></div>
+<div id="tooltip" class="oculto"></div>
 <div id="aviso" role="status" aria-live="polite"></div>
 
 <script>
@@ -476,6 +683,7 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarMenu(); });
   window.addEventListener("scroll", cerrarMenu, { passive: true });
   function empezar() {
+    $("salir").classList.toggle("oculto", enEscritorio);
     $("puerta").classList.add("oculto");
     $("app").classList.remove("oculto");
     ultima = "";
@@ -484,12 +692,27 @@
   }
 
   // ---------------------------------------------------------------- vistas
+  let vistaActual = "fichas";
   document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
     document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
-    ["fichas", "reglas", "aprobadas"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
-    if (b.dataset.vista === "reglas") pedirReglas();
+    vistaActual = b.dataset.vista;
+    ["fichas", "reglas", "aprobadas", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    if (b.dataset.vista === "reglas") { pedirReglas(); if (subReglas === "base") pedirCriterio(); }
     if (b.dataset.vista === "aprobadas") pedirAprobadas();
+    if (b.dataset.vista === "admin") abrirAdmin();
   }));
+
+  // sub-pestañas: Reglas (mias | base) y Admin (estado | registro | ajustes | correos | estadisticas)
+  let subReglas = "mias", subAdmin = "estado";
+  function subnav(id, prefijo, alCambiar) {
+    $(id).querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      $(id).querySelectorAll("button").forEach(x => x.classList.toggle("activa", x === b));
+      $(id).querySelectorAll("button").forEach(x => $(prefijo + x.dataset.sub).classList.toggle("oculto", x !== b));
+      alCambiar(b.dataset.sub);
+    }));
+  }
+  subnav("subnav-reglas", "reglas-", s => { subReglas = s; if (s === "base") pedirCriterio(); else pedirReglas(); });
+  subnav("subnav-admin", "admin-", s => { subAdmin = s; abrirAdmin(); });
 
   // ---------------------------------------------------------------- modo de presentación
   try { const g = localStorage.getItem("catalogar_modo"); if (g) { modo = g; modoFijado = true; } } catch (e) {}
@@ -813,25 +1036,60 @@
     }
   }
 
-  // ---------------------------------------------------------------- reglas
+  // ---------------------------------------------------------------- mis reglas
+  let reglasMias = [];
   async function pedirReglas() {
     try { pintarReglas((await api("GET", "/api/reglas")).reglas); } catch (e) {}
   }
+  const quitarFecha = r => r.replace(/\s+\(\d{4}-\d{2}-\d{2}\)$/, "");
+  const fechaDe = r => (r.match(/\((\d{4})-(\d{2})-(\d{2})\)$/) || []).slice(1).reverse().join("/");
   function pintarReglas(reglas) {
+    reglasMias = reglas;
+    $("num-mias").textContent = reglas.length;
     const caja = $("lista-reglas");
+    const q = normaliza($("buscar-mias").value.trim());
     if (!reglas.length) {
-      caja.innerHTML = `<div class="vacio"><strong>Sin reglas añadidas</strong>Todo el criterio viene del fichero de patrones.</div>`;
+      caja.innerHTML = `<div class="vacio"><strong>Sin reglas añadidas</strong>Todo el criterio viene del criterio base.</div>`;
       return;
     }
-    caja.innerHTML = `<div class="lista">` + reglas.map((r, i) =>
-      `<div class="fila"><span class="orden">${i + 1}</span><div class="cuerpo">${esc(r)}</div>
-       <button class="b mini riesgo" data-i="${i + 1}">Quitar</button></div>`).join("") + `</div>`;
-    caja.querySelectorAll("button").forEach(b => b.addEventListener("click", async () => {
-      if (!confirm("¿Quitar la regla " + b.dataset.i + "?")) return;
-      try { pintarReglas((await api("DELETE", "/api/reglas/" + b.dataset.i)).reglas); avisar("Regla quitada."); }
-      catch (e) { avisar(e.message, true); }
-    }));
+    const filas = reglas.map((r, i) => ({ r, i: i + 1 })).filter(x => !q || normaliza(x.r).includes(q));
+    caja.innerHTML = filas.length ? `<div class="lista">` + filas.map(({ r, i }) =>
+      `<div class="fila" data-i="${i}"><span class="orden">${i}</span>
+         <div class="cuerpo"><div class="regla-texto">${esc(quitarFecha(r))}</div>
+           ${fechaDe(r) ? `<div class="pista" style="margin-top:3px">añadida el ${esc(fechaDe(r))}</div>` : ""}</div>
+         <div class="botones">
+           <button class="b mini" data-subir ${i === 1 ? "disabled" : ""} title="Subir" aria-label="Subir">↑</button>
+           <button class="b mini" data-bajar ${i === reglas.length ? "disabled" : ""} title="Bajar" aria-label="Bajar">↓</button>
+           <button class="b mini" data-editar>Editar</button>
+           <button class="b mini riesgo" data-quitar>Quitar</button>
+         </div></div>`).join("") + `</div>` : `<div class="vacio">Ninguna regla contiene eso.</div>`;
+    caja.querySelectorAll(".fila").forEach(fila => {
+      const i = +fila.dataset.i;
+      fila.querySelector("[data-quitar]").addEventListener("click", async () => {
+        if (!confirm("¿Quitar la regla " + i + "?")) return;
+        try { pintarReglas((await api("DELETE", "/api/reglas/" + i)).reglas); avisar("Regla quitada."); }
+        catch (e) { avisar(e.message, true); }
+      });
+      const mover = async a => {
+        try { pintarReglas((await api("POST", "/api/reglas/mover", { de: i, a })).reglas); } catch (e) { avisar(e.message, true); }
+      };
+      fila.querySelector("[data-subir]").addEventListener("click", () => mover(i - 1));
+      fila.querySelector("[data-bajar]").addEventListener("click", () => mover(i + 1));
+      fila.querySelector("[data-editar]").addEventListener("click", () => {
+        const cuerpo = fila.querySelector(".cuerpo");
+        cuerpo.innerHTML = `<textarea>${esc(quitarFecha(reglas[i - 1]))}</textarea>
+          <div style="margin-top:8px; display:flex; gap:7px"><button class="b mini principal" data-g>Guardar</button><button class="b mini" data-c>Cancelar</button></div>`;
+        const ta = cuerpo.querySelector("textarea"); ta.focus();
+        ta.style.height = Math.max(74, ta.scrollHeight + 4) + "px";
+        cuerpo.querySelector("[data-c]").addEventListener("click", () => pintarReglas(reglasMias));
+        cuerpo.querySelector("[data-g]").addEventListener("click", async () => {
+          try { pintarReglas((await api("PUT", "/api/reglas/" + i, { texto: ta.value })).reglas); avisar("Regla guardada; ya se aplica."); }
+          catch (e) { avisar(e.message, true); }
+        });
+      });
+    });
   }
+  $("buscar-mias").addEventListener("input", () => pintarReglas(reglasMias));
   $("anadir-regla").addEventListener("click", async () => {
     const texto = $("regla").value.trim();
     if (!texto) { $("regla").focus(); return; }
@@ -840,6 +1098,96 @@
       $("regla").value = ""; pintarReglas(r.reglas); avisar("Regla añadida; ya se aplica.");
     } catch (e) { avisar(e.message, true); }
   });
+
+  // ---------------------------------------------------------------- criterio base
+  let criterioDatos = null, criterioAbierta = "";
+  async function pedirCriterio() {
+    try { pintarCriterio(await api("GET", "/api/criterio")); } catch (e) { avisar(e.message, true); }
+  }
+  async function cambiarCriterio(accion, cuerpo, mensaje) {
+    try { pintarCriterio(await api("POST", "/api/criterio/" + accion, cuerpo)); if (mensaje) avisar(mensaje); }
+    catch (e) { avisar(e.message, true); }
+  }
+  function pintarCriterio(d) {
+    criterioDatos = d;
+    const r = d.resumen;
+    const cambios = r.editadas + r.borradas + r.nuevas;
+    $("num-base").textContent = cambios ? cambios + " cambio" + (cambios === 1 ? "" : "s") : "";
+    $("resumen-base").textContent = `${d.fichero} · ${r.total} líneas` + (cambios ? ` · ${r.editadas} editada${r.editadas === 1 ? "" : "s"}, ${r.borradas} quitada${r.borradas === 1 ? "" : "s"}, ${r.nuevas} añadida${r.nuevas === 1 ? "" : "s"}` : " · sin cambios tuyos");
+
+    // cambios que una version nueva ha dejado sin su linea
+    $("sueltos").innerHTML = d.sueltos.length ? `<div class="sueltos"><h4>La versión nueva ha cambiado líneas que tú habías tocado (${d.sueltos.length})</h4>
+      <p class="pista" style="margin:0">Tus cambios no se aplican hasta que decidas qué hacer con cada uno.</p>`
+      + d.sueltos.map(s => `<div class="suelto" data-id="${esc(s.id)}">
+          <div class="par"><span>Tu cambio</span><div>${s.tipo === "borrado" ? "Quitar esta línea" : esc(s.texto)}</div>
+          ${s.original ? `<span>Línea de antes</span><div>${esc(s.original)}</div>` : ""}
+          ${s.parecida ? `<span>Línea nueva</span><div>${esc(s.parecida)}</div>` : `<span>Línea nueva</span><div class="pista" style="margin:0">No encuentro una parecida.</div>`}</div>
+          <div style="display:flex; gap:7px; flex-wrap:wrap">
+            ${s.parecida_id ? `<button class="b mini principal" data-aplicar="${esc(s.parecida_id)}">${s.tipo === "nuevo" ? "Ponerla después de la línea nueva" : "Aplicar mi cambio a la línea nueva"}</button>` : ""}
+            <button class="b mini riesgo" data-descartar>Descartar mi cambio</button>
+          </div></div>`).join("") + `</div>` : "";
+    $("sueltos").querySelectorAll(".suelto").forEach(div => {
+      div.querySelector("[data-aplicar]")?.addEventListener("click", e => cambiarCriterio("recolocar", { id: div.dataset.id, sobre: e.target.dataset.aplicar }, "Cambio aplicado."));
+      div.querySelector("[data-descartar]").addEventListener("click", () => cambiarCriterio("restaurar", { id: div.dataset.id }, "Cambio descartado."));
+    });
+
+    const q = normaliza($("buscar-base").value.trim());
+    const solo = $("solo-cambios").checked;
+    let html = "", seccion = null, n = 0;
+    d.lineas.forEach(l => {
+      if (solo && l.estado === "base") return;
+      if (q && !normaliza(l.texto + " " + l.original).includes(q)) return;
+      if (l.seccion !== seccion) { seccion = l.seccion; html += `<h3>${esc(seccion || "Instrucciones generales")}</h3>`; }
+      if (l.es_seccion) return;
+      n++;
+      const chapa = { editado: '<span class="chapa editada">editada</span>', borrado: '<span class="chapa quitada">quitada</span>', nuevo: '<span class="chapa nueva">añadida</span>' }[l.estado] || "";
+      const abierta = criterioAbierta === l.id;
+      html += `<div class="linea-c ${l.estado}${l.sangria ? " sangrada" : ""}${l.inicio_bloque && /^[A-Z]\d?\)|^\d\./.test(l.texto) ? " cabeza" : ""}${abierta ? " abierta" : ""}" data-id="${esc(l.id)}">
+        <div><div class="regla-texto">${esc(l.texto)}</div>
+          ${l.estado === "editado" ? `<details class="original"><summary>ver la original</summary>${esc(l.original)}</details>` : ""}</div>
+        <div class="botones">${chapa}
+          ${l.estado === "borrado" ? `<button class="b mini" data-restaurar>Volver a ponerla</button>` : `
+          <button class="b mini" data-editar>Editar</button>
+          ${l.estado === "editado" ? `<button class="b mini" data-restaurar>Deshacer</button>` : ""}
+          <button class="b mini" data-anadir title="Añadir una línea nueva justo debajo">+ Debajo</button>
+          <button class="b mini riesgo" data-quitar>Quitar</button>`}
+        </div></div>`;
+    });
+    $("lista-base").innerHTML = n ? `<div class="criterio">${html}</div>` : `<div class="vacio">${solo ? "No has cambiado nada del criterio base." : "Ninguna línea contiene eso."}</div>`;
+    // si una seccion se queda sin lineas por el filtro, fuera su cabecera
+    $("lista-base").querySelectorAll("h3").forEach(h => { if (!h.nextElementSibling || h.nextElementSibling.tagName === "H3") h.remove(); });
+
+    $("lista-base").querySelectorAll(".linea-c").forEach(div => {
+      const id = div.dataset.id;
+      const l = d.lineas.find(x => x.id === id);
+      div.querySelector("[data-quitar]")?.addEventListener("click", () => {
+        if (l.estado === "nuevo" ? confirm("¿Borrar esta línea que añadiste?") : confirm("¿Quitar esta línea del criterio? Podrás volver a ponerla."))
+          cambiarCriterio("quitar", { id }, "Línea quitada.");
+      });
+      div.querySelector("[data-restaurar]")?.addEventListener("click", () => cambiarCriterio("restaurar", { id }, "Vuelve a estar la original."));
+      const editor = (inicial, alGuardar, etiqueta) => {
+        criterioAbierta = id;
+        const caja = document.createElement("div");
+        caja.innerHTML = `<textarea placeholder="${etiqueta}">${esc(inicial)}</textarea>
+          <div style="margin-top:7px; display:flex; gap:7px"><button class="b mini principal" data-g>Guardar</button><button class="b mini" data-c>Cancelar</button></div>`;
+        div.after(caja); caja.className = "linea-c abierta"; caja.style.display = "block";
+        const ta = caja.querySelector("textarea"); ta.focus();
+        ta.style.height = Math.min(320, Math.max(74, ta.scrollHeight + 4)) + "px";
+        caja.querySelector("[data-c]").addEventListener("click", () => { criterioAbierta = ""; caja.remove(); });
+        caja.querySelector("[data-g]").addEventListener("click", () => { criterioAbierta = ""; alGuardar(ta.value); });
+        return caja;
+      };
+      div.querySelector("[data-editar]")?.addEventListener("click", () => {
+        div.style.display = "none";
+        const c = editor(l.texto, v => cambiarCriterio("editar", { id, texto: v }, "Guardado; ya se aplica."), "");
+        c.querySelector("[data-c]").addEventListener("click", () => { div.style.display = ""; });
+      });
+      div.querySelector("[data-anadir]")?.addEventListener("click", () =>
+        editor("", v => cambiarCriterio("anadir", { despues_de: id, texto: v }, "Línea añadida; ya se aplica."), "Escribe la línea nueva"));
+    });
+  }
+  $("buscar-base").addEventListener("input", () => criterioDatos && pintarCriterio(criterioDatos));
+  $("solo-cambios").addEventListener("change", () => criterioDatos && pintarCriterio(criterioDatos));
 
   // ---------------------------------------------------------------- fichas aprobadas
   async function pedirAprobadas() {
@@ -859,8 +1207,26 @@
           <div class="campo"><span class="nombre-campo">COMMENT</span><div class="texto">${esc(e.comment)}</div>${cuenta("COMMENT", e.comment)}</div>
           <div class="campo"><span class="nombre-campo">RESTRICCIONES</span><div class="texto">${esc(e.restricciones)}</div></div>
         </div>
-        <button class="b mini riesgo" data-n="${esc(e.numero)}">Quitar</button>
+        <div class="botones" style="display:flex; flex-direction:column; gap:5px">
+          <button class="b mini" data-editar="${esc(e.numero)}">Editar</button>
+          <button class="b mini riesgo" data-n="${esc(e.numero)}">Quitar</button>
+        </div>
       </div>`).join("") + `</div>`;
+    caja.querySelectorAll("button[data-editar]").forEach(b => b.addEventListener("click", () => {
+      const e = lista.find(x => x.numero === b.dataset.editar);
+      const cuerpo = b.closest(".fila").querySelector(".cuerpo");
+      const campos = [["ENVIO", e.envio], ["NAME", e.name], ["COMMENT", e.comment], ["RESTRICCIONES", e.restricciones]];
+      cuerpo.innerHTML = campos.map(([c, v]) => `<div class="campo"><span class="nombre-campo">${c}</span><textarea data-campo="${c}">${esc(v)}</textarea></div>`).join("")
+        + `<div class="acciones-ficha" style="padding-left:114px"><button class="b mini principal" data-g>Guardar</button><button class="b mini" data-c>Cancelar</button></div>`;
+      cuerpo.querySelectorAll("textarea").forEach(ta => ta.style.height = Math.min(220, Math.max(48, ta.scrollHeight + 4)) + "px");
+      cuerpo.querySelector("[data-c]").addEventListener("click", () => pintarAprobadas(lista));
+      cuerpo.querySelector("[data-g]").addEventListener("click", async () => {
+        const datos = {};
+        cuerpo.querySelectorAll("textarea[data-campo]").forEach(ta => datos[ta.dataset.campo] = ta.value);
+        try { pintarAprobadas((await api("PUT", "/api/ejemplos/" + encodeURIComponent(e.numero), datos)).ejemplos); avisar("Ficha aprobada guardada."); }
+        catch (err) { avisar(err.message, true); }
+      });
+    }));
     caja.querySelectorAll(".texto").forEach(t => t.addEventListener("click", () => copiar(t.textContent, "Campo copiado.")));
     caja.querySelectorAll("button[data-n]").forEach(b => b.addEventListener("click", async () => {
       if (!confirm("¿Quitar la ficha aprobada " + b.dataset.n + "?")) return;
@@ -870,6 +1236,235 @@
       } catch (e) { avisar(e.message, true); }
     }));
   }
+
+  // ---------------------------------------------------------------- admin
+  let relojAdmin = null, ultimoRegistro = 0, lineasRegistro = [], ajustesDatos = null;
+  const tile = (et, va, clase) => `<div class="tile"><div class="et">${esc(et)}</div><div class="va ${clase || ""}">${esc(va)}</div></div>`;
+  const plural = (n, s, p) => n + " " + (n === 1 ? s : (p || s + "s"));
+
+  function abrirAdmin() {
+    clearInterval(relojAdmin); relojAdmin = null;
+    if (vistaActual !== "admin") return;
+    if (subAdmin === "estado") { pedirResumen(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "estado" ? pedirResumen() : abrirAdmin(), 5000); }
+    if (subAdmin === "registro") { pedirRegistro(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "registro" ? pedirRegistro() : abrirAdmin(), 2000); }
+    if (subAdmin === "ajustes") pedirAjustes();
+    if (subAdmin === "correos") pedirCorreos();
+    if (subAdmin === "estadisticas") pedirEstadisticas();
+  }
+
+  // ---- estado
+  async function pedirResumen() {
+    let r;
+    try { r = await api("GET", "/api/admin/resumen"); } catch (e) { return; }
+    const horas = r.minutos >= 60 ? Math.floor(r.minutos / 60) + " h " + (r.minutos % 60) + " min" : r.minutos + " min";
+    $("tiles-estado").innerHTML =
+        tile("Ahora", r.modelo_parado ? "Modelo en pausa" : r.trabajando ? "Redactando" : "En espera", r.modelo_parado ? "peq mal" : "peq")
+      + tile("En cola", r.en_cola)
+      + tile("Fichas con error", r.errores, r.errores ? "mal" : "")
+      + tile("Sesión de agencias", r.sesion_agencia, "peq " + (r.sesion_agencia === "abierta" ? "bien" : /caducada|error/.test(r.sesion_agencia) ? "mal" : ""))
+      + tile("Buzón de correo", r.buzon_minutos ? (r.buzon_vivo ? "cada " + r.buzon_minutos + " min" : "parado") : "apagado", "peq " + (r.buzon_minutos && !r.buzon_vivo ? "mal" : ""))
+      + tile("Redacción", r.redactor + " · " + r.modelo, "peq")
+      + tile("Criterio", r.criterio.replace(".md", "") + (r.criterio_cambios ? " + tus cambios" : ""), "peq")
+      + tile("Navegador de agencias", r.navegador_oculto ? "oculto" : "visible", "peq")
+      + tile("Versión", r.version, "peq")
+      + tile("En marcha desde", r.arrancado + " (" + horas + ")", "peq");
+    if (r.worker_vivo === false) $("tiles-estado").innerHTML += tile("Hilo de trabajo", "parado: reinicia", "peq mal");
+  }
+  const accionAdmin = (id, fn) => $(id).addEventListener("click", async () => {
+    $(id).disabled = true;
+    try { await fn(); } catch (e) { avisar(e.message, true); }
+    $(id).disabled = false; pedirResumen();
+  });
+  accionAdmin("ad-comprobar", async () => { avisar("Entrando en las agencias…"); const r = await api("POST", "/api/navegador/comprobar"); avisar(r.ok ? "Sesión correcta en las agencias." : r.problema, !r.ok); });
+  accionAdmin("ad-login", async () => { await api("POST", "/api/navegador/login"); avisar("Se abre la ventana de las agencias. Inicia sesión y pulsa Ya he iniciado sesión arriba."); refrescar(); });
+  accionAdmin("ad-reabrir", async () => { await api("POST", "/api/navegador/reabrir"); avisar("El navegador de agencias se abrirá de nuevo con el siguiente envío."); });
+  accionAdmin("ad-reiniciar", reiniciarServidor);
+
+  async function reiniciarServidor() {
+    if (!confirm("¿Reiniciar el servidor? Tarda unos segundos; lo que se estuviera redactando vuelve a la cola.")) return;
+    await api("POST", "/api/admin/reiniciar");
+    avisar("Reiniciando…");
+    clearInterval(reloj); reloj = null;
+    $("pulso-texto").textContent = "Reiniciando el servidor…";
+    if (enEscritorio) return;                    // la ventana de escritorio la recarga el lanzador
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { const r = await fetch("/api/estado"); if (r.status === 401 || r.ok) { location.reload(); return; } } catch (e) {}
+    }
+  }
+
+  // ---- registro
+  async function pedirRegistro() {
+    let r;
+    try { r = await api("GET", "/api/admin/registro?desde=" + ultimoRegistro); } catch (e) { return; }
+    if (r.ultimo < ultimoRegistro) { lineasRegistro = []; }    // el servidor se ha reiniciado
+    ultimoRegistro = r.ultimo;
+    lineasRegistro = lineasRegistro.concat(r.lineas).slice(-3000);
+    pintarRegistro();
+  }
+  function pintarRegistro() {
+    const nivel = $("reg-nivel").value, q = normaliza($("reg-buscar").value.trim());
+    const caja = $("registro");
+    const visibles = lineasRegistro.filter(l => (!nivel || l.nivel === "error" || (nivel === "aviso" && l.nivel === "aviso")) && (!q || normaliza(l.texto).includes(q)));
+    caja.innerHTML = visibles.length ? visibles.map(l => `<div class="${l.nivel ? "r-" + l.nivel : ""}"><span class="r-cuando">${esc(l.cuando)}</span>  ${esc(l.texto.replace(/^\[\d\d:\d\d:\d\d\]\s*/, ""))}</div>`).join("")
+      : `<div class="r-cuando">${lineasRegistro.length ? "Nada coincide con el filtro." : "Todavía no hay nada en el registro."}</div>`;
+    if ($("reg-seguir").checked) caja.scrollTop = caja.scrollHeight;
+  }
+  $("reg-nivel").addEventListener("change", pintarRegistro);
+  $("reg-buscar").addEventListener("input", pintarRegistro);
+  $("reg-copiar").addEventListener("click", () => copiar(lineasRegistro.map(l => l.cuando + "  " + l.texto).join("\n"), "Registro copiado."));
+
+  // ---- ajustes
+  async function pedirAjustes() {
+    try { ajustesDatos = await api("GET", "/api/admin/ajustes"); } catch (e) { avisar(e.message, true); return; }
+    const grupos = {};
+    ajustesDatos.campos.forEach(c => (grupos[c.grupo] = grupos[c.grupo] || []).push(c));
+    $("form-ajustes").innerHTML = Object.entries(grupos).map(([g, campos]) => `<div class="caja"><fieldset class="ajustes-grupo"><legend>${esc(g)}</legend>`
+      + campos.map(c => {
+        const id = "aj-" + c.clave;
+        let control;
+        if (c.tipo === "si_no") control = `<input type="checkbox" id="${id}" ${c.valor ? "checked" : ""}>`;
+        else if (c.tipo === "opcion") {
+          const opciones = c.opciones.slice();
+          if (c.valor && !opciones.some(o => o.valor === c.valor)) opciones.push({ valor: c.valor, texto: c.valor });
+          control = `<select id="${id}">${opciones.map(o => `<option value="${esc(o.valor)}" ${o.valor === c.valor ? "selected" : ""}>${esc(o.texto)}</option>`).join("")}</select>`;
+        }
+        else if (c.tipo === "secreto") control = `<input type="password" id="${id}" autocomplete="new-password" placeholder="${c.tiene_valor ? "•••••••• guardada; escribe para cambiarla" : "sin poner"}">`;
+        else control = `<input type="text" id="${id}" value="${esc(c.valor ?? "")}" ${c.tipo === "numero" ? 'inputmode="decimal" style="max-width:140px"' : ""}>`;
+        return `<div class="campo-aj"><label class="nom" for="${id}" style="color:var(--tinta); margin:0">${esc(c.etiqueta)}${c.reinicio ? `<div class="reinicio">se aplica al reiniciar</div>` : ""}</label>
+          <div>${control}${c.ayuda ? `<div class="ayuda">${esc(c.ayuda)}</div>` : ""}</div></div>`;
+      }).join("") + `</fieldset></div>`).join("");
+    pintarAgenda(ajustesDatos.agenda);
+    $("ajustes-estado").textContent = "";
+  }
+  function pintarAgenda(agenda) {
+    $("tabla-agenda").querySelector("tbody").innerHTML = agenda.map(p => `<tr>
+        <td><input type="text" data-k="nombre" value="${esc(p.nombre)}" aria-label="Nombre"></td>
+        <td><input type="text" data-k="correo" value="${esc(p.correo)}" aria-label="Correo"></td>
+        <td><input type="text" data-k="id" value="${esc(p.id)}" aria-label="Usuario de MediaCentral"></td>
+        <td style="text-align:center"><input type="checkbox" data-k="formal" ${p.formal ? "checked" : ""} aria-label="Formal"></td>
+        <td><select data-k="presentacion" aria-label="Fichas en"><option value="">lo general</option>
+          <option value="mayusculas" ${p.presentacion === "mayusculas" ? "selected" : ""}>MAYÚSCULAS</option>
+          <option value="normalizado" ${p.presentacion === "normalizado" ? "selected" : ""}>texto normal</option></select></td>
+        <td><button class="b mini riesgo" data-quitar aria-label="Quitar">Quitar</button></td></tr>`).join("");
+    $("tabla-agenda").querySelectorAll("[data-quitar]").forEach(b => b.addEventListener("click", () => b.closest("tr").remove()));
+  }
+  const leerAgenda = () => [...$("tabla-agenda").querySelectorAll("tbody tr")].map(tr => {
+    const p = {};
+    tr.querySelectorAll("[data-k]").forEach(x => p[x.dataset.k] = x.type === "checkbox" ? x.checked : x.value);
+    return p;
+  });
+  $("agenda-anadir").addEventListener("click", () => {
+    pintarAgenda(leerAgenda().concat([{ nombre: "", correo: "", id: "", formal: false, presentacion: "" }]));
+    $("tabla-agenda").querySelector("tbody tr:last-child input").focus();
+  });
+  $("ajustes-guardar").addEventListener("click", async () => {
+    const valores = {};
+    ajustesDatos.campos.forEach(c => {
+      const x = $("aj-" + c.clave); if (!x) return;
+      valores[c.clave] = c.tipo === "si_no" ? x.checked : x.value;
+    });
+    $("ajustes-guardar").disabled = true;
+    try {
+      const r = await api("POST", "/api/admin/ajustes", { valores, agenda: leerAgenda() });
+      avisar("Ajustes guardados.");
+      $("ajustes-estado").textContent = "Guardado " + new Date().toLocaleTimeString().slice(0, 5);
+      $("aviso-reinicio").innerHTML = r.reiniciar ? `<div class="aviso-reinicio"><span>Para que se aplique ${esc(r.que.join(", "))} hay que reiniciar el servidor.</span><button class="b mini principal" id="reiniciar-ya">Reiniciar ahora</button></div>` : "";
+      $("reiniciar-ya")?.addEventListener("click", () => reiniciarServidor().catch(e => avisar(e.message, true)));
+      pedirAjustes(); pedirAgenda();
+    } catch (e) { avisar(e.message, true); }
+    $("ajustes-guardar").disabled = false;
+  });
+  $("correo-probar").addEventListener("click", async () => {
+    const a = prompt("¿A qué dirección mando el correo de prueba? (vacío: a tu dirección)", "");
+    if (a === null) return;
+    $("correo-probar").disabled = true;
+    $("resultado-prueba").innerHTML = `<p class="pista">Probando…</p>`;
+    try {
+      const r = await api("POST", "/api/admin/correo/probar", { a });
+      $("resultado-prueba").innerHTML = `<div class="caja" style="margin-top:12px"><p class="${r.envio_ok ? "bien" : "mal"}">${r.envio_ok ? "✓" : "✗"} Envío: ${esc(r.envio)}</p>
+        <p class="${r.buzon_ok ? "bien" : "mal"}">${r.buzon_ok ? "✓" : "✗"} ${esc(r.buzon)}</p></div>`;
+    } catch (e) { $("resultado-prueba").innerHTML = `<p class="mal">${esc(e.message)}</p>`; }
+    $("correo-probar").disabled = false;
+  });
+
+  // ---- correos
+  let correosDatos = [];
+  async function pedirCorreos() {
+    let r;
+    try { r = await api("GET", "/api/admin/correos"); } catch (e) { avisar(e.message, true); return; }
+    correosDatos = r.correos;
+    $("tiles-correos").innerHTML = tile("Recibidos hoy", r.resumen.recibidos_hoy) + tile("Enviados hoy", r.resumen.enviados_hoy)
+      + tile("Con fallo", r.resumen.fallos, r.resumen.fallos ? "mal" : "") + tile("En el historial", r.total);
+    pintarCorreos();
+  }
+  const ORIGEN = { reparto: "reparto", lista: "su lista", respuesta: "respuesta a su petición", seleccion: "selección", peticion: "petición", "sin envios": "sin números" };
+  function pintarCorreos() {
+    const tipo = $("correos-tipo").value, q = normaliza($("correos-buscar").value.trim());
+    const filas = correosDatos.filter(c => (!tipo || (tipo === "fallo" ? !c.ok : c.tipo === tipo))
+      && (!q || normaliza([c.direccion, c.etiqueta, c.asunto, c.lote, c.detalle].join(" ")).includes(q)));
+    $("tabla-correos").querySelector("tbody").innerHTML = filas.length ? filas.map(c => `<tr class="${c.ok ? "" : "fallo"}">
+        <td style="white-space:nowrap">${esc(c.cuando)}</td>
+        <td><span class="chapa ${c.tipo === "recibido" ? "editada" : c.tipo === "enviado" ? "nueva" : ""}">${c.tipo === "recibido" ? "recibido" : c.tipo === "enviado" ? "enviado" : "ignorado"}</span></td>
+        <td>${esc(c.etiqueta && c.etiqueta !== "respuesta" && c.etiqueta !== c.direccion ? c.etiqueta + " · " : "")}${esc(c.direccion)}</td>
+        <td style="font-variant-numeric:tabular-nums">${c.fichas || ""}</td>
+        <td>${esc(ORIGEN[c.origen] || c.origen || "")}${c.formal ? " · formal" : ""}${c.asunto ? " · «" + esc(c.asunto) + "»" : ""}${c.lote ? `<div class="pista" style="margin:2px 0 0">${esc(c.lote)}</div>` : ""}
+          ${c.detalle ? `<div class="pista" style="margin:2px 0 0">${esc(c.detalle)}</div>` : ""}${c.ok ? "" : `<div class="fallo-texto">${esc(c.error)}</div>`}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="pista">${correosDatos.length ? "Nada coincide." : "Todavía no hay correos en el historial."}</td></tr>`;
+  }
+  $("correos-tipo").addEventListener("change", pintarCorreos);
+  $("correos-buscar").addEventListener("input", pintarCorreos);
+
+  // ---- estadisticas
+  async function pedirEstadisticas() {
+    let r;
+    try { r = await api("GET", "/api/admin/estadisticas"); } catch (e) { avisar(e.message, true); return; }
+    const pct = r.hechas ? Math.round(100 * r.aprobadas / r.hechas) : 0;
+    $("tiles-estadisticas").innerHTML = tile("Fichas hechas", r.hechas.toLocaleString("es"))
+      + tile("Aprobadas", r.aprobadas + (r.hechas ? " (" + pct + " %)" : ""))
+      + tile("Tiempo medio por ficha", r.segundos_medio ? r.segundos_medio + " s" : "—")
+      + tile("Reutilizadas (ya hechas)", r.copiadas)
+      + tile("Sin salir (error)", r.errores, r.errores ? "mal" : "")
+      + tile("Fichas aprobadas de modelo", r.ejemplos);
+    const max = Math.max(1, ...r.por_dia.map(d => d.n));
+    $("grafico-dias").innerHTML = r.por_dia.map(d => `<div class="col" data-tip="${esc(d.dia)}: ${plural(d.n, "ficha")}">
+        <div class="bar ${d.n ? "" : "cero"}" style="height:${(100 * d.n / max).toFixed(1)}%"></div></div>`).join("");
+    $("ejes-dias").innerHTML = `<span>${esc(r.por_dia[0]?.dia || "")}</span><span>máximo: ${plural(max === 1 && !r.por_dia.some(d => d.n) ? 0 : max, "ficha")} en un día</span><span>${esc(r.por_dia[r.por_dia.length - 1]?.dia || "")}</span>`;
+    const maxAg = Math.max(1, ...r.agencias.map(a => a.n));
+    $("grafico-ag").innerHTML = r.agencias.length ? r.agencias.map(a => `<div class="fila-ag" data-tip="${esc(a.agencia)}: ${plural(a.n, "ficha")}">
+        <span>${esc(a.agencia)}</span><div class="pista-ag"><div class="bar" style="width:${(100 * a.n / maxAg).toFixed(1)}%"></div></div><span class="val">${a.n.toLocaleString("es")}</span></div>`).join("")
+      : `<p class="pista">Todavía no hay fichas hechas.</p>`;
+    $("nota-estadisticas").textContent = r.nota;
+  }
+  // tooltip de los graficos
+  document.addEventListener("mousemove", e => {
+    const el = e.target.closest?.("[data-tip]"), tip = $("tooltip");
+    if (!el) { tip.classList.add("oculto"); return; }
+    tip.textContent = el.dataset.tip; tip.classList.remove("oculto");
+    tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = (e.clientY - 34) + "px";
+  });
+
+  // ---- ventana de escritorio: botones de la aplicacion (abrir carpeta, actualizar, MediaCentral)
+  let enEscritorio = false;
+  try {
+    if (new URLSearchParams(location.search).has("escritorio")) { sessionStorage.setItem("catalogator_escritorio", "1"); history.replaceState(null, "", "/"); }
+    enEscritorio = sessionStorage.getItem("catalogator_escritorio") === "1";
+  } catch (e) {}
+  async function prepararApp() {
+    if (!window.pywebview?.api) return;
+    enEscritorio = true;
+    $("caja-app").classList.remove("oculto");
+    try { const i = await window.pywebview.api.info(); $("app-info").textContent = `Lanzador ${i.lanzador} · app ${i.app} · datos en ${i.carpeta}`; } catch (e) {}
+  }
+  window.addEventListener("pywebviewready", prepararApp);
+  prepararApp();
+  document.querySelectorAll("[data-app]").forEach(b => b.addEventListener("click", async () => {
+    if (!window.pywebview?.api) return;
+    b.disabled = true;
+    try { const r = await window.pywebview.api[b.dataset.app](); if (r) avisar(r); } catch (e) { avisar(String(e), true); }
+    b.disabled = false;
+  }));
 
   // ---------------------------------------------------------------- copiar
   async function copiar(texto, mensaje) {

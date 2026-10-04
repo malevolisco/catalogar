@@ -22,7 +22,8 @@ INCLUIR = [
     "EXE_MIN", "panel/index.html", "demo/*",
 ]
 # lo que es del usuario o de la compilacion: fuera aunque casara con lo de arriba
-EXCLUIR = {"empaquetar.py", "catalogator_version.py", "config.json", "ejemplos.md", "reglas_extra.md"}
+EXCLUIR = {"empaquetar.py", "catalogator_version.py", "config.json", "ejemplos.md", "reglas_extra.md",
+           "criterio_cambios.json"}
 # (ojo: "escenas/" y "escenas_", no "escenas", que dejaria fuera escenas.py)
 EXCLUIR_PREFIJOS = ("cola/", "perfil_", "miniaturas/", "escenas/", "escenas_", "modelos/", "debug/", "dist/", "build/", ".git", "_anterior/")
 
