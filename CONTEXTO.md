@@ -48,9 +48,13 @@ Playwright, onnxruntime y numpy dentro) y `catalogator-app.zip` (33 ficheros). A
 y `tzdata` no encontrados (no se usan). Se renombro `main.yml` -> `release.yml` y se subieron checkout@v5 / setup-python@v6
 (las versiones anteriores usan Node 20, que GitHub retira). Dentro del exe Playwright NO tiene su Chromium propio
 (en modo compilado lo busca dentro del exe): `extractor.py` y `mediacentral.py` abren Chrome o Edge, que si funcionan.
+PRIMERA PRUEBA EN EL PC (4 oct): el exe instala y arranca, pero `servidor.py` cae con `No module named 'actos'`:
+`actos.py` nunca se subio al repositorio. Ademas `empaquetar.py` dejaba fuera `escenas.py` (excluia el prefijo
+"escenas"; ahora "escenas/" y "escenas_"). `empaquetar.py` comprueba ahora que todo lo que se importa esta en el zip
+o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 
 ## Pendiente
-1. Probar `Catalogator.exe` en el PC de Adrian (primer arranque, actualizacion, navegador Edge/Chrome).
+1. Adrian sube `actos.py` (de su copia local) a `main` y se publica `v2026.10.04.1`; volver a probar el exe.
 2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
 3. Menu **Ajustes** en la ventana (agenda, correo con boton Probar, redaccion, clave de la pagina, MediaCentral). Propuesto, falta el OK.
 4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
