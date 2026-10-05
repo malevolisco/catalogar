@@ -85,6 +85,27 @@ Listo: manda un correo con números de envío y la Raspberry te contesta con las
 - **Ver qué está haciendo**: en la página, **Admin → Registro**.
 - **Reparar o reinstalar**: repite el paso 4. Tus datos no se tocan.
 
+## Con pantalla: Catalogator a la vista
+
+El instalador pregunta **¿Vas a conectar una pantalla (HDMI)?** Contesta `s` y, cuando la Raspberry tenga un
+monitor o una tele conectada (cable **micro-HDMI** a HDMI, en el puerto de al lado del USB-C), arranca sola con
+el panel de Catalogator a pantalla completa, sin escritorio ni clave. Con un ratón USB se maneja como en el PC.
+
+Si ya la instalaste sin pantalla, repite la línea del paso 4 y contesta `s`.
+
+## Llevarla a otro sitio (por ejemplo, a la oficina)
+
+Necesita internet para catalogar. Si allí no puedes enchufar el cable de red, usa el **wifi del móvil**:
+
+1. En casa, activa el **punto de acceso** del móvil.
+2. Por SSH, con el nombre y la contraseña de ese wifi:
+   ```
+   sudo nmcli dev wifi connect "NOMBRE_DEL_WIFI" password "CONTRASEÑA"
+   ```
+3. Ya está: allí enciende el punto de acceso del móvil antes que la Raspberry y se conectará sola.
+
+Sin internet arranca igual y enseña el panel con lo que ya tiene; solo no puede catalogar ni contestar correos.
+
 ## Del día a día
 
 - Se **actualiza sola** cada noche a las 05:10 (o al pulsar **Admin → Estado → Reiniciar el servidor**).
