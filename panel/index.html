@@ -579,6 +579,15 @@
         </div>
         <p class="pista">Reiniciar aplica los ajustes que lo piden. La cola no se pierde: lo que estuviera a medias vuelve a empezar.</p>
       </div>
+      <div class="caja">
+        <h2>Copia de tus datos</h2>
+        <p class="pista" style="margin:0 0 12px">Para llevar Catalogator a otro equipo (por ejemplo, la Raspberry): ajustes, agenda, tus reglas, tus cambios al criterio, fichas aprobadas y el historial. Las sesiones de las agencias no viajan: en el equipo nuevo se inicia sesión otra vez en la pestaña Navegador.</p>
+        <div class="acciones-admin">
+          <a class="b" id="copia-bajar" href="/api/admin/copia" download>Descargar copia de mis datos</a>
+          <label class="b" style="margin:0; color:var(--tinta)">Cargar una copia…<input type="file" id="copia-subir" accept=".zip" class="oculto"></label>
+        </div>
+        <div id="copia-resultado"></div>
+      </div>
       <div class="caja oculto" id="caja-app">
         <h2>Aplicación</h2>
         <div class="acciones-admin">
@@ -1606,6 +1615,21 @@
       try { const r = await fetch("/api/estado"); if (r.status === 401 || r.ok) { location.reload(); return; } } catch (e) {}
     }
   }
+
+  // ---- copia de los datos (llevar Catalogator a otro equipo)
+  $("copia-subir").addEventListener("change", async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (!confirm("Se sustituyen los ajustes, reglas y fichas aprobadas de este equipo por los de la copia (lo de ahora se guarda aparte). ¿Seguir?")) { e.target.value = ""; return; }
+    const fd = new FormData(); fd.append("fichero", f);
+    try {
+      const r = await api("POST", "/api/admin/copia", fd, true);
+      $("copia-resultado").innerHTML = `<div class="aviso-reinicio"><span>Copia cargada (${r.cargados.length} ficheros). Reinicia para que se aplique todo.</span>
+        <button class="b mini principal" id="copia-reiniciar">Reiniciar ahora</button></div>`
+        + r.avisos.map(a => `<p class="fallo-texto" style="margin:8px 0 0">${esc(a)}</p>`).join("");
+      $("copia-reiniciar").addEventListener("click", () => reiniciarServidor().catch(err => avisar(err.message, true)));
+    } catch (err) { avisar(err.message, true); }
+    e.target.value = "";
+  });
 
   // ---- registro
   async function pedirRegistro() {

@@ -682,3 +682,78 @@ async def visor_orden(request: Request):
         if not VISOR.ordenar(o):
             raise HTTPException(409, "No hay ningún navegador abierto")
     return {"ok": True}
+
+
+# ====================================================================== copia de los datos del usuario (PC -> Raspberry)
+# lo que es del usuario y se puede llevar a otro equipo. Los perfiles del navegador no: las cookies van
+# cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
+COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
+         "cola/estado.json", "cola/correos.jsonl", "escenas_modelo.npz"]
+# lo que depende del equipo: al cargar una copia se queda lo de este
+PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
+
+
+@router.get("/api/admin/copia")
+def descargar_copia():
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for rel in COPIA:
+            ruta = BASE_DIR / rel
+            if ruta.is_file():
+                z.write(ruta, rel)
+        z.writestr("COPIA_CATALOGATOR", f"{_version()} {datetime.now():%d/%m/%Y %H:%M}\n")
+    nombre = f"catalogator-datos-{datetime.now():%Y%m%d-%H%M}.zip"
+    g("log")("Copia de los datos descargada desde la pagina")
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@router.post("/api/admin/copia")
+async def cargar_copia(request: Request):
+    """Carga una copia hecha con descargar_copia. Lo que habia se guarda antes en _antes_de_la_copia/."""
+    import io
+    import shutil
+    import zipfile
+    formulario = await request.form()
+    fichero = formulario.get("fichero")
+    if fichero is None:
+        raise HTTPException(400, "Falta el fichero de la copia")
+    datos = await fichero.read()
+    try:
+        z = zipfile.ZipFile(io.BytesIO(datos))
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "Ese fichero no es una copia de Catalogator (no es un zip)")
+    if "COPIA_CATALOGATOR" not in z.namelist():
+        raise HTTPException(400, "Ese zip no es una copia de Catalogator (Admin → Estado → Descargar copia)")
+    cargados = [n for n in z.namelist() if n in COPIA]
+    if not cargados:
+        raise HTTPException(400, "La copia no trae nada que cargar")
+    aparte = BASE_DIR / "_antes_de_la_copia"
+    aparte.mkdir(exist_ok=True)
+    for rel in cargados:
+        ruta = BASE_DIR / rel
+        if ruta.exists():
+            (aparte / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ruta, aparte / rel)
+    avisos = []
+    for rel in cargados:
+        contenido = z.read(rel)
+        if rel == "config.json":
+            nuevo = json.loads(contenido.decode("utf-8"))
+            actual = _config_cruda()
+            for k in PROPIAS_DEL_EQUIPO:
+                if k in actual:
+                    nuevo[k] = actual[k]
+                else:
+                    nuevo.pop(k, None)
+            if float(nuevo.get("correo_buzon_minutos") or 0) > 0:
+                avisos.append("Esta copia mira el buzón de correo: cierra Catalogator en el otro equipo (o pon allí el buzón a 0); "
+                              "si no, los dos contestarán los mismos correos.")
+            contenido = json.dumps(nuevo, ensure_ascii=False, indent=2).encode("utf-8")
+        destino = BASE_DIR / rel
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        destino.write_bytes(contenido)
+    g("log")(f"Copia cargada desde la pagina: {', '.join(cargados)} (lo anterior, en _antes_de_la_copia)")
+    return {"ok": True, "cargados": cargados, "avisos": avisos}
