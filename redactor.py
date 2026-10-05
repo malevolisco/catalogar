@@ -632,6 +632,13 @@ def deporte_de(envio, texto=None):
 
 PAISES_GUERRA = ("PALESTINA", "UCRANIA", "RUSIA", "ISRAEL", "JERUSALEN")
 GUERRA_RE = re.compile(r"\bGUERRA\b(?! (MUNDIAL|CIVIL|FRIA|COMERCIAL|DE PRECIOS|ARANCELARIA))")
+# lo que hace que un envio sea de la guerra en si (no basta con que la agencia cite "war" o "conflict")
+COMBATE_RE = re.compile(r"\bSHELLING\b|\bAIR ?STRIKES?\b|\bAIRSTRIKES?\b|\bBOMBARD\w*|\bBOMBING\b|\bMISSILES?\b|"
+                        r"\bDRONE (?:ATTACK|STRIKE)S?\b|\bARTILLERY\b|\bFRONT ?LINES?\b|\bTRENCH\w*|\bCOMBAT\b|"
+                        r"\bFIGHTING\b|\bINCURSION\b|\bRAIDS?\b|\bOFFENSIVE\b|\bEXPLOSIONS?\b|\bROCKETS?\b|"
+                        r"\bINTERCEPT\w*|\bSTRIKE ON\b|\bATTACK ON\b|\bDAMAGED?\b.{0,40}\b(?:ATTACK|STRIKE)", re.I)
+MODA_RE = re.compile(r"FASHION (?:WEEK|SHOW)|\bRUNWAY\b|\bCATWALK\b|READY-TO-WEAR|HAUTE COUTURE|\bCOLLECTION\b.{0,60}"
+                     r"\b(?:FASHION|DESIGNER|MODELS?)\b|\bMET GALA\b", re.I)
 
 HABLADOS = ("DECLARACIONES", "RUEDA DE PRENSA", "COMPARECENCIA", "INTERVENCION", "ENTREVISTA")
 
@@ -1169,13 +1176,19 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
         if re.search(patron, texto_ficha) and formula not in campos["COMMENT"]:
             avisos.append(f"La ficha indica {formula.lower()} y el COMMENT no lo dice")
             break
-    # conflicto del pais que encabeza el NAME
+    # GUERRA solo para el material de la guerra en si (combates, bombardeos, frente), no para todo el pais
     encabeza = campos["NAME"].split()[0] if campos["NAME"].split() else ""
-    if (encabeza in PAISES_GUERRA
-            and re.search(r"\bWAR\b|\bWARTIME\b|\bCONFLICT\b|\bFRONTLINE\b|\bFRONT LINE\b|\bSHELLING\b|\bAIR ?STRIKE", texto_ficha)
-            and "GUERRA" not in campos["NAME"]):
-        avisos.append(f"El NAME empieza por {encabeza} y el script cita la guerra: si es la de ese pais, "
-                      f"GUERRA va detras del pais")
+    combate = COMBATE_RE.search(texto_ficha)
+    if encabeza in PAISES_GUERRA and combate and "GUERRA" not in campos["NAME"]:
+        avisos.append(f"El NAME empieza por {encabeza} y el material es de combate ({combate.group(0).lower()[:40]}): "
+                      f"si es la guerra de ese pais, GUERRA va detras del pais")
+    if GUERRA_RE.search(campos["NAME"]) and not combate:
+        avisos.append("GUERRA en el NAME pero el script no muestra combates, bombardeos, frente ni militares en "
+                      "operaciones: GUERRA es solo para el material de la guerra en si")
+    # moda
+    if (MODA_RE.search(texto_ficha) and not re.search(r"MILITARY PARADE|PRIDE", texto_ficha)
+            and not re.search(r"\bMODA\b", campos["NAME"])):
+        avisos.append("El envio es de moda (desfile, pasarela, coleccion): MODA va en el NAME detras del pais")
     return campos, avisos, salida
 
 
