@@ -105,15 +105,11 @@ echo "== 6/7  Claude Code (redacta las fichas) =="
 export PATH="$HOME/.local/bin:$PATH"
 if command -v claude >/dev/null 2>&1; then
   echo "Ya esta instalado: $(claude --version 2>/dev/null | head -1)"
-elif pregunta "No esta instalado. ¿Lo instalo? (si dices que no, habra que redactar con la API: Admin → Ajustes)"; then
+else
   curl -fsSL https://claude.ai/install.sh | bash
   export PATH="$HOME/.local/bin:$PATH"
 fi
-if command -v claude >/dev/null 2>&1 && pregunta "¿Entrar ahora con tu cuenta de Claude? (sale un enlace: abrelo en el movil o en el PC)"; then
-  claude < "$TTY" || true
-  echo "(Si has entrado bien, ya esta. Si no, luego: claude)"
-fi
-
+# no hace falta entrar aqui: el token de Claude Code (Admin → Ajustes) viaja en la copia de tus datos
 echo
 echo "== 7/7  Tailscale (para entrar desde fuera) y arranque automatico =="
 if ! command -v tailscale >/dev/null 2>&1; then
@@ -209,4 +205,5 @@ echo "      elige ese fichero. Pulsa Reiniciar ahora."
 echo "   3. Pestaña Navegador → Iniciar sesion agencias, entra en Reuters, AP y EBU y pulsa"
 echo "      Ya he iniciado sesion."
 echo "   4. Cierra Catalogator en el PC (o pon alli el buzon a 0): si no, los dos contestan los correos."
+echo "   (Si en el PC no tenias puesto el token de Claude Code: Admin → Ajustes → Redaccion.)"
 echo "=============================================================="
