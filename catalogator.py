@@ -708,10 +708,31 @@ def abrir_carpeta(ruta):
         pass
 
 
+def token_servicio():
+    """El token de entrada local del servicio, guardado junto a la app (solo lo lee el usuario). La pantalla
+    de la Raspberry lo usa para abrir el panel sin clave."""
+    ruta = APP.parent / "token_local"
+    try:
+        token = ruta.read_text(encoding="utf-8").strip()
+        if len(token) >= 20:
+            return token
+    except OSError:
+        pass
+    token = secrets.token_urlsafe(24)
+    try:
+        ruta.write_text(token + "\n", encoding="utf-8")
+        os.chmod(ruta, 0o600)
+    except OSError:
+        pass
+    return token
+
+
 class Consola:
     """Misma interfaz que la ventana, pero en texto (modo --consola y --actualizar)."""
     proceso = None
     puerto = 8765
+    token = ""
+    relanza_el_sistema = False
 
     def escribir(self, linea):
         print(linea, flush=True)
@@ -720,6 +741,8 @@ class Consola:
         print("== " + texto, flush=True)
 
     def abrir_pagina(self):
+        if self.relanza_el_sistema:
+            return                 # servicio (Raspberry): la pantalla, si la hay, la abre catalogator-pantalla
         webbrowser.open(f"http://127.0.0.1:{self.puerto}")
 
     def preguntar_si(self, titulo, texto):
@@ -848,6 +871,9 @@ def main():
         c = Consola()
         # como servicio (--servicio, la Raspberry) el reinicio lo hace systemd: sale con el codigo del servidor
         c.relanza_el_sistema = "--servicio" in args
+        if c.relanza_el_sistema:
+            # token fijo para la pantalla de la Raspberry (catalogator-pantalla): entra sin clave por /local
+            c.token = token_servicio()
         codigo = 0
         try:
             arrancar(c)

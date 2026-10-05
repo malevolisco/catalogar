@@ -164,10 +164,49 @@ Persistent=false
 WantedBy=timers.target
 EOF
 
+# ---- pantalla (opcional): el panel a pantalla completa en un monitor o tele por HDMI, como un aparato
+PANTALLA="${PANTALLA:-}"
+if [ -z "$PANTALLA" ] && pregunta "¿Vas a conectar una pantalla (HDMI) para ver Catalogator en la Raspberry?"; then
+  PANTALLA=s
+fi
+if [ "$PANTALLA" = "s" ]; then
+  sudo apt-get install -y -qq cage >/dev/null
+  sudo tee /etc/systemd/system/catalogator-pantalla.service >/dev/null <<EOF
+[Unit]
+Description=Catalogator en la pantalla (HDMI)
+After=systemd-user-sessions.service catalogator.service
+Wants=catalogator.service
+PartOf=catalogator.service
+Conflicts=getty@tty1.service
+
+[Service]
+User=$YO
+PAMName=login
+TTYPath=/dev/tty1
+UtmpIdentifier=tty1
+UtmpMode=user
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+ExecStartPre=/bin/sh -c 'for i in \$(seq 1 90); do curl -fs -o /dev/null http://127.0.0.1:8765/ && [ -s $BASE/token_local ] && exit 0; sleep 2; done; exit 1'
+ExecStart=/bin/sh -c 'exec /usr/bin/cage -s -- $CHROMIUM --kiosk --noerrdialogs --disable-infobars --no-first-run --password-store=basic --disable-session-crashed-bubble --user-data-dir=$BASE/pantalla "http://127.0.0.1:8765/local?t=\$(cat $BASE/token_local)"'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  PANTALLA_ACTIVA=1
+fi
+
 sudo systemctl daemon-reload
 sudo systemctl enable -q --now catalogator-noche.timer
 sudo systemctl enable -q catalogator.service
 sudo systemctl restart catalogator.service
+if [ -n "${PANTALLA_ACTIVA:-}" ]; then
+  sudo systemctl enable -q catalogator-pantalla.service
+  sudo systemctl restart catalogator-pantalla.service || true
+fi
 
 echo
 echo "Arrancando..."
