@@ -682,6 +682,10 @@ def ventana_escritorio():
     registrar(f"{NOMBRE} lanzador {EXE_VERSION} · carpeta {APP} · repo {REPO}", v)
     almacen = APP / "_ventana"
     try:
+        webview.settings["ALLOW_DOWNLOADS"] = True        # que los enlaces de descarga de la pagina funcionen
+    except Exception:
+        pass
+    try:
         almacen.mkdir(parents=True, exist_ok=True)
         webview.start(arrancar, (v,), private_mode=False, storage_path=str(almacen))
     except Exception as e:
