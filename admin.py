@@ -238,7 +238,12 @@ CAMPOS = [
     ("redactor", "Redacción", "Cómo se redacta", "opcion", "Claude Code usa tu suscripción; la API, una clave de pago por uso.",
      [("claude_code", "Claude Code"), ("api", "API de Anthropic")], False),
     ("claude_model", "Redacción", "Modelo (Claude Code)", "opcion", "", [("sonnet", "Sonnet"), ("opus", "Opus"), ("haiku", "Haiku")], False),
-    ("api_key", "Redacción", "Clave de la API", "secreto", "Solo si redactas con la API.", None, False),
+    ("claude_token", "Redacción", "Token de Claude Code (dura un año)", "secreto",
+     "Para que la sesión no caduque. En el equipo de Catalogator abre una ventana de comandos, escribe  claude setup-token, "
+     "entra con tu cuenta y pega aquí el token que te da.", None, False),
+    ("api_key", "Redacción", "Clave de la API", "secreto", "Para redactar con la API, o de reserva si Claude Code pierde la sesión.", None, False),
+    ("api_reserva", "Redacción", "Usar la API de reserva si Claude Code pierde la sesión", "si_no",
+     "Solo si hay clave de la API. Cuesta céntimos por ficha y evita que la cola se pare.", None, False),
     ("api_model", "Redacción", "Modelo (API)", "texto", "", None, False),
     ("reglas", "Redacción", "Criterio base", "opcion", "El ligero es el mismo criterio en la mitad de tamaño.",
      [("reglas_patrones.md", "Completo (reglas_patrones.md)"), ("reglas_ligeras.md", "Ligero (reglas_ligeras.md)")], False),
@@ -387,6 +392,11 @@ async def guardar_ajustes(request: Request):
     except Exception:
         pass
     cambiadas = [c for c in por_clave if antes.get(c) != cruda.get(c)]
+    if {"claude_token", "api_key", "redactor", "api_reserva"} & set(cambiadas):
+        # puede que ya se pueda redactar: la pausa del modelo se levanta y se prueba en la siguiente ficha
+        sys.modules["redactor"].CLAUDE_SIN_SESION["hasta"] = 0.0
+        if g("WORKER").pausa_hasta:
+            g("WORKER").pausa_hasta = time.time()
     reinicio = [por_clave[c][2] for c in cambiadas if por_clave[c][6]]
     g("log")("Ajustes guardados desde la pagina: " + (", ".join(cambiadas) if cambiadas else "agenda"))
     return {"ok": True, "reiniciar": bool(reinicio), "que": reinicio}
@@ -757,3 +767,13 @@ async def cargar_copia(request: Request):
         destino.write_bytes(contenido)
     g("log")(f"Copia cargada desde la pagina: {', '.join(cargados)} (lo anterior, en _antes_de_la_copia)")
     return {"ok": True, "cargados": cargados, "avisos": avisos}
+
+
+@router.post("/api/admin/probar-redaccion")
+def probar_redaccion():
+    """Prueba el modelo con una llamada minima; si atiende y la cola estaba en pausa, la levanta."""
+    ok, texto = sys.modules["redactor"].probar_modelo()
+    if ok and g("WORKER").pausa_hasta:
+        g("WORKER").pausa_hasta = time.time()
+        g("log")("Prueba de redaccion correcta: se levanta la pausa del modelo")
+    return {"ok": ok, "texto": texto}

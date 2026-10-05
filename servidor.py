@@ -344,6 +344,7 @@ class Worker(threading.Thread):
         self.pausa_hasta = 0             # el modelo no atiende (limite de uso, caida): no se cogen lotes hasta entonces
         self.pausa_motivo = ""
         self.fallos_seguidos = 0         # redacciones fallidas una tras otra sin motivo reconocido
+        self.aviso_sesion_mandado = False   # ya se ha avisado por correo de que Claude Code no tiene sesion
 
     # ---------------- encargos desde otros hilos
     def encargar(self, tipo, esperar=0):
@@ -559,6 +560,7 @@ class Worker(threading.Thread):
             self.marcar_error(ficha, f"{type(e).__name__}: {str(e).splitlines()[0][:300]}")
             return None, None
         self.fallos_seguidos = 0
+        self.aviso_sesion_mandado = False
         avisos = list(avisos) + list(datos.get("avisos", []))
         with ESTADO.lock:
             for c in CAMPOS:
@@ -614,6 +616,25 @@ class Worker(threading.Thread):
                 return
             self._atender_encargo(*encargo)
 
+    def avisar_sin_sesion(self, motivo):
+        """Un correo a tu direccion (correo_copia) la primera vez que Claude Code pierde la sesion: trabajando
+        en remoto, si no, nadie se entera hasta que faltan las fichas."""
+        if self.aviso_sesion_mandado or not (CFG.get("correo_copia") and CFG.get("correo_usuario") and CFG.get("correo_clave")):
+            return
+        self.aviso_sesion_mandado = True
+        texto = ("Catalogator no puede redactar: Claude Code ha perdido la sesion.\n\n"
+                 f"Motivo: {motivo[:300]}\n\n"
+                 "La cola esta en pausa y se vuelve a probar sola cada 10 minutos. Para arreglarlo:\n"
+                 "1. En el equipo de Catalogator, en una ventana de comandos: claude setup-token\n"
+                 "2. Entra con tu cuenta y copia el token que te da.\n"
+                 "3. Pagina de Catalogator → Admin → Ajustes → Redaccion → Token de Claude Code: pegalo y Guardar.\n"
+                 "Con eso la sesion dura un año. (O pon una clave de la API para que redacte con ella mientras.)\n")
+        try:
+            enviar(CFG, CFG["correo_copia"], "Catalogator: Claude Code sin sesion", texto)
+            log(f"Aviso de sesion caducada mandado a {CFG['correo_copia']}")
+        except Exception as ex:
+            log(f"No se ha podido mandar el aviso de sesion caducada ({type(ex).__name__})")
+
     def pausar_modelo(self, ficha, e):
         """El modelo no atiende (limite de uso, caida, sesion de Claude Code caducada): la ficha vuelve a
         pendiente y el worker deja la cola quieta hasta que pase la espera, o hasta que alguien lo arregle."""
@@ -621,8 +642,11 @@ class Worker(threading.Thread):
             ficha["estado"], ficha["error"] = "pendiente", ""
             ESTADO.guardar()
         if e.espera is None:
-            self.pausa_hasta = time.time() + 365 * 24 * 3600      # hasta que se reinicie el servidor o Reintentar
-            cuando = "hasta que se arregle (¿hay que volver a entrar en Claude Code? claude /login) y se pulse Volver a intentarlo"
+            # sin sesion de Claude Code: se vuelve a probar sola cada 10 minutos (y al guardar un token en Ajustes)
+            self.pausa_hasta = time.time() + 10 * 60
+            cuando = ("hasta que vuelva la sesion de Claude Code: se prueba sola cada 10 minutos. Para que no vuelva a "
+                      "pasar, pon un token en Admin → Ajustes → Redaccion (claude setup-token)")
+            self.avisar_sin_sesion(str(e))
         else:
             self.pausa_hasta = time.time() + e.espera
             cuando = f"hasta las {datetime.fromtimestamp(self.pausa_hasta):%H:%M}"

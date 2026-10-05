@@ -10,7 +10,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - `servidor.py`: servidor FastAPI + panel web (`panel/index.html`, diseño claro con pestañas Fichas / Reglas / Fichas aprobadas;
   el del repositorio era uno antiguo que hablaba con GitHub y se sustituyo el 4 oct) + un unico hilo de trabajo (cola en `cola/estado.json`).
 - Buzon IMAP/SMTP: recibe peticiones por correo y responde con las fichas (no incluye las de otros catalogadores).
-- `redactor.py`: redacta con `claude -p` (Claude Code) o con API key. Si el modelo no esta disponible
+- `redactor.py`: redacta con `claude -p` (Claude Code) o con API key. Sesion: `claude_token` (de `claude setup-token`, un año)
+  va como CLAUDE_CODE_OAUTH_TOKEN (y se quita ANTHROPIC_API_KEY del entorno); sin sesion, `api_reserva` redacta con la API
+  si hay api_key, o la cola se pausa 10 min y reintenta sola, con un correo de aviso a correo_copia. Si el modelo no esta disponible
   (limite de uso, 429/529/503, login) pausa la cola en vez de marcar errores en cascada.
 - `extractor.py`, `listas.py`, `catalogar.py`: sacan el texto del envio. En los CSV se usa la columna Created
   (fecha y hora) para elegir el envio correcto de Reuters ("ultimo enviado antes de entrar en MediaCentral + 30 min").
