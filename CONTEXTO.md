@@ -46,6 +46,14 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - El `config.json` NO va dentro del exe (llevaria contraseñas): se crea en el primer arranque con valores por defecto
   y una clave aleatoria, y las actualizaciones no lo sobreescriben.
 
+## Raspberry Pi (5 oct)
+Adrian va a pasar Catalogator a una Pi 4 de 4 GB para no depender del PC (correo con numeros → fichas por correo).
+`instalar_pi.sh` (rehecho, se lanza con curl | bash): Chromium del sistema, venv, Claude Code, Tailscale, servicio
+`catalogator.service` (xvfb-run + `catalogator.py --consola --servicio`, al reiniciar sale con 75 y systemd lo relanza y
+actualiza) y `catalogator-noche.timer` (05:10). Datos del PC → Pi con Admin → Estado → Descargar/Cargar copia (los perfiles
+del navegador no viajan; en la Pi se inicia sesion en la pestaña Navegador). Guia para Adrian: `RASPBERRY.md`.
+OJO: si PC y Pi miran el buzon a la vez, contestan los dos.
+
 ## Reglas de trabajo de Adrian (fijas)
 - Respuestas en español (en ingles si escribe en ingles, corrigiendo solo gramatica y vocabulario).
 - Codigo siempre entero, nunca fragmentos. Varios ficheros = un zip; un solo fichero = suelto.
@@ -73,16 +81,17 @@ PRIMERA PRUEBA EN EL PC (4 oct): el exe instala y arranca, pero `servidor.py` ca
 o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 
 ## Pendiente
-1. Probar en Windows la version de escritorio (v2026.10.04.6): ventana propia, Admin, criterio editable, pestaña Navegador
+1. Instalar la Raspberry (RASPBERRY.md) cuando Adrian la encuentre; probar alli login en agencias y un correo real.
+2. Probar en Windows la version de escritorio (v2026.10.04.6): ventana propia, Admin, criterio editable, pestaña Navegador
    (login de agencias dentro de la app).
    No se puede ver desde Linux: la ventana se probo con un pywebview simulado.
-2. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
-3. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
-4. `ejemplos.md` tiene fichas aprobadas que contradicen reglas nuevas (RECURSOS en NAME, SECUELAS): revisar.
-5. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v45.md`…).
-6. Seguridad: regenerar el token de GitHub y la contraseña de aplicación de Gmail que se compartieron antes.
-7. Revisar `config.json` del usuario: agenda de documentalistas, `lote_max_envios`, `claude_extra_args: []`.
-8. Ideas sueltas: etiquetas de valor frente a VALORAR de AP, idioma de las declaraciones, excepcion de titulos de rango militar.
+3. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
+4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
+5. `ejemplos.md` tiene fichas aprobadas que contradicen reglas nuevas (RECURSOS en NAME, SECUELAS): revisar.
+6. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v45.md`…).
+7. Seguridad: regenerar el token de GitHub y la contraseña de aplicación de Gmail que se compartieron antes.
+8. Revisar `config.json` del usuario: agenda de documentalistas, `lote_max_envios`, `claude_extra_args: []`.
+9. Ideas sueltas: etiquetas de valor frente a VALORAR de AP, idioma de las declaraciones, excepcion de titulos de rango militar.
 
 ## Lo que NO se puede comprobar desde el entorno de Claude (Linux)
 La compilacion real en Windows y la pantalla real de MediaCentral: se prueban con simulaciones.

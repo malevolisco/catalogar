@@ -25,6 +25,8 @@ Modos (para el propio lanzador; el usuario no los necesita):
   Catalogator.exe --actualizar    solo comprueba e instala actualizaciones, en consola, y sale
   Catalogator.exe --consola       todo en consola, sin ventana (para ver errores de arranque)
   Catalogator.exe --clasica       la ventana pequeña de antes, con la pagina en el navegador
+  python catalogator.py --consola --servicio   como servicio de systemd (Raspberry, instalar_pi.sh): al
+                                  reiniciar desde la pagina sale y systemd lo vuelve a arrancar (y actualiza)
 Desarrollo: python catalogator.py funciona igual, con el Python instalado.
 """
 import io
@@ -813,6 +815,8 @@ def _volcar_salida(ventana, proceso):
     codigo = proceso.wait()
     if getattr(ventana, "saliendo", False):
         return
+    if getattr(ventana, "relanza_el_sistema", False):
+        return               # servicio (Raspberry): sale el lanzador entero y systemd lo arranca de nuevo, actualizando
     if codigo == CODIGO_REINICIO or getattr(ventana, "reinicio_pedido", False):
         registrar("Reiniciando el servidor...", ventana)
         ventana.poner_estado("Reiniciando el servidor...")
@@ -838,16 +842,19 @@ def main():
         return 0
     if "--consola" in args or (not CONGELADO and os.environ.get("CATALOGATOR_CONSOLA")):
         c = Consola()
+        # como servicio (--servicio, la Raspberry) el reinicio lo hace systemd: sale con el codigo del servidor
+        c.relanza_el_sistema = "--servicio" in args
+        codigo = 0
         try:
             arrancar(c)
             if c.proceso is not None:
-                c.proceso.wait()
+                codigo = c.proceso.wait()
         except KeyboardInterrupt:
             pass
         finally:
             if c.proceso is not None and c.proceso.poll() is None:
                 matar(c.proceso)
-        return 0
+        return codigo if c.relanza_el_sistema else 0
     if "--clasica" not in args and ventana_escritorio():
         return 0
     try:
