@@ -703,8 +703,7 @@ COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
 
 
-@router.get("/api/admin/copia")
-def descargar_copia():
+def _zip_copia():
     import io
     import zipfile
     buf = io.BytesIO()
@@ -714,10 +713,37 @@ def descargar_copia():
             if ruta.is_file():
                 z.write(ruta, rel)
         z.writestr("COPIA_CATALOGATOR", f"{_version()} {datetime.now():%d/%m/%Y %H:%M}\n")
-    nombre = f"catalogator-datos-{datetime.now():%Y%m%d-%H%M}.zip"
+    return buf.getvalue(), f"catalogator-datos-{datetime.now():%Y%m%d-%H%M}.zip"
+
+
+@router.get("/api/admin/copia")
+def descargar_copia():
+    datos, nombre = _zip_copia()
     g("log")("Copia de los datos descargada desde la pagina")
-    return Response(buf.getvalue(), media_type="application/zip",
+    return Response(datos, media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@router.post("/api/admin/copia/guardar")
+def guardar_copia(request: Request):
+    """La ventana de escritorio no descarga ficheros: la copia se guarda directamente en Descargas de
+    este PC. Solo para quien esta en este PC (por Funnel se usa la descarga normal)."""
+    if not _es_este_pc(request):
+        raise HTTPException(403, "Solo desde este PC; desde fuera usa Descargar")
+    datos, nombre = _zip_copia()
+    carpeta = Path.home() / "Downloads"
+    if not carpeta.is_dir():
+        carpeta = Path.home()
+    ruta = carpeta / nombre
+    ruta.write_bytes(datos)
+    g("log")(f"Copia de los datos guardada en {ruta}")
+    if sys.platform == "win32":
+        try:
+            import subprocess
+            subprocess.Popen(["explorer", "/select,", str(ruta)])     # abre Descargas con el fichero marcado
+        except Exception:
+            pass
+    return {"ok": True, "ruta": str(ruta)}
 
 
 @router.post("/api/admin/copia")
