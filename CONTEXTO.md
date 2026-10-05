@@ -66,7 +66,9 @@ OJO: si PC y Pi miran el buzon a la vez, contestan los dos.
 ## Estado
 HECHO: reconocimiento de actos, MediaCentral (doble clic, autoguardado, campos por fila), falsos positivos de KILL,
 rotulos y cortesia, Created en CSV, pausa por modelo no disponible, reglas editoriales nuevas (daños, NAME mas corto,
-formula de COMMENT, testimonios cortos, visitas, Groenlandia), respuestas por correo sin fichas de otros catalogadores,
+formula de COMMENT, testimonios cortos, visitas, Groenlandia; 5 oct: MODA en el NAME, GUERRA solo para material
+de combate (aviso en redactor si sobra o falta), sin nombres de quien llega en photocall/desfile/llegadas salvo reyes
+y presidentes relevantes, preposiciones justas en el NAME sin pasar de 65, principio de ruido en la busqueda), respuestas por correo sin fichas de otros catalogadores,
 lanzador Catalogator completo (probado con un servidor GitHub simulado), primera compilacion en GitHub Actions,
 panel nuevo, app de escritorio con Admin y criterio editable (4 oct).
 
