@@ -40,7 +40,9 @@ CFG = {
     "claude_extra_args": [],              # flags extra; herramientas y turnos los pone _cmd_claude
     "claude_timeout": 240,
     "claude_thinking_tokens": 1024,       # presupuesto de pensamiento de Claude Code (MAX_THINKING_TOKENS)
+    "claude_token": "",                   # token de un año (claude setup-token): la sesion no caduca a los pocos dias
     "api_key": "",
+    "api_reserva": True,                  # si Claude Code pierde la sesion y hay api_key, se redacta con la API mientras
     "api_model": "claude-haiku-4-5-20251001",
     "api_max_tokens": 1200,
     "acortar_comment": True,
@@ -394,6 +396,10 @@ def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imag
     WORKDIR.mkdir(exist_ok=True)
     cmd = _cmd_claude(model, extra_args, con_imagenes)
     env = dict(os.environ)
+    # una ANTHROPIC_API_KEY del sistema mandaria sobre la suscripcion (y cobraria): fuera
+    env.pop("ANTHROPIC_API_KEY", None)
+    if CFG.get("claude_token"):
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = str(CFG["claude_token"]).strip()
     if CFG.get("claude_thinking_tokens"):
         env["MAX_THINKING_TOKENS"] = str(CFG["claude_thinking_tokens"])
 
@@ -465,12 +471,48 @@ def llamar_api(system, user, timeout=120):
     return texto
 
 
+CLAUDE_SIN_SESION = {"hasta": 0.0}   # Claude Code sin sesion: mientras, se va directo a la API de reserva
+ESPERA_SESION = 10 * 60
+
+
+def _reserva_api():
+    return bool(CFG.get("api_reserva", True) and CFG.get("api_key"))
+
+
 def llamar_modelo(system, user, timeout=None, con_imagenes=False):
-    """Enruta al motor configurado en "redactor": claude_code o api."""
+    """Enruta al motor configurado en "redactor": claude_code o api. Si Claude Code ha perdido la sesion
+    y hay clave de la API (api_reserva), redacta con la API mientras tanto y vuelve a probar Claude Code
+    cada 10 minutos."""
+    import time as _t
     if CFG.get("redactor") == "api":
         return llamar_api(system, user, timeout=timeout or 120)
-    return llamar_claude(system + "\n\n" + user, model=CFG["claude_model"], extra_args=CFG["claude_extra_args"],
-                         timeout=timeout or CFG["claude_timeout"], con_imagenes=con_imagenes)
+    if _reserva_api() and _t.time() < CLAUDE_SIN_SESION["hasta"]:
+        AVISOS_LLAMADA.append("Redactada con la API de reserva: Claude Code no tiene sesion")
+        return llamar_api(system, user, timeout=timeout or 120)
+    try:
+        return llamar_claude(system + "\n\n" + user, model=CFG["claude_model"], extra_args=CFG["claude_extra_args"],
+                             timeout=timeout or CFG["claude_timeout"], con_imagenes=con_imagenes)
+    except ModeloNoDisponible as e:
+        if e.espera is not None or not _reserva_api():
+            raise
+        CLAUDE_SIN_SESION["hasta"] = _t.time() + ESPERA_SESION
+        print(f"Claude Code sin sesion ({str(e)[:120]}): se redacta con la API de reserva", flush=True)
+        AVISOS_LLAMADA.append("Redactada con la API de reserva: Claude Code no tiene sesion")
+        return llamar_api(system, user, timeout=timeout or 120)
+
+
+def probar_modelo():
+    """Una llamada minima para saber si el modelo atiende. (True, texto) o (False, motivo)."""
+    try:
+        if CFG.get("redactor") == "api":
+            salida = llamar_api("Responde solo con la palabra OK.", "OK?", timeout=60)
+        else:
+            salida = llamar_claude("Responde solo con la palabra OK.", model=CFG["claude_model"],
+                                   extra_args=CFG["claude_extra_args"], timeout=90)
+            CLAUDE_SIN_SESION["hasta"] = 0.0
+        return True, (salida or "").strip()[:80] or "OK"
+    except RedactorError as e:
+        return False, str(e).splitlines()[0][:300]
 
 
 def linea_envio(ficha):

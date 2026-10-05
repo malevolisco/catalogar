@@ -33,7 +33,9 @@ DEFAULTS = {
     "claude_timeout": 240,
     "claude_thinking_tokens": 1024,   # limita el razonamiento de Claude Code (MAX_THINKING_TOKENS)
     "redactor": "claude_code",        # "claude_code" (Pro) o "api" (clave, centimos por envio, rapido)
+    "claude_token": "",             # token de un año de Claude Code (claude setup-token): la sesion no caduca
     "api_key": "",
+    "api_reserva": True,            # si Claude Code pierde la sesion y hay api_key, redactar con la API mientras
     "api_model": "claude-haiku-4-5-20251001",
     "api_max_tokens": 1200,     # con generar_normal son siete lineas: 700 se quedaba corto y cortaba el final
     "acortar_comment": True,    # segunda pasada automatica si el COMMENT supera el tope

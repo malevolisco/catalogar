@@ -575,6 +575,7 @@
           <button class="b" id="ad-comprobar">Comprobar sesión de agencias</button>
           <button class="b" id="ad-login">Iniciar sesión en las agencias</button>
           <button class="b" id="ad-reabrir">Reabrir el navegador de agencias</button>
+          <button class="b" id="ad-probar-modelo">Probar la redacción</button>
           <button class="b riesgo" id="ad-reiniciar">Reiniciar el servidor</button>
         </div>
         <p class="pista">Reiniciar aplica los ajustes que lo piden. La cola no se pierde: lo que estuviera a medias vuelve a empezar.</p>
@@ -1602,6 +1603,12 @@
   accionAdmin("ad-login", iniciarSesionAgencias);
   accionAdmin("ad-reabrir", async () => { await api("POST", "/api/navegador/reabrir"); avisar("El navegador de agencias se abrirá de nuevo con el siguiente envío."); });
   accionAdmin("ad-reiniciar", reiniciarServidor);
+  accionAdmin("ad-probar-modelo", async () => {
+    avisar("Probando el modelo…");
+    const r = await api("POST", "/api/admin/probar-redaccion");
+    avisar(r.ok ? "El modelo responde: la redacción funciona." : "No responde: " + r.texto, !r.ok);
+    refrescar();
+  });
 
   async function reiniciarServidor() {
     if (!confirm("¿Reiniciar el servidor? Tarda unos segundos; lo que se estuviera redactando vuelve a la cola.")) return;
