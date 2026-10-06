@@ -50,7 +50,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   middleware de servidor.py devuelve 403 "admin bloqueado" a /api/admin/* (salvo direccion, clave, entrar, crear-clave)
   sin desbloquear (8 h por sesion; boton Bloquear). Olvidada: borrar esa linea de config.json. Estado rehecho (cuatro
   piezas de salud, acciones agrupadas, Este equipo, copia, contraseña) y boton "No tocar nunca jamás" (grito sintetizado
-  con WebAudio, sin grabaciones, y moonwalk).
+  con WebAudio, sin grabaciones, y moonwalk). Ahora "BOTÓN PROHIBIDO", de cristal casi transparente;
+  grito y frase cambian cada vez (títulos de canciones + datos de la cola que ya tiene la página).
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
