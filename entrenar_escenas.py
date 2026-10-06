@@ -119,13 +119,13 @@ def _clave(p):
     return f"{p.resolve()}|{st.st_mtime_ns}|{st.st_size}"
 
 
-def vectores_con_cache(rutas):
+def vectores_con_cache(rutas, decir=print):
     """Un vector por imagen legible (en el mismo orden, saltando las que fallen) y sus rutas."""
     cache = _cargar_cache()
     claves = [_clave(p) for p in rutas]
     faltan = [p for p, k in zip(rutas, claves) if k not in cache]
     if faltan:
-        print(f"  calculando {len(faltan)} imagen(es) nuevas (las demas ya estaban en la cache)...", flush=True)
+        decir(f"  calculando {len(faltan)} imagen(es) nuevas (las demas ya estaban en la cache)...")
         for p in faltan:
             vs = escenas.vectores([str(p)])
             if len(vs):
@@ -174,20 +174,12 @@ def medir(V, Y, G, clases):
     return dichos, buenos, reales
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Entrena el reconocimiento de escenas")
-    ap.add_argument("--desde-aprobadas", action="store_true",
-                    help="recoge antes los fotogramas de las fichas aprobadas de cola/estado.json")
-    ap.add_argument("--carpetas", nargs="+", default=["escenas", "escenas_auto"],
-                    help="carpetas con una subcarpeta por clase (se juntan las del mismo nombre)")
-    ap.add_argument("--minimo", type=int, default=3, help="envios minimos para aceptar una clase")
-    args = ap.parse_args()
-
-    if args.desde_aprobadas:
-        desde_aprobadas()
-
+def entrenar(carpetas=("escenas", "escenas_auto"), minimo=3, decir=print):
+    """Entrena con las imagenes de las carpetas y guarda escenas_modelo.npz. Devuelve un resumen:
+    {"ok", "motivo", "clases": [{clase, envios, dicha, acierto, se_usa, nota}], "global", "imagenes", "envios"}.
+    La usa este script y la pestaña Imagenes de la pagina (imagenes.py)."""
     por_clase = defaultdict(list)            # clase -> [(ruta, grupo)]
-    for nombre in args.carpetas:
+    for nombre in carpetas:
         raiz = BASE_DIR / nombre
         if not raiz.is_dir():
             continue
@@ -195,18 +187,19 @@ def main():
             for p in sorted(sub.iterdir()):
                 if p.suffix.lower() in EXT_IMAGEN:
                     m = GRUPO_RE.match(p.stem)
-                    # las de escenas_auto se agrupan por envio; las puestas a mano, cada una es un ejemplo
+                    # las de escenas_auto (y las subidas como "mismo video") se agrupan por envio;
+                    # las demas puestas a mano, cada una es un ejemplo
                     por_clase[sub.name].append((p, m.group(1) if m else f"{nombre}/{sub.name}/{p.stem}"))
     if not por_clase:
-        print("No hay imagenes todavia. Aprueba fichas en la pagina (boton Buena) y vuelve a lanzar esto,")
-        print("o usa --desde-aprobadas para recoger las que ya aprobaste.")
-        return
+        return {"ok": False, "motivo": "No hay imagenes todavia: aprueba fichas o sube imagenes a una categoria."}
 
-    clases, rutas, ys, gs = [], [], [], []
+    clases, rutas, ys, gs, saltadas = [], [], [], [], []
     for clase in sorted(por_clase):
         grupos = {g for _, g in por_clase[clase]}
-        if len(grupos) < args.minimo:
-            print(f"  {clase}: {len(grupos)} envio(s), se salta hasta tener {args.minimo}")
+        if len(grupos) < minimo:
+            decir(f"  {clase}: {len(grupos)} ejemplo(s), se salta hasta tener {minimo}")
+            saltadas.append({"clase": clase, "envios": len(grupos), "dicha": 0, "acierto": None, "se_usa": False,
+                             "nota": f"faltan ejemplos ({len(grupos)} de {minimo})"})
             continue
         idx = len(clases)
         clases.append(clase)
@@ -215,17 +208,16 @@ def main():
             ys.append(idx)
             gs.append(g)
     if len(clases) < 2:
-        print("\nHacen falta al menos dos clases con envios suficientes.")
-        return
+        return {"ok": False, "motivo": f"Hacen falta al menos dos categorias con {minimo} ejemplos o mas.",
+                "clases": saltadas}
 
-    print(f"Leyendo {len(rutas)} imagenes de {len(clases)} clases...")
-    V, ok = vectores_con_cache(rutas)
+    decir(f"Leyendo {len(rutas)} imagenes de {len(clases)} clases...")
+    V, ok = vectores_con_cache(rutas, decir)
     donde = {p: i for i, p in enumerate(rutas)}
     Y = np.array([ys[donde[p]] for p in ok])
     G = np.array([gs[donde[p]] for p in ok])
     if len(V) == 0:
-        print("No se ha podido leer ninguna imagen.")
-        return
+        return {"ok": False, "motivo": "No se ha podido leer ninguna imagen.", "clases": saltadas}
 
     dichos, buenos, reales = medir(V, Y, G, clases)
     fiab = np.where(dichos >= MIN_DICHOS, buenos / np.maximum(dichos, 1), 0.0)
@@ -239,19 +231,45 @@ def main():
         umbral = float(cargar_config().get("escenas_fiabilidad_min", umbral))
     except Exception:
         pass
-    print(f"\nGuardado escenas_modelo.npz ({len(clases)} clases, {len(np.unique(G))} envios, {len(V)} imagenes).")
-    print(f"\n{'clase':<24}{'envios':>7}{'dicha':>7}{'acierto':>9}   se usa")
+    filas = []
     for c, nombre in enumerate(clases):
         envios = len(np.unique(G[Y == c]))
-        acierto = f"{buenos[c] / dichos[c]:.0%}" if dichos[c] else "-"
         if dichos[c] < MIN_DICHOS:
-            uso = f"no (faltan pruebas: {int(dichos[c])} de {MIN_DICHOS})"
+            se_usa, nota = False, f"faltan pruebas ({int(dichos[c])} de {MIN_DICHOS})"
         else:
-            uso = "SI" if fiab[c] >= umbral else f"no (menos de {umbral:.0%})"
-        print(f"{nombre:<24}{envios:>7}{int(dichos[c]):>7}{acierto:>9}   {uso}")
+            se_usa = bool(fiab[c] >= umbral)
+            nota = "se usa" if se_usa else f"acierta menos del {umbral:.0%}"
+        filas.append({"clase": nombre, "envios": int(envios), "dicha": int(dichos[c]),
+                      "acierto": float(buenos[c] / dichos[c]) if dichos[c] else None, "se_usa": se_usa, "nota": nota})
     total = int(dichos.sum())
-    if total:
-        print(f"\nAcierto global probando cada envio sin haberlo visto: {int(buenos.sum())}/{total} = {buenos.sum() / total:.0%}")
+    return {"ok": True, "clases": filas + saltadas, "umbral": umbral, "entrenadas": len(clases),
+            "global": float(buenos.sum() / total) if total else None,
+            "imagenes": int(len(V)), "envios": int(len(np.unique(G)))}
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Entrena el reconocimiento de escenas")
+    ap.add_argument("--desde-aprobadas", action="store_true",
+                    help="recoge antes los fotogramas de las fichas aprobadas de cola/estado.json")
+    ap.add_argument("--carpetas", nargs="+", default=["escenas", "escenas_auto"],
+                    help="carpetas con una subcarpeta por clase (se juntan las del mismo nombre)")
+    ap.add_argument("--minimo", type=int, default=3, help="envios minimos para aceptar una clase")
+    args = ap.parse_args()
+
+    if args.desde_aprobadas:
+        desde_aprobadas()
+    r = entrenar(args.carpetas, args.minimo)
+    if not r["ok"]:
+        print(r["motivo"])
+        return
+    print(f"\nGuardado escenas_modelo.npz ({r['entrenadas']} clases, "
+          f"{r['envios']} envios, {r['imagenes']} imagenes).")
+    print(f"\n{'clase':<24}{'envios':>7}{'dicha':>7}{'acierto':>9}   se usa")
+    for c in r["clases"]:
+        acierto = f"{c['acierto']:.0%}" if c["acierto"] is not None else "-"
+        print(f"{c['clase']:<24}{c['envios']:>7}{c['dicha']:>7}{acierto:>9}   {'SI' if c['se_usa'] else 'no (' + c['nota'] + ')'}")
+    if r["global"] is not None:
+        print(f"\nAcierto global probando cada envio sin haberlo visto: {r['global']:.0%}")
     print("Las clases que no se usan se siguen aprendiendo: vuelve a entrenar cuando haya mas fichas aprobadas.")
 
 

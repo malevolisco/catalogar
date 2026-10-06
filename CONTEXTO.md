@@ -1,6 +1,6 @@
 # CONTEXTO DE CATALOGATOR (leer esto en lugar de toda la conversacion)
 
-Ultima actualizacion: 4 oct 2026. Si algo de aqui no coincide con el codigo, manda el codigo.
+Ultima actualizacion: 6 oct 2026. Si algo de aqui no coincide con el codigo, manda el codigo.
 
 ## Que es
 Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material de agencias
@@ -25,6 +25,14 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   (del usuario, se editan desde el panel, nunca se pisan al actualizar). `criterio.py`: los cambios de Adrian sobre el
   criterio base (editar/quitar/añadir lineas) van en `criterio_cambios.json` (suyo) y se aplican encima al redactar; si una
   version nueva cambia una linea tocada, el cambio queda "suelto" y el panel pregunta.
+- Prompt dinamico (6 oct): el system es fijo (criterio + Mis reglas + escritura normal, cacheable); las fichas aprobadas
+  van en el user y solo las `ejemplos_por_ficha` (8) mas parecidas al envio (`redactor.elegir_ejemplos`, palabras comunes
+  por raiz de 6 letras pesadas por rareza). `aprender.py`: "Pasar al criterio" (el modelo propone sitio, texto y lineas
+  que sobran; se aplica con criterio.anadir/quitar) y sugerencias al aprobar una ficha corregida (borrador del modelo en
+  `ficha["borrador"]`, cola/sugerencias.json, pestaña Reglas → Sugerencias; nunca se añaden solas).
+- `imagenes.py` (6 oct): pestaña Imagenes. Categorias = tipos de acto + propias (`escenas_clases.json`), subir/pegar/mover/
+  quitar imagenes (`escenas/<clase>/`), entrenar en segundo plano con `entrenar_escenas.entrenar()` (boton o solo, cada
+  10 min si cambio la firma de imagenes, `escenas_entreno.json`). Las imagenes viajan en la copia de datos.
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
@@ -72,7 +80,8 @@ formula de COMMENT, testimonios cortos, visitas, Groenlandia; 5 oct: MODA en el 
 de combate (aviso en redactor si sobra o falta), sin nombres de quien llega en photocall/desfile/llegadas salvo reyes
 y presidentes relevantes, preposiciones justas en el NAME sin pasar de 65, principio de ruido en la busqueda), respuestas por correo sin fichas de otros catalogadores,
 lanzador Catalogator completo (probado con un servidor GitHub simulado), primera compilacion en GitHub Actions,
-panel nuevo, app de escritorio con Admin y criterio editable (4 oct).
+panel nuevo, app de escritorio con Admin y criterio editable (4 oct), prompt dinamico, sugerencias aprendidas y pestaña
+Imagenes (6 oct; probado en Linux con modelo simulado: el CLIP real no se puede bajar desde el entorno de Claude).
 
 PRIMERA COMPILACION (4 oct): correcta. Release `v2026.10.04` publicada con `Catalogator.exe` (~103 MB, lleva Python,
 Playwright, onnxruntime y numpy dentro) y `catalogator-app.zip` (33 ficheros). Avisos sin importancia: `onnx`, `pytest`

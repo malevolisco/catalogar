@@ -251,7 +251,13 @@ CAMPOS = [
     ("acortar_comment", "Redacción", "Acortar el COMMENT si se pasa", "si_no", "Segunda pasada automática.", None, False),
     ("presentacion", "Redacción", "Cómo se ven las fichas en la página", "opcion", "", [("mayusculas", "MAYÚSCULAS"), ("normalizado", "Texto normal")], False),
     ("miniaturas", "Redacción", "Fotogramas que se mandan al modelo", "numero", "0 = ninguno.", None, False),
+    ("ejemplos_por_ficha", "Redacción", "Fichas aprobadas que acompañan a cada envío", "numero",
+     "Solo las más parecidas al envío; así puedes aprobar todas las que quieras sin alargar la redacción.", None, False),
+    ("aprender_correcciones", "Redacción", "Aprender de mis correcciones", "si_no",
+     "Al aprobar una ficha que has corregido, propone la regla que enseña (Reglas → Sugerencias). Nunca la añade sola.", None, False),
     ("escenas", "Redacción", "Reconocer escenas con el clasificador local", "si_no", "", None, False),
+    ("escenas_entrenar_auto", "Redacción", "Volver a entrenar las imágenes solo", "si_no",
+     "Cuando hay imágenes nuevas (fichas aprobadas o subidas), unos minutos después.", None, False),
 
     ("correo_usuario", "Correo", "Cuenta de correo de Catalogator", "texto", "La dirección desde la que se envía y en la que se reciben las peticiones.", None, True),
     ("correo_clave", "Correo", "Contraseña de aplicación", "secreto", "En Gmail: Cuenta de Google → Seguridad → Contraseñas de aplicaciones.", None, True),
@@ -698,7 +704,9 @@ async def visor_orden(request: Request):
 # lo que es del usuario y se puede llevar a otro equipo. Los perfiles del navegador no: las cookies van
 # cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
-         "cola/estado.json", "cola/correos.jsonl", "escenas_modelo.npz"]
+         "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "escenas_modelo.npz", "escenas_clases.json",
+         "escenas_entreno.json"]
+CARPETAS_COPIA = ("escenas", "escenas_auto")      # las imagenes de entrenar: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
 
@@ -712,6 +720,10 @@ def _zip_copia():
             ruta = BASE_DIR / rel
             if ruta.is_file():
                 z.write(ruta, rel)
+        for carpeta in CARPETAS_COPIA:
+            for ruta in sorted((BASE_DIR / carpeta).glob("*/*")):
+                if ruta.is_file():
+                    z.write(ruta, ruta.relative_to(BASE_DIR).as_posix(), compress_type=zipfile.ZIP_STORED)
         z.writestr("COPIA_CATALOGATOR", f"{_version()} {datetime.now():%d/%m/%Y %H:%M}\n")
     return buf.getvalue(), f"catalogator-datos-{datetime.now():%Y%m%d-%H%M}.zip"
 
@@ -763,7 +775,11 @@ async def cargar_copia(request: Request):
         raise HTTPException(400, "Ese fichero no es una copia de Catalogator (no es un zip)")
     if "COPIA_CATALOGATOR" not in z.namelist():
         raise HTTPException(400, "Ese zip no es una copia de Catalogator (Admin → Estado → Descargar copia)")
-    cargados = [n for n in z.namelist() if n in COPIA]
+    def _de_carpeta(n):
+        partes = n.split("/")
+        return (len(partes) == 3 and partes[0] in CARPETAS_COPIA and all(partes)
+                and not any(x in (".", "..") for x in partes) and re.match(r"^[\w.-]+$", partes[1] + partes[2]))
+    cargados = [n for n in z.namelist() if n in COPIA or _de_carpeta(n)]
     if not cargados:
         raise HTTPException(400, "La copia no trae nada que cargar")
     aparte = BASE_DIR / "_antes_de_la_copia"
@@ -791,7 +807,10 @@ async def cargar_copia(request: Request):
         destino = BASE_DIR / rel
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(contenido)
-    g("log")(f"Copia cargada desde la pagina: {', '.join(cargados)} (lo anterior, en _antes_de_la_copia)")
+    sueltos = [n for n in cargados if n in COPIA]
+    imagenes = len(cargados) - len(sueltos)
+    g("log")(f"Copia cargada desde la pagina: {', '.join(sueltos)}" + (f" y {imagenes} imagen(es) de entrenar" if imagenes else "")
+             + " (lo anterior, en _antes_de_la_copia)")
     return {"ok": True, "cargados": cargados, "avisos": avisos}
 
 

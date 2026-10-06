@@ -368,6 +368,44 @@
   /* registro */
   #registro { border-radius:10px; background:#0f141c; }
 
+  /* pasar una regla al criterio y sugerencias aprendidas */
+  .propuesta { margin-top:10px; padding:12px 14px; border:1px solid #c9d5ec; background:#f5f8fd; border-radius:var(--radio); }
+  .propuesta .par { display:grid; grid-template-columns:120px 1fr; gap:6px 12px; margin:4px 0 10px; font-size:14px; }
+  .propuesta .par > span { color:var(--gris); font-size:12.5px; padding-top:3px; }
+  .propuesta .sobra { display:flex; gap:8px; align-items:flex-start; font-size:13.5px; margin:5px 0; font-weight:400; color:var(--tinta); }
+  .propuesta .sobra input { margin-top:3px; accent-color:var(--tally); }
+  .sugerencia textarea { font-family:var(--sans); font-size:14.5px; }
+  .sugerencia .cambio { display:grid; grid-template-columns:110px 1fr; gap:4px 10px; font-size:13px; margin:8px 0 2px; }
+  .sugerencia .cambio > span { color:var(--gris); }
+  .sugerencia del { color:var(--tally); }
+  .sugerencia ins { color:var(--hecho); text-decoration:none; }
+  .sugerencia summary { cursor:pointer; font-size:13px; color:var(--azul); margin-top:6px; }
+
+  /* imagenes: categorias y entrenamiento */
+  .cats { display:grid; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); gap:10px; margin-bottom:20px; }
+  .cat { text-align:left; background:var(--hoja); border:1px solid var(--linea); border-radius:var(--radio); padding:12px 14px; cursor:pointer; font:inherit; color:inherit; height:auto; display:block; }
+  .cat:hover { border-color:#c3cad6; }
+  .cat.activa { border-color:var(--azul); box-shadow:0 0 0 3px rgba(47,91,211,.15); }
+  .cat .nom { font-weight:600; font-size:14px; line-height:1.3; }
+  .cat .des { font-size:12px; color:var(--gris); margin-top:2px; }
+  .cat .cuenta { font-size:12.5px; color:var(--gris); margin-top:9px; font-variant-numeric:tabular-nums; }
+  .cat .estado { margin-top:7px; }
+  .chapa.usa { color:var(--hecho); border-color:#c6dccf; background:#f1f7f3; }
+  .chapa.aprende { color:var(--espera); border-color:#eed9a0; background:#fffaf0; white-space:normal; }
+  .zona-subir { display:block; border:2px dashed #c9d0db; border-radius:var(--radio); padding:20px; text-align:center; color:var(--gris); background:var(--hoja); margin-bottom:10px; cursor:pointer; font-weight:400; }
+  .zona-subir strong { color:var(--tinta); font-weight:500; }
+  .zona-subir.encima { border-color:var(--azul); background:#f5f8fd; }
+  .rejilla { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; margin-top:12px; }
+  .mini-img { position:relative; border-radius:8px; overflow:hidden; background:#e8eaef; aspect-ratio:16/9; }
+  .mini-img img { width:100%; height:100%; object-fit:cover; display:block; }
+  .mini-img .origen { position:absolute; left:6px; top:6px; font-size:11px; background:rgba(15,20,28,.72); color:#fff; padding:1px 7px; border-radius:8px; }
+  .mini-img .acc { position:absolute; left:0; right:0; bottom:0; display:flex; gap:4px; padding:6px; background:linear-gradient(transparent, rgba(15,20,28,.78)); opacity:0; transition:opacity .1s; }
+  .mini-img:hover .acc, .mini-img:focus-within .acc { opacity:1; }
+  .mini-img .acc select { flex:1; min-width:0; font-size:12px; padding:0 4px; height:26px; }
+  .mini-img .acc button { height:26px; }
+  #entreno-lineas { font-family:var(--mono); font-size:12px; color:var(--gris); white-space:pre-wrap; max-height:150px; overflow:auto; margin-top:10px; }
+  @media (hover:none) { .mini-img .acc { opacity:1; } }
+
   /* puerta */
   .puerta { max-width:380px; margin:14vh auto 0; background:var(--hoja); border:1px solid var(--linea); border-radius:14px; padding:30px 30px 26px; box-shadow:0 10px 30px rgba(16,24,40,.08); }
   .puerta-marca { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
@@ -419,6 +457,7 @@
     <button data-vista="fichas" data-titulo="Fichas" class="activa"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4M9.5 12h6M9.5 15.5h6M9.5 9h2.5"/></svg><span>Fichas</span></button>
     <button data-vista="reglas" data-titulo="Reglas y criterio"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Reglas</span></button>
     <button data-vista="aprobadas" data-titulo="Fichas aprobadas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.3 1.6 2.8-.2.9 2.6 2.3 1.7-.9 2.7.9 2.7-2.3 1.7-.9 2.6-2.8-.2L12 20.8l-2.3-1.6-2.8.2-.9-2.6-2.3-1.7.9-2.7-.9-2.7 2.3-1.7.9-2.6 2.8.2z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.4"/></svg><span>Fichas aprobadas</span></button>
+    <button data-vista="imagenes" data-titulo="Imágenes y escenas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.8-4.8-8.2 8.8"/></svg><span>Imágenes</span></button>
     <button data-vista="navegador" data-titulo="Navegador de agencias"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 8.5h17M6.5 6.5h.01M9 6.5h.01"/></svg><span>Navegador</span></button>
     <button data-vista="admin" data-titulo="Administración"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-2.6-1.5L14.2 2.6h-4l-.3 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.3-1-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-1a7.6 7.6 0 0 0 2.6 1.5l.3 2.5h4l.3-2.5a7.6 7.6 0 0 0 2.6-1.5l2.3 1 2-3.4z"/></svg><span>Admin</span></button>
   </nav>
@@ -500,12 +539,13 @@
     <div class="subnav" id="subnav-reglas">
       <button data-sub="mias" class="activa">Mis reglas<span class="num" id="num-mias"></span></button>
       <button data-sub="base">Criterio base<span class="num" id="num-base"></span></button>
+      <button data-sub="sugerencias">Sugerencias<span class="num" id="num-sug"></span></button>
     </div>
 
     <div id="reglas-mias">
       <div class="entrada">
         <h2>Añadir una regla</h2>
-        <label for="regla">Tus reglas mandan sobre el criterio base. Úsalas con cuentagotas: los casos concretos se enseñan aprobando fichas.</label>
+        <label for="regla">Se aplica desde la próxima ficha y manda sobre el criterio base. Cuando la veas asentada, <b>Pasar al criterio</b> la coloca en su sitio del criterio base. Los casos concretos se enseñan aprobando fichas.</label>
         <textarea id="regla" placeholder="En archivo, ARCHIVO va justo después del país." style="font-family:var(--sans); font-size:14.5px"></textarea>
         <div style="margin-top:12px"><button class="b principal" id="anadir-regla">Añadir regla</button></div>
       </div>
@@ -523,12 +563,60 @@
       <div id="sueltos"></div>
       <div id="lista-base"></div>
     </div>
+
+    <div id="reglas-sugerencias" class="oculto">
+      <p class="pista" style="margin:0 0 14px">Cuando apruebas una ficha que has corregido, Catalogator estudia la corrección. Si enseña algo que sirve para otros envíos, te propone aquí la regla. Nunca se añade sola: retócala si quieres y añádela, o descártala y no volverá a proponerla.</p>
+      <div id="lista-sug"></div>
+    </div>
   </section>
 
   <!-- ---- fichas aprobadas ---- -->
   <section id="vista-aprobadas" class="oculto">
-    <p class="pista" style="margin:0 0 14px">Estas fichas entran como modelo en cada encargo. Más de doce alargan la redacción; mejor pocas y variadas.</p>
+    <p class="pista" style="margin:0 0 14px">Estas fichas sirven de modelo. En cada envío entran solo las más parecidas a él (8, se cambia en Admin → Ajustes), así que puedes aprobar todas las que quieras sin alargar la redacción.</p>
     <div id="lista-aprobadas"></div>
+  </section>
+
+  <!-- ---- imagenes ---- -->
+  <section id="vista-imagenes" class="oculto">
+    <p class="pista" style="margin:0 0 14px">Aquí se enseña a reconocer qué se ve en los fotogramas. Cada ficha que apruebas deja sus fotogramas en la categoría de su acto; puedes añadir tus imágenes y crear categorías. Una categoría solo se usa al redactar cuando ha demostrado acertar.</p>
+    <div id="imagenes-aviso"></div>
+    <div class="caja">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        <h2 style="margin:0">Entrenamiento</h2>
+        <span class="pista" id="entreno-estado" style="margin:0"></span>
+        <span style="margin-left:auto"></span>
+        <button class="b mini principal" id="entrenar">Entrenar ahora</button>
+      </div>
+      <div id="entreno-lineas" class="oculto"></div>
+    </div>
+    <div class="barra-herr">
+      <h2 style="margin:0; font-size:15px">Categorías</h2>
+      <span style="margin-left:auto"></span>
+      <button class="b mini" id="nueva-cat">Nueva categoría</button>
+    </div>
+    <div class="entrada oculto" id="form-cat">
+      <div class="fila-campos" style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <div><label for="cat-nombre">Nombre</label><input type="text" id="cat-nombre" placeholder="Desfile de moda" autocomplete="off"></div>
+        <div><label for="cat-desc">Cómo se dice en la ficha</label><input type="text" id="cat-desc" placeholder="DESFILE DE MODA" autocomplete="off"></div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:7px"><button class="b mini principal" id="cat-crear">Crear</button><button class="b mini" id="cat-cancelar">Cancelar</button></div>
+    </div>
+    <div class="cats" id="cats"></div>
+    <div id="cat-detalle" class="oculto">
+      <div class="barra-herr">
+        <h2 style="margin:0; font-size:15px" id="cat-titulo"></h2>
+        <span class="pista" id="cat-cuenta" style="margin:0"></span>
+        <span style="margin-left:auto"></span>
+        <span id="cat-botones" style="display:flex; gap:6px"></span>
+      </div>
+      <label class="zona-subir" id="zona-subir">
+        <input type="file" id="subir-fich" accept="image/*" multiple class="oculto">
+        <strong>Arrastra aquí imágenes, pégalas con Ctrl+V o haz clic para elegirlas</strong>
+        <div class="pista">Fotogramas, capturas de pantalla o fotos de lo que se ve en el vídeo. Van a <b id="zona-cat"></b>.</div>
+      </label>
+      <label class="casilla"><input type="checkbox" id="mismo-video"> Son fotogramas del mismo vídeo (cuentan como un solo ejemplo)</label>
+      <div class="rejilla" id="rejilla"></div>
+    </div>
   </section>
 
   <!-- ---- navegador ---- -->
@@ -869,7 +957,7 @@
     $("puerta").classList.add("oculto");
     $("app").classList.remove("oculto");
     ultima = "";
-    refrescar(); pedirReglas(); pedirAprobadas(); pedirAgenda(); pedirDireccion();
+    refrescar(); pedirReglas(); pedirSugerencias(); pedirAprobadas(); pedirAgenda(); pedirDireccion();
     if (!relojDireccion) relojDireccion = setInterval(pedirDireccion, 120000);
     if (!reloj) reloj = setInterval(refrescar, 5000);
   }
@@ -880,9 +968,10 @@
     document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
     vistaActual = b.dataset.vista;
     $("titulo-vista").textContent = b.dataset.titulo || b.textContent.trim();
-    ["fichas", "reglas", "aprobadas", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    ["fichas", "reglas", "aprobadas", "imagenes", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
     if (b.dataset.vista === "navegador") arrancarVisor();
-    if (b.dataset.vista === "reglas") { pedirReglas(); if (subReglas === "base") pedirCriterio(); }
+    if (b.dataset.vista === "reglas") { pedirReglas(); pedirSugerencias(); if (subReglas === "base") pedirCriterio(); }
+    if (b.dataset.vista === "imagenes") pedirImagenes();
     if (b.dataset.vista === "aprobadas") pedirAprobadas();
     if (b.dataset.vista === "admin") abrirAdmin();
   }));
@@ -896,7 +985,7 @@
       alCambiar(b.dataset.sub);
     }));
   }
-  subnav("subnav-reglas", "reglas-", s => { subReglas = s; if (s === "base") pedirCriterio(); else pedirReglas(); });
+  subnav("subnav-reglas", "reglas-", s => { subReglas = s; if (s === "base") pedirCriterio(); else if (s === "sugerencias") pedirSugerencias(); else pedirReglas(); });
   subnav("subnav-admin", "admin-", s => { subAdmin = s; abrirAdmin(); });
 
   // ---------------------------------------------------------------- modo de presentación
@@ -1209,7 +1298,8 @@
       const r = await api("POST", `/api/fichas/${lote.id}/${f.id}/buena`, correcciones || {});
       editando.delete(f.id);
       if (r.avisos && r.avisos.length) avisar("Aprobada, con avisos: " + r.avisos.join(" | "), true);
-      else avisar("Aprobada. Ya son " + r.total + "." + (r.aviso ? " " + r.aviso : ""));
+      else avisar("Aprobada. Ya son " + r.total + "." + (r.aprendiendo ? " Estudio tu corrección por si enseña una regla." : ""));
+      if (r.aprendiendo) { setTimeout(pedirSugerencias, 60000); setTimeout(pedirSugerencias, 180000); }
       ultima = ""; refrescar(); pedirAprobadas();
     } catch (e) {
       // si la ficha o el lote ya no existen, se suelta la edicion: si no, la pagina deja de refrescar
@@ -1243,6 +1333,7 @@
            <button class="b mini" data-subir ${i === 1 ? "disabled" : ""} title="Subir" aria-label="Subir">↑</button>
            <button class="b mini" data-bajar ${i === reglas.length ? "disabled" : ""} title="Bajar" aria-label="Bajar">↓</button>
            <button class="b mini" data-editar>Editar</button>
+           <button class="b mini" data-colocar title="Busca su sitio en el criterio base y la pasa allí">Pasar al criterio</button>
            <button class="b mini riesgo" data-quitar>Quitar</button>
          </div></div>`).join("") + `</div>` : `<div class="vacio">Ninguna regla contiene eso.</div>`;
     caja.querySelectorAll(".fila").forEach(fila => {
@@ -1255,6 +1346,7 @@
       const mover = async a => {
         try { pintarReglas((await api("POST", "/api/reglas/mover", { de: i, a })).reglas); } catch (e) { avisar(e.message, true); }
       };
+      fila.querySelector("[data-colocar]").addEventListener("click", () => colocarRegla(fila, i));
       fila.querySelector("[data-subir]").addEventListener("click", () => mover(i - 1));
       fila.querySelector("[data-bajar]").addEventListener("click", () => mover(i + 1));
       fila.querySelector("[data-editar]").addEventListener("click", () => {
@@ -1271,7 +1363,202 @@
       });
     });
   }
+  async function colocarRegla(fila, i) {
+    const cuerpo = fila.querySelector(".cuerpo");
+    fila.querySelectorAll(".botones button").forEach(b => b.disabled = true);
+    const caja = document.createElement("div");
+    caja.className = "propuesta";
+    caja.innerHTML = `<span class="pista" style="margin:0">Buscando su sitio en el criterio base… puede tardar un minuto.</span>`;
+    cuerpo.appendChild(caja);
+    let p;
+    try { p = await api("POST", "/api/reglas/colocar", { indice: i }); }
+    catch (e) { avisar(e.message, true); pintarReglas(reglasMias); return; }
+    caja.innerHTML = `<div class="par">
+        <span>Sección</span><div>${esc(p.seccion || "Instrucciones generales")}</div>
+        <span>Irá después de</span><div class="pista" style="margin:0; color:var(--tinta)">${esc(p.despues_texto)}</div>
+        <span>Quedará así</span><div><textarea>${esc(p.texto)}</textarea></div>
+      </div>
+      ${p.motivo ? `<p class="pista" style="margin:0 0 8px">${esc(p.motivo)}</p>` : ""}
+      ${p.sustituye.length ? `<p class="pista" style="margin:0 0 4px">Estas líneas del criterio chocan con ella o la repiten. Las marcadas se quitan (se pueden restaurar en Criterio base):</p>`
+        + p.sustituye.map(x => `<label class="sobra"><input type="checkbox" value="${esc(x.id)}" checked><span>${esc(x.texto)}</span></label>`).join("") : ""}
+      <div style="margin-top:10px; display:flex; gap:7px; flex-wrap:wrap">
+        <button class="b mini principal" data-aplicar>Pasar al criterio</button><button class="b mini" data-cancelar>Dejarla en mis reglas</button>
+      </div>`;
+    const ta = caja.querySelector("textarea");
+    ta.style.height = Math.max(74, ta.scrollHeight + 4) + "px";
+    caja.querySelector("[data-cancelar]").addEventListener("click", () => pintarReglas(reglasMias));
+    caja.querySelector("[data-aplicar]").addEventListener("click", async () => {
+      const quitar = [...caja.querySelectorAll(".sobra input:checked")].map(x => x.value);
+      try {
+        const r = await api("POST", "/api/reglas/colocar/aplicar", { indice: i, despues_de: p.despues_de, texto: ta.value, quitar });
+        pintarReglas(r.reglas); pedirCriterio();
+        avisar("Regla pasada al criterio base; ya se aplica.");
+      } catch (e) { avisar(e.message, true); }
+    });
+  }
   $("buscar-mias").addEventListener("input", () => pintarReglas(reglasMias));
+
+  // ---------------------------------------------------------------- sugerencias aprendidas
+  async function pedirSugerencias() {
+    try { pintarSugerencias(await api("GET", "/api/sugerencias")); } catch (e) {}
+  }
+  function pintarSugerencias(d) {
+    const lista = d.sugerencias || [];
+    $("num-sug").textContent = lista.length || "";
+    const caja = $("lista-sug");
+    const estudiando = d.estudiando ? `<p class="pista" style="margin:0 0 10px">Estudiando ${d.estudiando} corrección${d.estudiando === 1 ? "" : "es"}…</p>` : "";
+    if (!lista.length) {
+      caja.innerHTML = estudiando + `<div class="vacio"><strong>Sin sugerencias</strong>Aparecerán cuando apruebes fichas que hayas corregido.</div>`;
+      return;
+    }
+    const cambio = (s, c) => (s.antes?.[c] || "") === (s.despues?.[c] || "") ? "" :
+      `<span>${c}</span><div><del>${esc(s.antes?.[c] || "—")}</del><br><ins>${esc(s.despues?.[c] || "—")}</ins></div>`;
+    caja.innerHTML = estudiando + `<div class="lista">` + lista.map(s => `<div class="fila sugerencia" data-id="${esc(s.id)}">
+        <div class="cuerpo">
+          <textarea>${esc(s.regla)}</textarea>
+          <div class="pista">${esc(s.por_que)}${s.veces > 1 ? ` · lo has corregido ${s.veces} veces` : ""} · ${esc(s.fecha)}</div>
+          <details><summary>Ver la corrección · ${esc((s.envio || "").split("·").slice(0, 3).join("·"))}</summary>
+            <div class="cambio">${["NAME", "COMMENT", "RESTRICCIONES"].map(c => cambio(s, c)).join("")}</div></details>
+        </div>
+        <div class="botones"><button class="b mini principal" data-aceptar>Añadir a mis reglas</button><button class="b mini riesgo" data-descartar>Descartar</button></div>
+      </div>`).join("") + `</div>`;
+    caja.querySelectorAll(".sugerencia").forEach(fila => {
+      fila.querySelectorAll("textarea").forEach(ta => ta.style.height = Math.max(60, ta.scrollHeight + 4) + "px");
+      fila.querySelector("[data-aceptar]").addEventListener("click", async () => {
+        try {
+          const r = await api("POST", `/api/sugerencias/${encodeURIComponent(fila.dataset.id)}/aceptar`, { texto: fila.querySelector("textarea").value });
+          pintarSugerencias(r); pintarReglas(r.reglas); avisar("Añadida a tus reglas; ya se aplica.");
+        } catch (e) { avisar(e.message, true); }
+      });
+      fila.querySelector("[data-descartar]").addEventListener("click", async () => {
+        try { pintarSugerencias(await api("DELETE", `/api/sugerencias/${encodeURIComponent(fila.dataset.id)}`)); avisar("Descartada: no se volverá a proponer."); }
+        catch (e) { avisar(e.message, true); }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- imágenes (reconocimiento de escenas)
+  let imgDatos = null, imgClase = "", relojImg = null;
+  async function pedirImagenes() {
+    try { pintarImagenes(await api("GET", "/api/imagenes")); } catch (e) { avisar(e.message, true); }
+  }
+  function pintarImagenes(d) {
+    imgDatos = d;
+    $("imagenes-aviso").innerHTML = d.disponible ? "" : `<div class="sueltos"><h4>El reconocimiento de imágenes no está disponible en este equipo</h4><p class="pista" style="margin:0">${esc(d.motivo)}</p></div>`;
+    const e = d.entreno;
+    let estado;
+    if (e.en_marcha) estado = "Entrenando (empezó el " + e.inicio + ")…";
+    else if (e.error) estado = "El último entrenamiento falló: " + e.error;
+    else if (e.fecha) estado = "Último: " + e.fecha + (e.global != null ? " · acierta el " + Math.round(e.global * 100) + "% de los envíos que no ha visto" : (e.motivo ? " · " + e.motivo : ""));
+    else estado = "Todavía no se ha entrenado.";
+    if (!e.en_marcha && e.pendiente) estado += " · Hay imágenes nuevas" + (d.auto ? ": se entrenará solo en unos minutos." : ".");
+    $("entreno-estado").textContent = estado;
+    $("entrenar").disabled = e.en_marcha || !d.disponible;
+    $("entreno-lineas").classList.toggle("oculto", !(e.en_marcha && e.lineas.length));
+    $("entreno-lineas").textContent = e.lineas.join("\n");
+    clearTimeout(relojImg);
+    if (e.en_marcha && vistaActual === "imagenes") relojImg = setTimeout(pedirImagenes, 3000);
+    $("cats").innerHTML = d.clases.map(c => {
+      let chapa;
+      if (c.se_usa) chapa = `<span class="chapa usa">se usa · acierta el ${Math.round(c.acierto * 100)}%</span>`;
+      else if (c.ejemplos < d.minimo) chapa = `<span class="chapa">faltan ejemplos: ${c.ejemplos} de ${d.minimo}</span>`;
+      else if (c.nota) chapa = `<span class="chapa aprende">aprendiendo: ${esc(c.nota)}</span>`;
+      else chapa = `<span class="chapa aprende">pendiente de entrenar</span>`;
+      return `<button class="cat${c.clase === imgClase ? " activa" : ""}" data-c="${esc(c.clase)}">
+        <div class="nom">${esc(c.descriptor)}</div><div class="des">${c.propia ? "categoría tuya" : "tipo de acto"}</div>
+        <div class="cuenta">${c.tuyas} tuya${c.tuyas === 1 ? "" : "s"} · ${c.de_fichas} de fichas aprobadas</div>
+        <div class="estado">${chapa}</div></button>`;
+    }).join("");
+    $("cats").querySelectorAll(".cat").forEach(b => b.addEventListener("click", () => abrirClase(b.dataset.c)));
+    if (imgClase) cabeceraClase();
+  }
+  function claseDatos() { return (imgDatos?.clases || []).find(c => c.clase === imgClase); }
+  function cabeceraClase() {
+    const c = claseDatos();
+    if (!c) { imgClase = ""; $("cat-detalle").classList.add("oculto"); return; }
+    $("cat-titulo").textContent = c.descriptor;
+    $("zona-cat").textContent = c.descriptor;
+    $("cat-cuenta").textContent = `${c.ejemplos} ejemplo${c.ejemplos === 1 ? "" : "s"} para entrenar`;
+    $("cat-botones").innerHTML = c.propia ? `<button class="b mini" data-renombrar>Cambiar cómo se dice</button><button class="b mini riesgo" data-borrar>Quitar categoría</button>` : "";
+    $("cat-botones").querySelector("[data-renombrar]")?.addEventListener("click", async () => {
+      const nuevo = prompt("Cómo se dice en la ficha:", c.descriptor);
+      if (!nuevo) return;
+      try { await api("PUT", "/api/imagenes/clases/" + c.clase, { descriptor: nuevo }); pedirImagenes(); } catch (e) { avisar(e.message, true); }
+    });
+    $("cat-botones").querySelector("[data-borrar]")?.addEventListener("click", async () => {
+      if (!confirm("¿Quitar la categoría " + c.descriptor + "?")) return;
+      try { await api("DELETE", "/api/imagenes/clases/" + c.clase); imgClase = ""; pedirImagenes(); avisar("Categoría quitada."); } catch (e) { avisar(e.message, true); }
+    });
+  }
+  async function abrirClase(clase) {
+    imgClase = clase;
+    $("cats").querySelectorAll(".cat").forEach(b => b.classList.toggle("activa", b.dataset.c === clase));
+    $("cat-detalle").classList.remove("oculto");
+    cabeceraClase();
+    let d;
+    try { d = await api("GET", "/api/imagenes/" + clase); } catch (e) { avisar(e.message, true); return; }
+    if (clase !== imgClase) return;
+    const opciones = (imgDatos?.clases || []).map(c => `<option value="${esc(c.clase)}">${esc(c.descriptor)}</option>`).join("");
+    $("rejilla").innerHTML = d.imagenes.length ? d.imagenes.map(im => `<div class="mini-img" data-o="${esc(im.origen)}" data-n="${esc(im.nombre)}">
+        <img src="${esc(im.url)}" alt="" loading="lazy">
+        <span class="origen">${im.origen === "escenas" ? "tuya" : "de ficha"}</span>
+        <div class="acc"><select aria-label="Mover a otra categoría"><option value="">Mover a…</option>${opciones}</select>
+          <button class="b mini riesgo" data-quitar title="Quitar" aria-label="Quitar">✕</button></div>
+      </div>`).join("") + (d.total > d.imagenes.length ? `<p class="pista">Se ven las ${d.imagenes.length} más recientes de ${d.total}.</p>` : "")
+      : `<div class="vacio" style="grid-column:1/-1">Sin imágenes todavía en esta categoría.</div>`;
+    $("rejilla").querySelectorAll(".mini-img").forEach(div => {
+      const datos = { origen: div.dataset.o, clase, nombre: div.dataset.n };
+      div.querySelector("select").addEventListener("change", async ev => {
+        if (!ev.target.value || ev.target.value === clase) { ev.target.value = ""; return; }
+        try { await api("POST", "/api/imagenes/mover", { ...datos, a: ev.target.value }); div.remove(); pedirImagenes(); avisar("Imagen movida."); }
+        catch (e) { avisar(e.message, true); }
+      });
+      div.querySelector("[data-quitar]").addEventListener("click", async () => {
+        try { await api("DELETE", `/api/imagenes/archivo/${datos.origen}/${clase}/${encodeURIComponent(datos.nombre)}`); div.remove(); pedirImagenes(); }
+        catch (e) { avisar(e.message, true); }
+      });
+    });
+  }
+  async function subirImagenes(ficheros) {
+    ficheros = [...ficheros].filter(f => f.type.startsWith("image/"));
+    if (!imgClase) { avisar("Elige antes una categoría.", true); return; }
+    if (!ficheros.length) { avisar("Eso no es una imagen.", true); return; }
+    const fd = new FormData();
+    ficheros.forEach((f, i) => fd.append("ficheros", f, f.name || `pegada-${i + 1}.png`));
+    fd.append("mismo_video", $("mismo-video").checked ? "1" : "");
+    avisar("Subiendo " + ficheros.length + " imagen" + (ficheros.length === 1 ? "" : "es") + "…");
+    try {
+      const r = await api("POST", `/api/imagenes/${imgClase}/subir`, fd, true);
+      avisar(r.guardadas + " guardada" + (r.guardadas === 1 ? "" : "s") + (r.malas.length ? ". No se han podido leer: " + r.malas.join(", ") : "."), r.malas.length > 0);
+      await pedirImagenes(); abrirClase(imgClase);
+    } catch (e) { avisar(e.message, true); }
+  }
+  $("subir-fich").addEventListener("change", ev => { subirImagenes(ev.target.files); ev.target.value = ""; });
+  const zona = $("zona-subir");
+  ["dragenter", "dragover"].forEach(t => zona.addEventListener(t, ev => { ev.preventDefault(); zona.classList.add("encima"); }));
+  ["dragleave", "drop"].forEach(t => zona.addEventListener(t, () => zona.classList.remove("encima")));
+  zona.addEventListener("drop", ev => { ev.preventDefault(); subirImagenes(ev.dataTransfer.files); });
+  document.addEventListener("paste", ev => {
+    if (vistaActual !== "imagenes" || !imgClase || /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
+    const ficheros = [...(ev.clipboardData?.items || [])].filter(x => x.kind === "file").map(x => x.getAsFile()).filter(Boolean);
+    if (ficheros.length) { ev.preventDefault(); subirImagenes(ficheros); }
+  });
+  $("entrenar").addEventListener("click", async () => {
+    try { await api("POST", "/api/imagenes/entrenar"); avisar("Entrenando… puedes seguir trabajando."); pedirImagenes(); }
+    catch (e) { avisar(e.message, true); }
+  });
+  $("nueva-cat").addEventListener("click", () => { $("form-cat").classList.toggle("oculto"); $("cat-nombre").focus(); });
+  $("cat-cancelar").addEventListener("click", () => $("form-cat").classList.add("oculto"));
+  $("cat-nombre").addEventListener("input", () => { $("cat-desc").placeholder = normaliza($("cat-nombre").value) || "DESFILE DE MODA"; });
+  $("cat-crear").addEventListener("click", async () => {
+    const nombre = $("cat-nombre").value.trim();
+    if (!nombre) { $("cat-nombre").focus(); return; }
+    try {
+      const r = await api("POST", "/api/imagenes/clases", { nombre, descriptor: $("cat-desc").value.trim() || nombre });
+      $("cat-nombre").value = $("cat-desc").value = ""; $("form-cat").classList.add("oculto");
+      await pedirImagenes(); abrirClase(r.clase); avisar("Categoría creada: añade imágenes.");
+    } catch (e) { avisar(e.message, true); }
+  });
   $("anadir-regla").addEventListener("click", async () => {
     const texto = $("regla").value.trim();
     if (!texto) { $("regla").focus(); return; }
