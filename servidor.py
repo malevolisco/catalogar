@@ -54,6 +54,7 @@ from catalogar import guardar_csv, FECHA_RE
 import admin
 import aprender
 import imagenes
+import consumo
 from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -579,6 +580,7 @@ class Worker(threading.Thread):
             ficha["estado"] = "hecha"
             ficha["segundos"] = round(time.time() - t0)
             ESTADO.guardar()
+        consumo.contar_item()
         try:
             guardar_csv(campos, avisos)
         except OSError as e:                     # fichas.csv abierto en Excel, disco lleno...: la ficha ya esta
@@ -1497,6 +1499,8 @@ aprender.iniciar(globals())
 app.include_router(aprender.router)
 imagenes.iniciar(globals())
 app.include_router(imagenes.router)
+consumo.iniciar(globals())
+app.include_router(consumo.router)
 
 
 # ====================================================================== arranque

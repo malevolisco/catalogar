@@ -319,7 +319,7 @@ def config_minima():
     clave = secrets.token_urlsafe(12)
     cfg["servidor_clave"] = clave
     cfg.setdefault("servidor_puerto", 8765)
-    for k in ("github_repo", "github_token", "api_key", "correo_clave"):
+    for k in ("github_repo", "github_token", "api_key", "openai_key", "correo_clave"):
         if cfg.get(k) and (str(cfg[k]).startswith(("TU_", "github_pat_x", "la-")) or "xxxx" in str(cfg[k])):
             cfg[k] = ""
     (APP / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")

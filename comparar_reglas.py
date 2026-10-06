@@ -382,7 +382,7 @@ def main():
     datos = {
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "fichero_a": args.a, "fichero_b": args.b, "repes": args.repes,
-        "modelo": cfg["claude_model"] if cfg.get("redactor") != "api" else cfg.get("api_model"),
+        "modelo": {"api": cfg.get("api_model"), "openai": cfg.get("openai_model")}.get(cfg.get("redactor"), cfg["claude_model"]),
         "acortar": R.CFG["acortar_comment"],
         "casos": [],
     }
