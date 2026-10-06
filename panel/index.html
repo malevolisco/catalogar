@@ -398,22 +398,24 @@
   .grupo-acc + .grupo-acc { margin-top:14px; padding-top:14px; border-top:1px solid var(--linea); }
   .grupo-acc h3 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--gris); margin:0 0 8px; font-weight:600; }
   .caja h2 .pista-h { font-weight:400; color:var(--gris); font-size:13px; margin-left:6px; }
-  .zona-quieta { text-align:right; margin:26px 0 4px; }
+  /* fijo en la esquina inferior derecha (solo existe mientras se ve Admin → Estado) */
+  .zona-quieta { position:fixed; right:14px; bottom:14px; z-index:40; }
   /* el boton prohibido: cristal casi transparente, esta y no esta */
-  .no-tocar { position:relative; overflow:hidden; cursor:pointer; color:rgba(200,57,43,.13); font-weight:800; font-size:10.5px;
-              letter-spacing:.12em; text-transform:uppercase; padding:5px 12px; border-radius:999px; border:1px solid rgba(200,57,43,.05);
+  .no-tocar { position:relative; overflow:hidden; cursor:pointer; color:rgba(200,57,43,.13); font-weight:800; font-size:13px;
+              width:26px; height:26px; padding:0; display:grid; place-items:center; line-height:1;
+              border-radius:5px; border:1px solid rgba(200,57,43,.05);
               background:rgba(255,255,255,.03); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
               transition:color .6s, border-color .6s, background .6s; }
   .no-tocar:hover, .no-tocar:focus-visible { color:rgba(200,57,43,.6); border-color:rgba(200,57,43,.18); background:rgba(255,255,255,.12); }
   /* un brillo que pasa de vez en cuando: casi no se ve, pero llama */
-  .no-tocar::after { content:""; position:absolute; top:0; bottom:0; width:40%; left:-60%;
+  .no-tocar::after { content:""; position:absolute; top:0; bottom:0; width:60%; left:-80%;
                      background:linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); animation:destello 9s ease-in-out infinite; }
-  @keyframes destello { 0%, 86% { left:-60%; } 96%, 100% { left:130%; } }
+  @keyframes destello { 0%, 86% { left:-80%; } 96%, 100% { left:130%; } }
   @media (prefers-reduced-motion:reduce) { .no-tocar::after { animation:none; } }
   #aviso.fantasma { background:rgba(21,24,29,.14); color:rgba(27,30,36,.75); -webkit-backdrop-filter:blur(12px);
                     backdrop-filter:blur(12px); box-shadow:none; border:1px solid rgba(255,255,255,.25); }
   .moonwalk img { height:150px; width:auto; display:block; margin:0 auto; }
-  .broma-panel { position:fixed; right:28px; bottom:70px; width:300px; z-index:70; padding:14px; border-radius:14px;
+  .broma-panel { position:fixed; right:14px; bottom:50px; width:300px; z-index:70; padding:14px; border-radius:14px;
                  background:rgba(255,255,255,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
                  border:1px solid rgba(255,255,255,.6); box-shadow:0 10px 30px rgba(16,24,40,.08); font-size:13px; color:rgba(27,30,36,.8); }
   .broma-panel h4 { margin:0 0 8px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:rgba(200,57,43,.7); }
@@ -792,7 +794,7 @@
           </div>
         </div>
       </div>
-      <div class="zona-quieta"><button class="no-tocar" id="no-tocar">Botón prohibido</button></div>
+      <div class="zona-quieta"><button class="no-tocar" id="no-tocar" aria-label="Botón prohibido">P</button></div>
       <div class="broma-panel oculto" id="broma-panel" role="dialog" aria-label="Lo del botón prohibido">
         <h4>Lo del botón</h4>
         <ul id="broma-lista"></ul>
