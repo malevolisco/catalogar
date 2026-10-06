@@ -368,6 +368,46 @@
   /* registro */
   #registro { border-radius:10px; background:#0f141c; }
 
+  /* admin: puerta, estado y mantenimiento */
+  .puerta-admin { max-width:400px; margin:7vh auto 0; text-align:center; background:var(--hoja); border:1px solid var(--linea);
+                  border-radius:14px; padding:32px 30px 26px; box-shadow:0 10px 30px rgba(16,24,40,.07); }
+  .puerta-admin .candado { width:46px; height:46px; border-radius:12px; display:grid; place-items:center; margin:0 auto 14px;
+                           background:#eef2fb; color:var(--azul); }
+  .puerta-admin h2 { font-size:18px; margin:0 0 6px; }
+  .puerta-admin p { color:var(--gris); font-size:13.5px; margin:0 0 18px; }
+  .puerta-admin input { width:100%; margin-bottom:10px; text-align:center; }
+  .puerta-admin .b { width:100%; justify-content:center; height:40px; }
+  .puerta-admin .error { color:var(--tally); font-size:13px; min-height:18px; margin:4px 0 0; }
+  .cabeza-admin { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .cabeza-admin .subnav { margin-bottom:20px; }
+  .cabeza-admin .bloquear { margin-left:auto; margin-bottom:20px; }
+  .salud { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px; }
+  .salud .pieza { background:var(--hoja); border:1px solid var(--linea); border-radius:10px; box-shadow:var(--sombra); padding:14px 16px; }
+  .salud .et { font-size:12px; color:var(--gris); display:flex; align-items:center; gap:7px; }
+  .salud .va { font-size:17px; font-weight:600; margin-top:6px; }
+  .salud .sub { font-size:12.5px; color:var(--gris); margin-top:2px; }
+  .salud .sub.mal { color:var(--tally); }
+  .luz { width:8px; height:8px; border-radius:50%; background:#c3c8d1; flex:none; }
+  .luz.bien { background:var(--hecho); } .luz.mal { background:var(--tally); } .luz.activa { background:var(--azul); }
+  .rejilla-admin { display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(0, 1fr); gap:16px; align-items:start; }
+  @media (max-width:980px) { .rejilla-admin { grid-template-columns:1fr; } }
+  .detalles { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; margin:0; font-size:14px; }
+  .detalles dt { color:var(--gris); }
+  .detalles dd { margin:0; word-break:break-word; }
+  .grupo-acc { margin-top:4px; }
+  .grupo-acc + .grupo-acc { margin-top:14px; padding-top:14px; border-top:1px solid var(--linea); }
+  .grupo-acc h3 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--gris); margin:0 0 8px; font-weight:600; }
+  .caja h2 .pista-h { font-weight:400; color:var(--gris); font-size:13px; margin-left:6px; }
+  .zona-quieta { text-align:right; margin:26px 0 4px; }
+  .no-tocar { background:none; border:0; padding:2px 4px; cursor:pointer; color:var(--tally); font-weight:800; font-size:10.5px;
+              letter-spacing:.08em; text-transform:uppercase; opacity:.28; transition:opacity .2s; }
+  .no-tocar:hover, .no-tocar:focus-visible { opacity:1; }
+  .moonwalk { position:fixed; bottom:24px; left:110%; font-size:56px; z-index:60; pointer-events:none;
+              animation:moonwalk 2.6s cubic-bezier(.3,.1,.3,1) forwards; }
+  @keyframes moonwalk { 0% { left:105%; transform:scaleX(-1) translateY(0); } 50% { transform:scaleX(-1) translateY(-6px); }
+                        100% { left:-15%; transform:scaleX(-1) translateY(0); } }
+  @media (prefers-reduced-motion:reduce) { .moonwalk { animation-duration:.01s; } }
+
   /* pasar una regla al criterio y sugerencias aprendidas */
   .propuesta { margin-top:10px; padding:12px 14px; border:1px solid #c9d5ec; background:#f5f8fd; border-radius:var(--radio); }
   .propuesta .par { display:grid; grid-template-columns:120px 1fr; gap:6px 12px; margin:4px 0 10px; font-size:14px; }
@@ -643,55 +683,90 @@
 
   <!-- ---- admin ---- -->
   <section id="vista-admin" class="oculto">
-    <div class="subnav" id="subnav-admin">
-      <button data-sub="estado" class="activa">Estado</button>
-      <button data-sub="registro">Registro</button>
-      <button data-sub="ajustes">Ajustes</button>
-      <button data-sub="correos">Correos</button>
-      <button data-sub="estadisticas">Estadísticas</button>
+    <div class="puerta-admin oculto" id="puerta-admin">
+      <div class="candado"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></div>
+      <h2 id="pa-titulo">Administración</h2>
+      <p id="pa-texto">Escribe la contraseña de Admin.</p>
+      <input type="password" id="pa-clave" autocomplete="current-password" aria-label="Contraseña de Admin">
+      <input type="password" id="pa-clave2" class="oculto" autocomplete="new-password" placeholder="Repítela" aria-label="Repite la contraseña">
+      <button class="b principal" id="pa-entrar">Entrar</button>
+      <p class="error" id="pa-error"></p>
+    </div>
+
+    <div id="admin-dentro" class="oculto">
+    <div class="cabeza-admin">
+      <div class="subnav" id="subnav-admin">
+        <button data-sub="estado" class="activa">Estado</button>
+        <button data-sub="registro">Registro</button>
+        <button data-sub="ajustes">Ajustes</button>
+        <button data-sub="correos">Correos</button>
+        <button data-sub="estadisticas">Estadísticas</button>
+      </div>
+      <button class="b mini bloquear" id="admin-bloquear" title="Cierra Admin en este navegador">Bloquear</button>
     </div>
 
     <div id="admin-estado">
-      <div class="caja acceso" id="caja-acceso">
-        <h2>Entrar desde fuera de este PC</h2>
-        <div id="acceso-cuerpo"><p class="pista">Preguntando a Tailscale…</p></div>
-      </div>
-      <div class="caja">
-        <h2>Copia de tus datos</h2>
-        <p class="pista" style="margin:0 0 12px">Para llevar Catalogator a otro equipo (por ejemplo, la Raspberry): ajustes, agenda, tus reglas, tus cambios al criterio, fichas aprobadas y el historial. Las sesiones de las agencias no viajan: en el equipo nuevo se inicia sesión otra vez en la pestaña Navegador.</p>
-        <div class="acciones-admin">
-          <a class="b" id="copia-bajar" href="/api/admin/copia" download>Descargar copia de mis datos</a>
-          <label class="b" style="margin:0; color:var(--tinta)">Cargar una copia…<input type="file" id="copia-subir" accept=".zip" class="oculto"></label>
+      <div class="salud" id="salud"></div>
+      <div class="rejilla-admin">
+        <div>
+          <div class="caja">
+            <h2>Acciones</h2>
+            <div class="grupo-acc">
+              <h3>Agencias</h3>
+              <div class="acciones-admin">
+                <button class="b" id="ad-comprobar">Comprobar sesión</button>
+                <button class="b" id="ad-login">Iniciar sesión</button>
+                <button class="b" id="ad-reabrir">Reabrir el navegador</button>
+              </div>
+            </div>
+            <div class="grupo-acc">
+              <h3>Redacción y servidor</h3>
+              <div class="acciones-admin">
+                <button class="b" id="ad-probar-modelo">Probar la redacción</button>
+                <button class="b riesgo" id="ad-reiniciar">Reiniciar el servidor</button>
+              </div>
+              <p class="pista">Al reiniciar no se pierde la cola; lo que estuviera a medias vuelve a empezar.</p>
+            </div>
+          </div>
+          <div class="caja acceso" id="caja-acceso">
+            <h2>Entrar desde fuera</h2>
+            <div id="acceso-cuerpo"></div>
+          </div>
         </div>
-        <div id="copia-resultado"></div>
-      </div>
-      <div class="caja">
-        <h2>Datos de AP</h2>
-        <p class="pista" style="margin:0 0 12px">Lo que la página de AP recibe por detrás de los últimos 10 envíos de AP que has catalogado. Sirve para estudiar si AP se puede leer sin abrir la ficha. No lleva contraseñas.</p>
-        <div class="acciones-admin"><a class="b" id="ap-bajar" href="/api/admin/datos-ap" download>Descargar datos de AP</a></div>
-        <div id="ap-resultado"></div>
-      </div>
-      <div class="tiles" id="tiles-estado"></div>
-      <div class="caja">
-        <h2>Acciones</h2>
-        <div class="acciones-admin">
-          <button class="b" id="ad-comprobar">Comprobar sesión de agencias</button>
-          <button class="b" id="ad-login">Iniciar sesión en las agencias</button>
-          <button class="b" id="ad-reabrir">Reabrir el navegador de agencias</button>
-          <button class="b" id="ad-probar-modelo">Probar la redacción</button>
-          <button class="b riesgo" id="ad-reiniciar">Reiniciar el servidor</button>
+        <div>
+          <div class="caja">
+            <h2>Este equipo</h2>
+            <dl class="detalles" id="detalles-equipo"></dl>
+          </div>
+          <div class="caja">
+            <h2>Copia de tus datos</h2>
+            <p class="pista" style="margin:0 0 12px">Ajustes, reglas, criterio, fichas aprobadas, imágenes e historial, para llevarlos a otro equipo.</p>
+            <div class="acciones-admin">
+              <a class="b" id="copia-bajar" href="/api/admin/copia" download>Descargar copia</a>
+              <label class="b" style="margin:0; color:var(--tinta)">Cargar una copia…<input type="file" id="copia-subir" accept=".zip" class="oculto"></label>
+            </div>
+            <div id="copia-resultado"></div>
+          </div>
+          <div class="caja">
+            <h2>Contraseña de Admin</h2>
+            <div id="cambio-clave" class="oculto" style="display:grid; gap:8px; margin-bottom:10px">
+              <input type="password" id="cc-actual" placeholder="Actual" autocomplete="current-password" aria-label="Contraseña actual">
+              <input type="password" id="cc-nueva" placeholder="Nueva (6 caracteres o más)" autocomplete="new-password" aria-label="Contraseña nueva">
+            </div>
+            <div class="acciones-admin"><button class="b" id="cc-boton">Cambiar la contraseña</button></div>
+          </div>
+          <div class="caja oculto" id="caja-app">
+            <h2>Aplicación</h2>
+            <div class="acciones-admin">
+              <button class="b" data-app="buscar_actualizaciones">Buscar actualizaciones</button>
+              <button class="b" data-app="abrir_carpeta">Abrir la carpeta de datos</button>
+              <button class="b" data-app="mediacentral">Rellenar MediaCentral</button>
+            </div>
+            <p class="pista" id="app-info"></p>
+          </div>
         </div>
-        <p class="pista">Reiniciar aplica los ajustes que lo piden. La cola no se pierde: lo que estuviera a medias vuelve a empezar.</p>
       </div>
-      <div class="caja oculto" id="caja-app">
-        <h2>Aplicación</h2>
-        <div class="acciones-admin">
-          <button class="b" data-app="buscar_actualizaciones">Buscar actualizaciones</button>
-          <button class="b" data-app="abrir_carpeta">Abrir la carpeta de datos</button>
-          <button class="b" data-app="mediacentral">Rellenar MediaCentral</button>
-        </div>
-        <p class="pista" id="app-info"></p>
-      </div>
+      <div class="zona-quieta"><button class="no-tocar" id="no-tocar">No tocar nunca jamás</button></div>
     </div>
 
     <div id="admin-registro" class="oculto">
@@ -758,6 +833,7 @@
       </div>
       <p class="pista" id="nota-estadisticas"></p>
     </div>
+    </div>
   </section>
 </main>
 </div>
@@ -798,6 +874,7 @@
     catch (e) { throw new Error("El servidor no responde. Comprueba que sigue arrancado en casa."); }
     if (r.status === 401 && ruta !== "/login") { pedirClave(); throw new Error("La sesión ha caducado: entra otra vez con la clave."); }
     const datos = await r.json().catch(() => ({}));
+    if (r.status === 403 && datos.error === "admin bloqueado") { adminAbierto = false; if (vistaActual === "admin") mostrarPuertaAdmin(); }
     if (!r.ok) throw new Error(datos.detail || datos.error || ("El servidor ha devuelto un error " + r.status));
     return datos;
   }
@@ -1846,7 +1923,7 @@
       + (direccion.este_pc && direccion.clave ? `<div class="fila-acceso"><span class="et">Clave de la página</span><code class="grande" id="acceso-clave">••••••••••••</code>
         <button class="b mini" id="acceso-ver">Ver</button><button class="b mini" data-copiar="clave">Copiar</button></div>
         <div class="fila-acceso"><span class="et"></span><button class="b mini principal" data-copiar="las-dos">Copiar dirección y clave juntas</button></div>` : "")
-      + `<p class="pista" style="margin:4px 0 0">Ábrela en cualquier navegador (el móvil, el ordenador del trabajo) y entra con la clave. Funciona mientras Catalogator esté abierto en este PC.</p>`;
+      + `<p class="pista" style="margin:4px 0 0">Desde el móvil o el ordenador del trabajo, con la clave de la página.</p>`;
     c.querySelectorAll("[data-copiar]").forEach(b => b.addEventListener("click", () => {
       const q = b.dataset.copiar;
       copiar(q === "url" ? direccion.url : q === "clave" ? direccion.clave : `Catalogator: ${direccion.url}\nClave: ${direccion.clave}`,
@@ -1864,9 +1941,18 @@
   const tile = (et, va, clase) => `<div class="tile"><div class="et">${esc(et)}</div><div class="va ${clase || ""}">${esc(va)}</div></div>`;
   const plural = (n, s, p) => n + " " + (n === 1 ? s : (p || s + "s"));
 
-  function abrirAdmin() {
+  let adminAbierto = false, adminConfigurada = true;
+  async function abrirAdmin() {
     clearInterval(relojAdmin); relojAdmin = null;
     if (vistaActual !== "admin") return;
+    if (!adminAbierto) {
+      let c;
+      try { c = await api("GET", "/api/admin/clave"); } catch (e) { return; }
+      adminAbierto = c.desbloqueado; adminConfigurada = c.configurada;
+      if (!adminAbierto) { mostrarPuertaAdmin(); return; }
+    }
+    $("puerta-admin").classList.add("oculto");
+    $("admin-dentro").classList.remove("oculto");
     if (subAdmin === "estado") { pedirResumen(); pedirDireccion(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "estado" ? pedirResumen() : abrirAdmin(), 5000); }
     if (subAdmin === "registro") { pedirRegistro(); relojAdmin = setInterval(() => vistaActual === "admin" && subAdmin === "registro" ? pedirRegistro() : abrirAdmin(), 2000); }
     if (subAdmin === "ajustes") pedirAjustes();
@@ -1874,23 +1960,106 @@
     if (subAdmin === "estadisticas") pedirEstadisticas();
   }
 
+  // ---- puerta de Admin
+  function mostrarPuertaAdmin() {
+    clearInterval(relojAdmin); relojAdmin = null;
+    $("admin-dentro").classList.add("oculto");
+    $("puerta-admin").classList.remove("oculto");
+    $("pa-titulo").textContent = adminConfigurada ? "Administración" : "Crea la contraseña de Admin";
+    $("pa-texto").textContent = adminConfigurada ? "Escribe la contraseña de Admin." : "Protege los ajustes, las contraseñas y la copia de datos. Al menos 6 caracteres.";
+    $("pa-clave2").classList.toggle("oculto", adminConfigurada);
+    $("pa-entrar").textContent = adminConfigurada ? "Entrar" : "Crear y entrar";
+    $("pa-clave").placeholder = adminConfigurada ? "" : "Contraseña nueva";
+    $("pa-error").textContent = "";
+    $("pa-clave").value = $("pa-clave2").value = "";
+    setTimeout(() => $("pa-clave").focus(), 50);
+  }
+  async function entrarAdmin() {
+    const clave = $("pa-clave").value;
+    $("pa-error").textContent = "";
+    if (!clave) { $("pa-clave").focus(); return; }
+    if (!adminConfigurada && clave !== $("pa-clave2").value) { $("pa-error").textContent = "No coinciden."; return; }
+    try {
+      await api("POST", adminConfigurada ? "/api/admin/entrar" : "/api/admin/crear-clave", { clave });
+      adminAbierto = true; adminConfigurada = true; abrirAdmin();
+    } catch (e) { $("pa-error").textContent = e.message; $("pa-clave").select(); }
+  }
+  $("pa-entrar").addEventListener("click", entrarAdmin);
+  ["pa-clave", "pa-clave2"].forEach(id => $(id).addEventListener("keydown", e => { if (e.key === "Enter") entrarAdmin(); }));
+  $("admin-bloquear").addEventListener("click", async () => {
+    try { await api("POST", "/api/admin/salir"); } catch (e) {}
+    adminAbierto = false; mostrarPuertaAdmin();
+  });
+  $("cc-boton").addEventListener("click", async () => {
+    const caja = $("cambio-clave");
+    if (caja.classList.contains("oculto")) { caja.classList.remove("oculto"); $("cc-boton").textContent = "Guardar la contraseña nueva"; $("cc-actual").focus(); return; }
+    try {
+      await api("POST", "/api/admin/cambiar-clave", { actual: $("cc-actual").value, nueva: $("cc-nueva").value });
+      $("cc-actual").value = $("cc-nueva").value = ""; caja.classList.add("oculto"); $("cc-boton").textContent = "Cambiar la contraseña";
+      avisar("Contraseña de Admin cambiada.");
+    } catch (e) { avisar(e.message, true); }
+  });
+
+  // ---- no tocar nunca jamas
+  function gritito() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ac = new Ctx(), t0 = ac.currentTime + 0.02;
+    const salida = ac.createGain(); salida.gain.value = 0.5; salida.connect(ac.destination);
+    // "ji-ji!": dos golpes de falsete; la voz es una sierra con vibrato y dos formantes de "i" (300 y 2600 Hz)
+    [[0, 0.20, 1050, 1500], [0.24, 0.42, 1250, 1750]].forEach(([ini, dur, f0, f1]) => {
+      const o = ac.createOscillator(), vib = ac.createOscillator(), vibG = ac.createGain(), g = ac.createGain();
+      o.type = "sawtooth";
+      o.frequency.setValueAtTime(f0, t0 + ini);
+      o.frequency.exponentialRampToValueAtTime(f1, t0 + ini + dur * 0.35);
+      o.frequency.exponentialRampToValueAtTime(f1 * 0.82, t0 + ini + dur);
+      vib.frequency.value = 7; vibG.gain.value = 28; vib.connect(vibG).connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t0 + ini);
+      g.gain.exponentialRampToValueAtTime(0.9, t0 + ini + 0.025);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + ini + dur);
+      [[300, 3], [2600, 6]].forEach(([fc, q]) => {
+        const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = fc; bp.Q.value = q;
+        o.connect(bp).connect(g);
+      });
+      g.connect(salida);
+      o.start(t0 + ini); vib.start(t0 + ini); o.stop(t0 + ini + dur + 0.05); vib.stop(t0 + ini + dur + 0.05);
+    });
+    setTimeout(() => ac.close(), 1500);
+  }
+  $("no-tocar").addEventListener("click", () => {
+    gritito();
+    const mj = document.createElement("div");
+    mj.className = "moonwalk"; mj.textContent = "🕺"; mj.setAttribute("aria-hidden", "true");
+    document.body.appendChild(mj);
+    setTimeout(() => mj.remove(), 2800);
+    avisar("¡Hee-hee! Te dijimos que no lo tocaras.");
+  });
+
   // ---- estado
   async function pedirResumen() {
     let r;
     try { r = await api("GET", "/api/admin/resumen"); } catch (e) { return; }
     const horas = r.minutos >= 60 ? Math.floor(r.minutos / 60) + " h " + (r.minutos % 60) + " min" : r.minutos + " min";
-    $("tiles-estado").innerHTML =
-        tile("Ahora", r.modelo_parado ? "Modelo en pausa" : r.trabajando ? "Redactando" : "En espera", r.modelo_parado ? "peq mal" : "peq")
-      + tile("En cola", r.en_cola)
-      + tile("Fichas con error", r.errores, r.errores ? "mal" : "")
-      + tile("Sesión de agencias", r.sesion_agencia, "peq " + (r.sesion_agencia === "abierta" ? "bien" : /caducada|error/.test(r.sesion_agencia) ? "mal" : ""))
-      + tile("Buzón de correo", r.buzon_minutos ? (r.buzon_vivo ? "cada " + r.buzon_minutos + " min" : "parado") : "apagado", "peq " + (r.buzon_minutos && !r.buzon_vivo ? "mal" : ""))
-      + tile("Redacción", r.redactor + " · " + r.modelo, "peq")
-      + tile("Criterio", r.criterio.replace(".md", "") + (r.criterio_cambios ? " + tus cambios" : ""), "peq")
-      + tile("Navegador de agencias", r.navegador_oculto ? "oculto" : "visible", "peq")
-      + tile("Versión", r.version, "peq")
-      + tile("En marcha desde", r.arrancado + " (" + horas + ")", "peq");
-    if (r.worker_vivo === false) $("tiles-estado").innerHTML += tile("Hilo de trabajo", "parado: reinicia", "peq mal");
+    const pieza = (et, luz, va, sub, subMal) => `<div class="pieza"><div class="et"><span class="luz ${luz}"></span>${esc(et)}</div>
+      <div class="va">${esc(va)}</div>${sub ? `<div class="sub${subMal ? " mal" : ""}">${esc(sub)}</div>` : ""}</div>`;
+    const sesion = r.sesion_agencia || "";
+    const correo = r.buzon_minutos ? (r.buzon_vivo ? "Mirando el buzón" : "Buzón parado") : "Buzón apagado";
+    $("salud").innerHTML =
+        pieza("Trabajo", r.worker_vivo === false || r.modelo_parado ? "mal" : r.trabajando ? "activa" : "bien",
+              r.worker_vivo === false ? "Parado: reinicia" : r.modelo_parado ? "Modelo en pausa" : r.trabajando ? "Redactando" : "En espera",
+              r.en_cola ? plural(r.en_cola, "envío") + " en cola" : "Cola vacía")
+      + pieza("Fichas con error", r.errores ? "mal" : "bien", String(r.errores), r.errores ? "Se pueden volver a intentar desde su lote" : "Ninguna")
+      + pieza("Agencias", sesion === "abierta" ? "bien" : /caducada|error|antibot/.test(sesion) ? "mal" : "", sesion ? sesion[0].toUpperCase() + sesion.slice(1) : "—",
+              sesion === "sin abrir" ? "Se abre sola al catalogar" : "")
+      + pieza("Correo", r.buzon_minutos && !r.buzon_vivo ? "mal" : r.buzon_minutos ? "bien" : "", correo,
+              r.buzon_minutos ? "Cada " + r.buzon_minutos + " min" : "");
+    const dato = (et, va) => `<dt>${esc(et)}</dt><dd>${esc(va)}</dd>`;
+    $("detalles-equipo").innerHTML =
+        dato("Redacción", r.redactor + " · " + r.modelo)
+      + dato("Criterio", r.criterio.replace(".md", "") + (r.criterio_cambios ? " + tus cambios" : ""))
+      + dato("Navegador de agencias", r.navegador_oculto ? "Oculto" : "Visible")
+      + dato("Versión", r.version)
+      + dato("En marcha desde", r.arrancado + " · " + horas);
   }
   const accionAdmin = (id, fn) => $(id).addEventListener("click", async () => {
     $(id).disabled = true;
@@ -1930,20 +2099,6 @@
       const r = await api("POST", "/api/admin/copia/guardar");
       $("copia-resultado").innerHTML = `<p class="pista" style="margin:10px 0 0">Guardada en <b>${esc(r.ruta)}</b></p>`;
       avisar("Copia guardada en Descargas.");
-    } catch (err) { avisar(err.message, true); }
-  });
-  $("ap-bajar").addEventListener("click", async e => {
-    e.preventDefault();
-    try {
-      if (enEscritorio || window.pywebview) {
-        const r = await api("POST", "/api/admin/datos-ap/guardar");
-        $("ap-resultado").innerHTML = `<p class="pista" style="margin:10px 0 0">Guardados en <b>${esc(r.ruta)}</b></p>`;
-        avisar("Datos de AP guardados en Descargas.");
-      } else {
-        const r = await fetch("/api/admin/datos-ap");
-        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "No se han podido descargar");
-        location.href = "/api/admin/datos-ap";
-      }
     } catch (err) { avisar(err.message, true); }
   });
   $("copia-subir").addEventListener("change", async e => {

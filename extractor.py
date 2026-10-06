@@ -1210,36 +1210,6 @@ class Extractor:
             return self._fetch_ap_con(numero, fecha, respuestas, avisos, t0)
         finally:
             page.remove_listener("response", _on_response)
-            self._ap_guardar_datos(numero, respuestas)
-
-    def _ap_guardar_datos(self, numero, respuestas):
-        """Guarda en debug/datos_ap/<numero>.json los datos (JSON) que la pagina de AP ha recibido y que
-        mencionan el envio, para estudiar si se puede leer AP sin abrir la ficha. Solo contenido: de cada
-        respuesta, la direccion sin parametros y el cuerpo. Se quedan los 10 ultimos envios."""
-        try:
-            guardar, vistas = [], []
-            cuerpos = getattr(self, "_ap_cuerpos", {})
-            for r in list(respuestas):
-                txt = cuerpos.get(id(r))
-                if txt is None:
-                    try:
-                        txt = r.text()
-                    except Exception:
-                        txt = None
-                vistas.append({"url": r.url.split("?")[0], "leida": txt is not None,
-                               "tamano": len(txt or ""), "con_numero": bool(txt and numero in txt)})
-                if txt and numero in txt:
-                    guardar.append({"url": r.url.split("?")[0], "cuerpo": txt[:3_000_000]})
-            # siempre se guarda que se ha visto, aunque ninguna respuesta traiga el numero: tambien dice algo
-            guardar.append({"resumen": vistas})
-            carpeta = DEBUG_DIR / "datos_ap"
-            carpeta.mkdir(parents=True, exist_ok=True)
-            (carpeta / f"{numero}.json").write_text(json.dumps(guardar, ensure_ascii=False), encoding="utf-8")
-            viejos = sorted(carpeta.glob("*.json"), key=lambda p: p.stat().st_mtime)[:-10]
-            for v in viejos:
-                v.unlink()
-        except Exception:
-            pass
 
     def _fetch_ap_con(self, numero, fecha, respuestas, avisos, t0):
         import time as _time

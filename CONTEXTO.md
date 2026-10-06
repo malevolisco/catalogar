@@ -45,7 +45,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - AP por sus datos (6 oct, `ap_datos`): la pagina de AP recibe /v1/nrsearch/search/item/details con el envio entero
   (script.nitf, rightsline, title=slug, headline, arrivaldatetime, renditions.totalduration, sources); `ap_json.py` lo
   convierte en el texto de la ficha. La busqueda (/v1/nrsearch/search) NO trae el guion. Se sigue abriendo la ficha (la
-  peticion de detalles lleva listas de productos de la cuenta; no se imita). Admin → Estado → Descargar datos de AP.
+  peticion de detalles lleva listas de productos de la cuenta; no se imita).
+- Admin con contraseña propia (6 oct): `admin_clave_hash` en config.json (pbkdf2), se crea al entrar la primera vez; el
+  middleware de servidor.py devuelve 403 "admin bloqueado" a /api/admin/* (salvo direccion, clave, entrar, crear-clave)
+  sin desbloquear (8 h por sesion; boton Bloquear). Olvidada: borrar esa linea de config.json. Estado rehecho (cuatro
+  piezas de salud, acciones agrupadas, Este equipo, copia, contraseña) y boton "No tocar nunca jamás" (grito sintetizado
+  con WebAudio, sin grabaciones, y moonwalk).
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
