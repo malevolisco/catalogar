@@ -181,6 +181,71 @@ def direccion(request: Request):
     return datos
 
 
+# ====================================================================== boton prohibido: tus sonidos y gifs
+# Lo que sube el catalogador para el boton (clic derecho sobre el): se queda en este equipo, en
+# broma/archivos/, nunca va al repositorio y viaja con la copia de datos.
+BROMA_DIR = BASE_DIR / "broma" / "archivos"
+BROMA_SONIDO = (".mp3", ".ogg", ".wav", ".m4a")
+BROMA_IMAGEN = (".gif", ".webp", ".png", ".apng")
+BROMA_MAX = 15 * 1024 * 1024
+
+
+def _broma_lista():
+    if not BROMA_DIR.is_dir():
+        return [], []
+    ficheros = sorted(p for p in BROMA_DIR.iterdir() if p.is_file())
+    url = lambda p: f"/api/admin/broma/{p.name}?v={int(p.stat().st_mtime)}"
+    return ([{"nombre": p.name, "url": url(p)} for p in ficheros if p.suffix.lower() in BROMA_SONIDO],
+            [{"nombre": p.name, "url": url(p)} for p in ficheros if p.suffix.lower() in BROMA_IMAGEN])
+
+
+@router.get("/api/admin/broma")
+def broma_lista():
+    sonidos, imagenes = _broma_lista()
+    return {"sonidos": sonidos, "imagenes": imagenes}
+
+
+@router.get("/api/admin/broma/{nombre}")
+def broma_archivo(nombre: str):
+    from fastapi.responses import FileResponse
+    ruta = BROMA_DIR / nombre
+    if not re.match(r"^[\w.-]{1,100}$", nombre) or nombre.startswith(".") or not ruta.is_file():
+        raise HTTPException(404, "No está")
+    return FileResponse(ruta)
+
+
+@router.post("/api/admin/broma")
+async def broma_subir(request: Request):
+    formulario = await request.form()
+    BROMA_DIR.mkdir(parents=True, exist_ok=True)
+    guardados, malos = 0, []
+    for f in formulario.getlist("ficheros"):
+        if not hasattr(f, "read"):
+            continue
+        nombre = re.sub(r"[^\w.-]+", "_", Path(f.filename or "archivo").name)[:80].lstrip(".") or "archivo"
+        ext = Path(nombre).suffix.lower()
+        datos = await f.read()
+        if ext not in BROMA_SONIDO + BROMA_IMAGEN or len(datos) > BROMA_MAX:
+            malos.append(f.filename or nombre)
+            continue
+        destino = BROMA_DIR / nombre
+        if destino.exists():
+            destino = BROMA_DIR / f"{Path(nombre).stem}-{secrets.token_hex(2)}{ext}"
+        destino.write_bytes(datos)
+        guardados += 1
+    sonidos, imagenes = _broma_lista()
+    return {"guardados": guardados, "malos": malos, "sonidos": sonidos, "imagenes": imagenes}
+
+
+@router.delete("/api/admin/broma/{nombre}")
+def broma_quitar(nombre: str):
+    ruta = BROMA_DIR / nombre
+    if re.match(r"^[\w.-]{1,100}$", nombre) and not nombre.startswith(".") and ruta.is_file():
+        ruta.unlink()
+    sonidos, imagenes = _broma_lista()
+    return {"sonidos": sonidos, "imagenes": imagenes}
+
+
 # ====================================================================== contraseña de Admin
 # Aparte de la clave de la pagina: la pestaña Admin (ajustes, contraseñas, copia de datos, reiniciar) pide
 # la suya. Se guarda en config.json como huella (admin_clave_hash: sal$pbkdf2), nunca en claro. Si se
@@ -822,7 +887,7 @@ async def visor_orden(request: Request):
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
          "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "escenas_modelo.npz", "escenas_clases.json",
          "escenas_entreno.json"]
-CARPETAS_COPIA = ("escenas", "escenas_auto")      # las imagenes de entrenar: viajan enteras
+CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y lo del boton prohibido: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
 

@@ -400,18 +400,39 @@
   .caja h2 .pista-h { font-weight:400; color:var(--gris); font-size:13px; margin-left:6px; }
   .zona-quieta { text-align:right; margin:26px 0 4px; }
   /* el boton prohibido: cristal casi transparente, esta y no esta */
-  .no-tocar { cursor:pointer; color:rgba(200,57,43,.32); font-weight:800; font-size:10.5px; letter-spacing:.12em;
-              text-transform:uppercase; padding:5px 12px; border-radius:999px; border:1px solid rgba(200,57,43,.10);
-              background:rgba(255,255,255,.06); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
-              box-shadow:inset 0 1px 0 rgba(255,255,255,.35); transition:color .4s, border-color .4s, background .4s; }
-  .no-tocar:hover, .no-tocar:focus-visible { color:rgba(200,57,43,.75); border-color:rgba(200,57,43,.25); background:rgba(255,255,255,.18); }
-  #aviso.fantasma { background:rgba(21,24,29,.28); color:rgba(255,255,255,.88); -webkit-backdrop-filter:blur(10px);
-                    backdrop-filter:blur(10px); box-shadow:0 8px 24px rgba(16,24,40,.08); border:1px solid rgba(255,255,255,.18); }
-  .moonwalk { position:fixed; bottom:24px; left:110%; font-size:56px; z-index:60; pointer-events:none;
-              animation:moonwalk 2.6s cubic-bezier(.3,.1,.3,1) forwards; }
-  @keyframes moonwalk { 0% { left:105%; transform:scaleX(-1) translateY(0); } 50% { transform:scaleX(-1) translateY(-6px); }
-                        100% { left:-15%; transform:scaleX(-1) translateY(0); } }
-  @media (prefers-reduced-motion:reduce) { .moonwalk { animation-duration:.01s; } }
+  .no-tocar { position:relative; overflow:hidden; cursor:pointer; color:rgba(200,57,43,.13); font-weight:800; font-size:10.5px;
+              letter-spacing:.12em; text-transform:uppercase; padding:5px 12px; border-radius:999px; border:1px solid rgba(200,57,43,.05);
+              background:rgba(255,255,255,.03); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+              transition:color .6s, border-color .6s, background .6s; }
+  .no-tocar:hover, .no-tocar:focus-visible { color:rgba(200,57,43,.6); border-color:rgba(200,57,43,.18); background:rgba(255,255,255,.12); }
+  /* un brillo que pasa de vez en cuando: casi no se ve, pero llama */
+  .no-tocar::after { content:""; position:absolute; top:0; bottom:0; width:40%; left:-60%;
+                     background:linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent); animation:destello 9s ease-in-out infinite; }
+  @keyframes destello { 0%, 86% { left:-60%; } 96%, 100% { left:130%; } }
+  @media (prefers-reduced-motion:reduce) { .no-tocar::after { animation:none; } }
+  #aviso.fantasma { background:rgba(21,24,29,.14); color:rgba(27,30,36,.75); -webkit-backdrop-filter:blur(12px);
+                    backdrop-filter:blur(12px); box-shadow:none; border:1px solid rgba(255,255,255,.25); }
+  .moonwalk img { height:150px; width:auto; display:block; margin:0 auto; }
+  .broma-panel { position:fixed; right:28px; bottom:70px; width:300px; z-index:70; padding:14px; border-radius:14px;
+                 background:rgba(255,255,255,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+                 border:1px solid rgba(255,255,255,.6); box-shadow:0 10px 30px rgba(16,24,40,.08); font-size:13px; color:rgba(27,30,36,.8); }
+  .broma-panel h4 { margin:0 0 8px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:rgba(200,57,43,.7); }
+  .broma-panel ul { list-style:none; margin:0 0 10px; padding:0; max-height:180px; overflow:auto; }
+  .broma-panel li { display:flex; gap:6px; align-items:center; padding:3px 0; word-break:break-all; }
+  .broma-panel li button { margin-left:auto; background:none; border:0; cursor:pointer; color:rgba(200,57,43,.7); }
+  /* moonwalk: mira a la derecha y se desliza hacia la izquierda; las piernas alternan talon y punta */
+  .moonwalk { position:fixed; bottom:24px; left:105%; z-index:60; pointer-events:none; text-align:center;
+              animation:moonwalk 3.4s linear forwards; filter:drop-shadow(0 6px 6px rgba(16,24,40,.18)); }
+  .moonwalk svg { width:62px; height:134px; display:block; margin:0 auto; overflow:visible; }
+  .moonwalk .etapa { font-size:11px; letter-spacing:.06em; color:rgba(27,30,36,.55); margin-top:4px; white-space:nowrap; }
+  .moonwalk .pierna-a, .moonwalk .pierna-b { transform-box:view-box; animation:paso .42s ease-in-out infinite alternate; }
+  .moonwalk .pierna-a { transform-origin:27px 64px; }
+  .moonwalk .pierna-b { transform-origin:33px 64px; animation-direction:alternate-reverse; }
+  .moonwalk .cuerpo { animation:balanceo .42s ease-in-out infinite alternate; transform-box:view-box; transform-origin:30px 64px; }
+  @keyframes paso { from { transform:rotate(-9deg); } to { transform:rotate(7deg); } }
+  @keyframes balanceo { from { transform:translateY(0) rotate(-1.5deg); } to { transform:translateY(-1.5px) rotate(1deg); } }
+  @keyframes moonwalk { from { left:105%; } to { left:-12%; } }
+  @media (prefers-reduced-motion:reduce) { .moonwalk, .moonwalk * { animation-duration:.01s !important; } }
 
   /* pasar una regla al criterio y sugerencias aprendidas */
   .propuesta { margin-top:10px; padding:12px 14px; border:1px solid #c9d5ec; background:#f5f8fd; border-radius:var(--radio); }
@@ -772,6 +793,12 @@
         </div>
       </div>
       <div class="zona-quieta"><button class="no-tocar" id="no-tocar">Botón prohibido</button></div>
+      <div class="broma-panel oculto" id="broma-panel" role="dialog" aria-label="Lo del botón prohibido">
+        <h4>Lo del botón</h4>
+        <ul id="broma-lista"></ul>
+        <label class="b mini" style="margin:0">Añadir mp3 o gif…<input type="file" id="broma-subir" accept=".mp3,.ogg,.wav,.m4a,.gif,.webp,.png" multiple class="oculto"></label>
+        <button class="b mini" id="broma-cerrar" style="float:right">Cerrar</button>
+      </div>
     </div>
 
     <div id="admin-registro" class="oculto">
@@ -2057,15 +2084,104 @@
     ].filter(Boolean);
     return azar(frases);
   }
+  // El bailarin, dibujado aqui mismo (sin imagenes): la silueta de siempre con la ropa de cada etapa
+  const ETAPAS_MJ = [
+    { nombre: "Thriller · 1982", pelo: "#1a1410", chaqueta: "#c3202a", detalle: "thriller", pantalon: "#b51d26", calcetin: "#b51d26", zapato: "#151515" },
+    { nombre: "Billie Jean · 1983", sombrero: "#121212", cinta: "#e9e9e9", pelo: "#1a1410", chaqueta: "#1b1b1f", detalle: "lentejuelas",
+      camisa: "#e8a3b5", pantalon: "#151518", calcetin: "#f7f7f7", zapato: "#0d0d0d", guante: true, corto: true },
+    { nombre: "Bad · 1987", pelo: "#1a1410", chaqueta: "#141414", detalle: "hebillas", pantalon: "#161616", calcetin: "#161616", zapato: "#0d0d0d" },
+    { nombre: "Smooth Criminal · 1988", sombrero: "#f3f3f0", cinta: "#151515", pelo: "#1a1410", chaqueta: "#f3f3f0", detalle: "brazalete-azul",
+      camisa: "#3a6fd8", pantalon: "#efefea", calcetin: "#f7f7f7", zapato: "#f3f3f0", corto: true },
+    { nombre: "Dangerous · 1992", pelo: "#1a1410", chaqueta: "#a8141c", detalle: "militar", pantalon: "#121212", calcetin: "#f7f7f7",
+      zapato: "#0d0d0d", corto: true },
+  ];
+  function figuraMJ(e) {
+    const piel = "#8d5a3c";
+    const bajo = e.corto ? 106 : 112;                              // con pantalon corto se ven los calcetines blancos
+    const pierna = (x, clase) => `<g class="${clase}">
+        <rect x="${x}" y="62" width="9" height="${bajo - 62}" rx="3" fill="${e.pantalon}"/>
+        <rect x="${x + 0.5}" y="${bajo - 2}" width="8" height="${116 - bajo}" fill="${e.calcetin}"/>
+        <path d="M${x - 1} 116 h13 a3 3 0 0 1 0 6 h-13 z" fill="${e.zapato}"/></g>`;
+    const detalles = {
+      thriller: `<path d="M21 34 l9 14 l9 -14 M22 44 l8 10 l8 -10" stroke="#111" stroke-width="2.2" fill="none"/>`,
+      lentejuelas: [26, 33, 38, 30, 35].map((x, i) => `<circle cx="${x}" cy="${38 + i * 4}" r="0.9" fill="#d9d9e6"/>`).join(""),
+      hebillas: [38, 44, 50].map(y => `<rect x="20" y="${y}" width="20" height="1.6" fill="#bfc3c9"/><rect x="28" y="${y - 1}" width="4" height="3.6" fill="none" stroke="#d6d9de" stroke-width=".9"/>`).join(""),
+      "brazalete-azul": `<rect x="41" y="40" width="5" height="4" fill="#2f5bd3" transform="rotate(-12 43 42)"/>`,
+      militar: `<rect x="19" y="31" width="7" height="3" rx="1" fill="#d7b14a"/><rect x="34" y="31" width="7" height="3" rx="1" fill="#d7b14a"/>`
+        + [38, 44, 50, 56].map(y => `<circle cx="27" cy="${y}" r="1" fill="#e2c15a"/><circle cx="33" cy="${y}" r="1" fill="#e2c15a"/>`).join("")
+        + `<rect x="41" y="40" width="5" height="4" fill="#d7b14a" transform="rotate(-12 43 42)"/>`,
+    };
+    const cabeza = e.sombrero
+      ? `<path d="M20 15 q10 -5 22 0" stroke="${e.pelo}" stroke-width="5" fill="none"/>
+         <ellipse cx="31" cy="12.5" rx="17" ry="2.6" fill="${e.sombrero}"/>
+         <path d="M22 12 q1 -10 9 -10 q8 0 9 10 z" fill="${e.sombrero}"/>
+         <rect x="22.3" y="8.6" width="17.4" height="2.6" fill="${e.cinta}"/>`
+      : `<path d="M22 20 q-2 -13 9 -14 q12 -1 11 13 q-3 -6 -10 -6 q-7 0 -10 7 z" fill="${e.pelo}"/>
+         <path d="M23 18 q-3 6 -1 12" stroke="${e.pelo}" stroke-width="2.5" fill="none"/>`;
+    return `<svg viewBox="0 0 60 126" aria-hidden="true">
+      ${pierna(23, "pierna-b")}
+      <g class="cuerpo">
+        <path d="M42 33 q9 12 5 25" stroke="${e.chaqueta}" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+        <circle cx="47" cy="60" r="3" fill="${e.guante ? "#ffffff" : piel}" ${e.guante ? 'stroke="#d9d9e6" stroke-width=".8"' : ""}/>
+        ${e.guante ? '<path d="M47 54 l1 -2 M51 58 l2 -1 M50 55 l2 -2" stroke="#ffe680" stroke-width=".9"/>' : ""}
+        <path d="M19 30 h22 l3 33 h-28 z" fill="${e.chaqueta}"/>
+        ${e.camisa ? `<path d="M27 30 l3 7 l3 -7 z" fill="${e.camisa}"/>` : ""}
+        ${detalles[e.detalle] || ""}
+        <path d="M20 33 q-8 12 -5 26" stroke="${e.chaqueta}" stroke-width="6.5" fill="none" stroke-linecap="round"/>
+        <circle cx="15" cy="60" r="3" fill="${piel}"/>
+        <rect x="28" y="25" width="5" height="6" fill="${piel}"/>
+        <ellipse cx="31" cy="19" rx="7" ry="8" fill="${piel}"/>
+        <path d="M37 18 l3 1.5 l-3 1" fill="${piel}"/>
+        ${cabeza}
+      </g>
+      ${pierna(29, "pierna-a")}
+    </svg>`;
+  }
   let avisoFantasma = null;
-  $("no-tocar").addEventListener("click", () => {
+  // lo que el catalogador ha subido (clic derecho sobre el boton); si no hay nada, grito y dibujo de aqui
+  let broma = { sonidos: [], imagenes: [] };
+  async function pedirBroma() { try { broma = await api("GET", "/api/admin/broma"); } catch (e) {} pintarBroma(); }
+  function pintarBroma() {
+    const todo = [...broma.sonidos.map(x => ({ ...x, ico: "♪" })), ...broma.imagenes.map(x => ({ ...x, ico: "▣" }))];
+    $("broma-lista").innerHTML = todo.length ? todo.map(x => `<li><span>${x.ico}</span><span>${esc(x.nombre)}</span>
+        <button data-quitar="${esc(x.nombre)}" aria-label="Quitar ${esc(x.nombre)}">✕</button></li>`).join("")
+      : `<li>Nada todavía: suena el grito de aquí.</li>`;
+    $("broma-lista").querySelectorAll("[data-quitar]").forEach(b => b.addEventListener("click", async () => {
+      try { broma = await api("DELETE", "/api/admin/broma/" + encodeURIComponent(b.dataset.quitar)); pintarBroma(); } catch (e) { avisar(e.message, true); }
+    }));
+  }
+  $("no-tocar").addEventListener("contextmenu", e => {
+    e.preventDefault();
+    $("broma-panel").classList.toggle("oculto");
+    if (!$("broma-panel").classList.contains("oculto")) pedirBroma();
+  });
+  $("broma-cerrar").addEventListener("click", () => $("broma-panel").classList.add("oculto"));
+  $("broma-subir").addEventListener("change", async e => {
+    const fd = new FormData();
+    [...e.target.files].forEach(f => fd.append("ficheros", f));
+    try {
+      const r = await api("POST", "/api/admin/broma", fd, true);
+      broma = r; pintarBroma();
+      if (r.malos.length) avisar("No valen (formato o más de 15 MB): " + r.malos.join(", "), true);
+    } catch (err) { avisar(err.message, true); }
+    e.target.value = "";
+  });
+  pedirBroma.hecho = false;
+
+  $("no-tocar").addEventListener("click", async () => {
+    if (!pedirBroma.hecho) { pedirBroma.hecho = true; await pedirBroma(); }
     const nombre = azar(Object.keys(GRITOS));
-    gritito(nombre);
+    if (broma.sonidos.length) {
+      try { const a = new Audio(azar(broma.sonidos).url); a.volume = 0.8; a.play().catch(() => gritito(nombre)); } catch (e) { gritito(nombre); }
+    } else gritito(nombre);
+    const etapa = azar(ETAPAS_MJ);
     const mj = document.createElement("div");
-    mj.className = "moonwalk"; mj.textContent = azar(["🕺", "🕺🏻", "🕺🏽", "🕺🏿"]); mj.setAttribute("aria-hidden", "true");
-    mj.style.bottom = (16 + Math.random() * 60) + "px";
+    mj.className = "moonwalk"; mj.setAttribute("aria-hidden", "true");
+    mj.innerHTML = broma.imagenes.length ? `<img src="${esc(azar(broma.imagenes).url)}" alt="">`
+      : figuraMJ(etapa) + `<div class="etapa">${esc(etapa.nombre)}</div>`;
+    mj.style.bottom = (14 + Math.random() * 40) + "px";
     document.body.appendChild(mj);
-    setTimeout(() => mj.remove(), 2800);
+    setTimeout(() => mj.remove(), 3600);
     avisar({ "ji-jí": "¡Ji-jí!", "¡au!": "¡Au!", "¡ju!": "¡Ju!" }[nombre] + " " + fraseProhibida());
     const aviso = $("aviso");
     aviso.classList.add("fantasma");

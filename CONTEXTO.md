@@ -52,6 +52,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   piezas de salud, acciones agrupadas, Este equipo, copia, contraseña) y boton "No tocar nunca jamás" (grito sintetizado
   con WebAudio, sin grabaciones, y moonwalk). Ahora "BOTÓN PROHIBIDO", de cristal casi transparente;
   grito y frase cambian cada vez (títulos de canciones + datos de la cola que ya tiene la página).
+  Bailarin dibujado en SVG (cinco etapas: Thriller, Billie Jean, Bad, Smooth Criminal, Dangerous). Clic derecho en el boton:
+  panel para subir mp3/gif propios (broma/archivos/, fuera del repo y del zip de la app, viaja en la copia); si hay, se usan.
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
