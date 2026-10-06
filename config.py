@@ -56,7 +56,8 @@ DEFAULTS = {
     "aprender_correcciones": True,   # al aprobar una ficha corregida, proponer la regla que enseña (Reglas → Sugerencias)
     "miniaturas": 0,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
-    "agencias_solo_texto": True,   # de las agencias solo el texto: sin video, imagenes ni tipos de letra (carga antes)
+    "agencias_solo_texto": True,
+    "reuters_xml": True,          # de Reuters, el texto del XML de la ficha (boton XML) en vez de leer la pagina   # de las agencias solo el texto: sin video, imagenes ni tipos de letra (carga antes)
     "navegador_oculto": True,   # ventana fuera de la pantalla (no es headless); sale sola si hay que iniciar sesion
     "navegador": "auto",        # auto | chrome | msedge | chromium | sistema (el instalado, para Raspberry)
     "navegador_ruta": "",       # ejecutable concreto, si hace falta (ej. /usr/bin/chromium)

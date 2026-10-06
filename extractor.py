@@ -320,8 +320,9 @@ class NotFound(Exception):
 class Extractor:
     _url_busqueda_vista = False      # ya se ha anotado en consola la URL de una busqueda a mano
     def __init__(self, headless=False, debug=False, canal="auto", ruta=None, miniaturas=0,
-                 espera_login=60, oculto=False, solo_texto=False):
+                 espera_login=60, oculto=False, solo_texto=False, reuters_xml=True):
         self.headless = headless
+        self.reuters_xml = reuters_xml
         self.solo_texto = solo_texto
         self._cdp_bloqueo = None
         self._bloqueando = False
@@ -902,19 +903,51 @@ class Extractor:
 
         info = self._parse_id(page.url) or {}
         headline, texto, slug_ficha = self._leer_ficha()
+        # el XML de la ficha (boton XML), si se consigue, manda sobre lo leido en la pagina: trae el guion
+        # completo y las restricciones tal cual, sin depender de como este dibujada
+        xml = self._xml_reuters(numero, avisos_lista) if self.reuters_xml else None
+        if xml:
+            headline, texto = xml["headline"] or headline, xml["texto"]
         minis = self.miniaturas(numero, self.n_miniaturas)
         return {
             "agencia": "REUTERS",
             "miniaturas": minis,
             "numero": numero,
-            "fecha": cand["fecha"] or info.get("fecha"),
-            "rev": cand["rev"] or info.get("rev"),
-            "slug": cand.get("slug") or slug_ficha,
+            "fecha": cand["fecha"] or info.get("fecha") or (xml or {}).get("fecha"),
+            "rev": cand["rev"] or info.get("rev") or (xml or {}).get("rev"),
+            "slug": (xml or {}).get("slug") or cand.get("slug") or slug_ficha,
             "headline": headline,
             "url": page.url,
             "texto": texto,
             "avisos": avisos_lista,
+            "fuente_texto": "xml" if xml else "pagina",
         }
+
+    def _xml_reuters(self, numero, avisos):
+        """Descarga el XML de la ficha abierta (boton XML) y lo lee con reuters_xml. None si no se puede:
+        entonces vale lo leido en la pagina."""
+        import reuters_xml
+        page = self._page
+        try:
+            boton = page.get_by_role("button", name=re.compile(r"^\s*XML\s*$", re.I))
+            if boton.count() == 0:
+                boton = page.get_by_text(re.compile(r"^\s*XML\s*$"))
+            if boton.count() == 0:
+                return None
+            with page.expect_download(timeout=20000) as descarga:
+                boton.first.click(timeout=5000)
+            ruta = descarga.value.path()
+            with open(ruta, "rb") as f:
+                datos = reuters_xml.leer(f.read())
+        except Exception as e:
+            if self.debug:
+                print(f"[debug] XML de Reuters no disponible ({type(e).__name__}: {str(e)[:120]}); se usa la pagina",
+                      file=sys.stderr)
+            return None
+        if datos["numero"] and datos["numero"].lstrip("0") != str(numero).lstrip("0"):
+            avisos.append(f"El XML de la ficha es del Edit No {datos['numero']}, no del {numero}: se ha usado el texto de la pagina")
+            return None
+        return datos
 
     # ------------------------------------------------------------------ miniaturas
     def miniaturas(self, numero, cuantas=8):
