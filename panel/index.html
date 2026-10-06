@@ -662,12 +662,13 @@
     <div id="reglas-mias">
       <div class="entrada">
         <h2>Añadir una regla</h2>
-        <label for="regla">Se aplica desde la próxima ficha y manda sobre el criterio base. Cuando la veas asentada, <b>Pasar al criterio</b> la coloca en su sitio del criterio base. Los casos concretos se enseñan aprobando fichas.</label>
+        <label for="regla">Se aplica desde la próxima ficha y manda sobre el criterio base. A los pocos días pasa sola a su sitio del criterio y sale de aquí (se puede deshacer); si no quieres esperar, <b>Pasar al criterio</b>. Los casos concretos se enseñan aprobando fichas.</label>
         <textarea id="regla" placeholder="En archivo, ARCHIVO va justo después del país." style="font-family:var(--sans); font-size:14.5px"></textarea>
         <div style="margin-top:12px"><button class="b principal" id="anadir-regla">Añadir regla</button></div>
       </div>
       <div class="barra-herr"><input type="text" id="buscar-mias" placeholder="Buscar en tus reglas…" autocomplete="off"></div>
       <div id="lista-reglas"></div>
+      <div id="consolidadas"></div>
     </div>
 
     <div id="reglas-base" class="oculto">
@@ -689,7 +690,8 @@
 
   <!-- ---- fichas aprobadas ---- -->
   <section id="vista-aprobadas" class="oculto">
-    <p class="pista" style="margin:0 0 14px">Estas fichas sirven de modelo. En cada envío entran solo las más parecidas a él (8, se cambia en Admin → Ajustes), así que puedes aprobar todas las que quieras sin alargar la redacción.</p>
+    <p class="pista" style="margin:0 0 14px">Estas fichas sirven de modelo. En cada envío entran solo las más parecidas a él (8, se cambia en Admin → Ajustes). Se revisan solas: las repetidas dejan de entrar y las que chocan con el criterio de ahora entran solo si no hay otra igual de parecida.</p>
+    <div class="barra-herr" id="salud-barra"></div>
     <div id="lista-aprobadas"></div>
   </section>
 
@@ -1136,7 +1138,7 @@
     $("titulo-vista").textContent = b.dataset.titulo || b.textContent.trim();
     ["fichas", "reglas", "aprobadas", "imagenes", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
     if (b.dataset.vista === "navegador") arrancarVisor();
-    if (b.dataset.vista === "reglas") { pedirReglas(); pedirSugerencias(); if (subReglas === "base") pedirCriterio(); }
+    if (b.dataset.vista === "reglas") { pedirReglas(); pedirSugerencias(); pedirConsolidadas(); if (subReglas === "base") pedirCriterio(); }
     if (b.dataset.vista === "imagenes") pedirImagenes();
     if (b.dataset.vista === "aprobadas") pedirAprobadas();
     if (b.dataset.vista === "admin") abrirAdmin();
@@ -1488,6 +1490,11 @@
   }
   const quitarFecha = r => r.replace(/\s+\(\d{4}-\d{2}-\d{2}\)$/, "");
   const fechaDe = r => (r.match(/\((\d{4})-(\d{2})-(\d{2})\)$/) || []).slice(1).reverse().join("/");
+  const cuandoPasa = r => {
+    const m = r.match(/\((\d{4})-(\d{2})-(\d{2})\)$/); if (!m) return "";
+    const d = new Date(+m[1], +m[2] - 1, +m[3] + autoCriterio.dias);
+    return d <= new Date() ? "próximo repaso (cada hora)" : d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+  };
   function pintarReglas(reglas) {
     reglasMias = reglas;
     $("num-mias").textContent = reglas.length;
@@ -1501,7 +1508,7 @@
     caja.innerHTML = filas.length ? `<div class="lista">` + filas.map(({ r, i }) =>
       `<div class="fila" data-i="${i}"><span class="orden">${i}</span>
          <div class="cuerpo"><div class="regla-texto">${esc(quitarFecha(r))}</div>
-           ${fechaDe(r) ? `<div class="pista" style="margin-top:3px">añadida el ${esc(fechaDe(r))}</div>` : ""}</div>
+           ${fechaDe(r) ? `<div class="pista" style="margin-top:3px">añadida el ${esc(fechaDe(r))}${autoCriterio.auto ? " · pasa sola al criterio el " + esc(cuandoPasa(r)) : ""}</div>` : ""}</div>
          <div class="botones">
            <button class="b mini" data-subir ${i === 1 ? "disabled" : ""} title="Subir" aria-label="Subir">↑</button>
            <button class="b mini" data-bajar ${i === reglas.length ? "disabled" : ""} title="Bajar" aria-label="Bajar">↓</button>
@@ -1570,6 +1577,31 @@
     });
   }
   $("buscar-mias").addEventListener("input", () => pintarReglas(reglasMias));
+
+  // ---------------------------------------------------------------- reglas que pasan solas al criterio
+  let autoCriterio = { auto: false, dias: 3 };
+  async function pedirConsolidadas() {
+    let r;
+    try { r = await api("GET", "/api/consolidadas"); } catch (e) { return; }
+    autoCriterio = { auto: r.auto, dias: r.dias };
+    pintarConsolidadas(r.consolidadas);
+    pintarReglas(reglasMias);
+  }
+  function pintarConsolidadas(lista) {
+    const vivas = lista.filter(x => !x.deshecha).slice(0, 10);
+    $("consolidadas").innerHTML = vivas.length ? `<div class="caja" style="margin-top:16px">
+        <h2>Pasadas solas al criterio</h2>
+        <div class="lista" style="box-shadow:none">` + vivas.map(x => `<div class="fila" data-id="${esc(x.id)}">
+          <div class="cuerpo"><div class="regla-texto">${esc(x.texto)}</div>
+            <div class="pista">${esc(x.fecha)} · ${esc(x.seccion || "Instrucciones generales")}</div></div>
+          <div class="botones"><button class="b mini" data-deshacer>Deshacer</button></div></div>`).join("") + `</div></div>` : "";
+    $("consolidadas").querySelectorAll("[data-deshacer]").forEach(b => b.addEventListener("click", async () => {
+      try {
+        const r = await api("POST", "/api/consolidadas/deshacer", { id: b.closest(".fila").dataset.id });
+        pintarConsolidadas(r.consolidadas); pintarReglas(r.reglas); pedirCriterio(); avisar("Deshecho: la regla vuelve a Mis reglas.");
+      } catch (e) { avisar(e.message, true); }
+    }));
+  }
 
   // ---------------------------------------------------------------- sugerencias aprendidas
   async function pedirSugerencias() {
@@ -1835,15 +1867,53 @@
   async function pedirAprobadas() {
     try { pintarAprobadas((await api("GET", "/api/ejemplos")).ejemplos); } catch (e) {}
   }
+  let aprobadasDatos = [], saludDatos = {}, filtroSalud = "";
+  const SALUD = { valiosa: ["usa", "Valiosa"], revisar: ["aprende", "Para revisar"], repetida: ["quitada", "Repetida"], sin_uso: ["", "Sin uso"] };
+  async function pedirSalud() {
+    try { saludDatos = (await api("GET", "/api/ejemplos/salud")).salud || {}; } catch (e) { saludDatos = {}; }
+    pintarAprobadas(aprobadasDatos);
+  }
+  function chapaSalud(e, i) {
+    const d = saludDatos[e.numero || "#" + (i + 1)];
+    if (!d) return "";
+    const [cls, txt] = SALUD[d.estado] || ["", d.estado];
+    return `<div style="display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px">
+        <span class="chapa ${cls}">${txt}</span>
+        ${d.veces ? `<span class="pista" style="margin:0">ha acompañado a ${plural(d.veces, "envío")}</span>` : ""}
+        ${d.motivos.length ? `<span class="pista" style="margin:0">${esc(d.motivos.join(" · "))}</span>` : ""}</div>`;
+  }
+  function pintarBarraSalud() {
+    const cuenta = {};
+    aprobadasDatos.forEach((e, i) => { const d = saludDatos[e.numero || "#" + (i + 1)]; if (d) cuenta[d.estado] = (cuenta[d.estado] || 0) + 1; });
+    if (!Object.keys(cuenta).length) { $("salud-barra").innerHTML = ""; return; }
+    $("salud-barra").innerHTML = `<select id="salud-filtro" style="width:auto">
+        <option value="">Todas (${aprobadasDatos.length})</option>
+        ${Object.entries(SALUD).filter(([k]) => cuenta[k]).map(([k, [, t]]) => `<option value="${k}" ${filtroSalud === k ? "selected" : ""}>${t} (${cuenta[k]})</option>`).join("")}
+      </select>
+      ${cuenta.repetida ? `<button class="b mini riesgo" id="quitar-repetidas">Quitar las ${plural(cuenta.repetida, "repetida")}</button>` : ""}`;
+    $("salud-filtro").addEventListener("change", ev => { filtroSalud = ev.target.value; pintarAprobadas(aprobadasDatos); });
+    $("quitar-repetidas")?.addEventListener("click", async () => {
+      if (!confirm("¿Quitar las aprobadas repetidas? Se queda la versión más nueva de cada una.")) return;
+      try {
+        const r = await api("POST", "/api/ejemplos/quitar-repetidas");
+        avisar(r.quitadas.length ? "Quitadas: " + r.quitadas.join(", ") : "No había repetidas.");
+        aprobadasDatos = r.ejemplos; pedirSalud();
+      } catch (e) { avisar(e.message, true); }
+    });
+  }
   function pintarAprobadas(lista) {
+    if (lista !== aprobadasDatos) { aprobadasDatos = lista; pedirSalud(); }
+    pintarBarraSalud();
     const caja = $("lista-aprobadas");
     if (!lista.length) {
       caja.innerHTML = `<div class="vacio"><strong>Sin fichas aprobadas</strong>Pulsa Buena en una ficha que esté bien y aparecerá aquí.</div>`;
       return;
     }
-    caja.innerHTML = `<div class="lista">` + lista.map((e, i) => `<div class="fila">
+    const visible = (e, i) => !filtroSalud || (saludDatos[e.numero || "#" + (i + 1)] || {}).estado === filtroSalud;
+    caja.innerHTML = `<div class="lista">` + lista.map((e, i) => `<div class="fila${visible(e, i) ? "" : " oculto"}">
         <span class="orden">${i + 1}</span>
         <div class="cuerpo">
+          ${chapaSalud(e, i)}
           <div class="campo"><span class="nombre-campo">ENVIO</span><div class="texto">${esc(e.envio || e.numero)}</div></div>
           <div class="campo"><span class="nombre-campo">NAME</span><div class="texto">${esc(e.name)}</div>${cuenta("NAME", e.name)}</div>
           <div class="campo"><span class="nombre-campo">COMMENT</span><div class="texto">${esc(e.comment)}</div>${cuenta("COMMENT", e.comment)}</div>

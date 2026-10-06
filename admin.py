@@ -430,6 +430,9 @@ CAMPOS = [
      "Solo las más parecidas al envío; así puedes aprobar todas las que quieras sin alargar la redacción.", None, False),
     ("aprender_correcciones", "Redacción", "Aprender de mis correcciones", "si_no",
      "Al aprobar una ficha que has corregido, propone la regla que enseña (Reglas → Sugerencias). Nunca la añade sola.", None, False),
+    ("reglas_auto_criterio", "Redacción", "Pasar solas al criterio las reglas asentadas", "si_no",
+     "Una regla de Mis reglas que lleva unos días sin tocarse pasa a su sitio del criterio y sale de Mis reglas. Se puede deshacer.", None, False),
+    ("reglas_auto_dias", "Redacción", "Días para dar una regla por asentada", "numero", "", None, False),
     ("escenas", "Redacción", "Reconocer escenas con el clasificador local", "si_no", "", None, False),
     ("escenas_entrenar_auto", "Redacción", "Volver a entrenar las imágenes solo", "si_no",
      "Cuando hay imágenes nuevas (fichas aprobadas o subidas), unos minutos después.", None, False),
@@ -885,7 +888,7 @@ async def visor_orden(request: Request):
 # lo que es del usuario y se puede llevar a otro equipo. Los perfiles del navegador no: las cookies van
 # cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
-         "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "escenas_modelo.npz", "escenas_clases.json",
+         "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "cola/consolidadas.json", "cola/ejemplos_uso.json", "escenas_modelo.npz", "escenas_clases.json",
          "escenas_entreno.json"]
 CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y lo del boton prohibido: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este

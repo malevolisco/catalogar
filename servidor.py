@@ -40,7 +40,7 @@ from playwright.sync_api import sync_playwright
 from config import cargar_config, ConfigError
 from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE
 from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal, version_normal,
-                      anadir_ejemplo, listar_ejemplos, quitar_ejemplo,
+                      anadir_ejemplo, listar_ejemplos, quitar_ejemplo, salud_ejemplos,
                       anadir_regla, listar_reglas_extra, REGLAS_EXTRA_PATH)
 from correo import (enviar_lote, enviar_seleccion, enviar_fichas, analizar_reparto, enviar, CorreoError,
                     hay_excepcion_normalizada, es_para_mi, es_mio, es_formal, nombre_saludo, cabecera_fichas,
@@ -1428,6 +1428,22 @@ def borrar_regla(indice: int):
 @app.get("/api/ejemplos")
 def ejemplos():
     return {"ejemplos": listar_ejemplos()}
+
+
+@app.get("/api/ejemplos/salud")
+def ejemplos_salud():
+    return {"salud": salud_ejemplos()}
+
+
+@app.post("/api/ejemplos/quitar-repetidas")
+def quitar_repetidas():
+    """Quita las aprobadas que tienen otra mas nueva casi igual (se queda la nueva)."""
+    quitadas = [n for n, d in salud_ejemplos().items() if d["estado"] == "repetida" and not n.startswith("#")]
+    for n in quitadas:
+        quitar_ejemplo(n)
+    if quitadas:
+        log(f"Fichas aprobadas repetidas quitadas: {', '.join(quitadas)}")
+    return {"quitadas": quitadas, "ejemplos": listar_ejemplos()}
 
 
 @app.delete("/api/ejemplos/{numero}")

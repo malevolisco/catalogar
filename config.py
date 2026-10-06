@@ -53,7 +53,9 @@ DEFAULTS = {
     "escenas_fotogramas": 6,   # fotogramas que se sacan para reconocer y aprender la escena, aunque no se manden al modelo
     "escenas_entrenar_auto": True,   # volver a entrenar solo cuando cambian las imagenes (pestaña Imagenes)
     "ejemplos_por_ficha": 8,   # fichas aprobadas que acompañan a cada envio: las mas parecidas a el
-    "aprender_correcciones": True,   # al aprobar una ficha corregida, proponer la regla que enseña (Reglas → Sugerencias)
+    "aprender_correcciones": True,
+    "reglas_auto_criterio": True,   # una regla de Mis reglas asentada pasa sola a su sitio del criterio (se puede deshacer)
+    "reglas_auto_dias": 3,          # dias sin tocarla para darla por asentada   # al aprobar una ficha corregida, proponer la regla que enseña (Reglas → Sugerencias)
     "miniaturas": 0,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
     "agencias_solo_texto": True,
