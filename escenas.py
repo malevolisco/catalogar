@@ -14,7 +14,9 @@ clase ha demostrado al entrenar un acierto de al menos escenas_fiabilidad_min.
 Requisitos:  pip install onnxruntime pillow numpy
 El modelo (352 MB) se descarga solo la primera vez a modelos/clip_vision.onnx
 """
+import json
 import sys
+import threading
 import urllib.request
 from pathlib import Path
 
@@ -24,6 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent
 MODELO_DIR = BASE_DIR / "modelos"
 MODELO_ONNX = MODELO_DIR / "clip_vision.onnx"
 CENTROS = BASE_DIR / "escenas_modelo.npz"
+CLASES_PROPIAS = BASE_DIR / "escenas_clases.json"    # categorias creadas en la pestaña Imagenes: {clase: descriptor}
 URL_MODELO = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model.onnx"
 
 # normalizacion propia de CLIP
@@ -32,6 +35,7 @@ DESV = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
 LADO = 224
 
 _sesion = None
+_cerrojo = threading.Lock()       # la redaccion y el entrenamiento desde la pagina pueden cargarlo a la vez
 
 
 def _descargar_modelo():
@@ -52,13 +56,29 @@ def _descargar_modelo():
 
 def _cargar():
     global _sesion
-    if _sesion is not None:
+    with _cerrojo:
+        if _sesion is not None:
+            return _sesion
+        import onnxruntime
+        if not MODELO_ONNX.exists():
+            _descargar_modelo()
+        _sesion = onnxruntime.InferenceSession(str(MODELO_ONNX), providers=["CPUExecutionProvider"])
         return _sesion
-    import onnxruntime
-    if not MODELO_ONNX.exists():
-        _descargar_modelo()
-    _sesion = onnxruntime.InferenceSession(str(MODELO_ONNX), providers=["CPUExecutionProvider"])
-    return _sesion
+
+
+def clases_propias():
+    """Categorias creadas por el catalogador en la pestaña Imagenes: {clase: como se dice en la ficha}."""
+    try:
+        datos = json.loads(CLASES_PROPIAS.read_text(encoding="utf-8"))
+        return {str(k): str(v) for k, v in datos.items()} if isinstance(datos, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def descriptor(clase):
+    """Como se dice esa clase en una ficha: el descriptor del tipo de acto o el que se puso al crearla."""
+    from actos import DESCRIPTOR
+    return DESCRIPTOR.get(clase) or clases_propias().get(clase) or clase.replace("_", " ").upper()
 
 
 def _preparar(ruta):

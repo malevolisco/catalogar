@@ -186,13 +186,15 @@ La cabecera dice que esta redactando en cada momento, cuantas fichas quedan en c
 
 ## 3d. Fichas aprobadas (el sistema aprende de tus fichas buenas)
 
-Cuando una ficha sale perfecta, se marca y pasa a ser modelo para las siguientes. El redactor las añade al final de las reglas.
+Cuando una ficha sale perfecta, se marca y pasa a ser modelo para las siguientes. En cada envío el redactor añade solo las más parecidas a él (`ejemplos_por_ficha`, 8 por defecto): palabras en común entre el envío y la ficha aprobada (nombres, lugares, slug y titular de la agencia), pesando más las raras.
 
 - En casa: `python bueno.py 4682902` (la lee de `fichas.csv`), `python bueno.py --listar`, `python bueno.py --quitar 4682902`.
 - Desde el panel: botón **Buena** en cada ficha. Si primero la corriges (botón **Corregir**), al guardar se aprueba tu versión corregida, que es la que sirve de modelo.
 - Desde la pagina, con el servidor propio, es instantaneo; por la via antigua de GitHub, con un comentario `BUENA` en la issue.
 
-La pestaña **Fichas aprobadas** del panel las lista y permite quitarlas. No hay descarte automático: eliges tú cuáles se quedan. A partir de unas doce el prompt se alarga y la redacción tarda más; el worker avisa al superarlas. Conviene tener pocas y variadas: una de declaraciones, una de recursos, una de deportes, una de evento, una de recopilación.
+La pestaña **Fichas aprobadas** del panel las lista y permite editarlas y quitarlas. No hay tope: como solo entran las parecidas, se pueden aprobar todas las buenas sin alargar la redacción.
+
+Si la ficha que apruebas la has corregido, `aprender.py` compara tu versión con la del modelo y, si la corrección enseña algo general (no un dato de ese envío), deja una regla propuesta en **Reglas → Sugerencias**. No se añade sola: la aceptas (pasa a Mis reglas), la retocas o la descartas (y no vuelve). Se apaga con `aprender_correcciones`.
 
 ## 3e. Llevar el worker a una Raspberry Pi (sin monitor)
 
@@ -240,8 +242,9 @@ Cada cosa vive en una capa. Empieza siempre por la de arriba.
 
 1. **Ajuste rapido**, pestana Reglas de la pagina. Una frase, boton Anadir regla. Va a `reglas_extra.md`
    y manda sobre el resto del criterio. Para probar algo o corregir un vicio concreto. Sin tocar ficheros
-   ni reiniciar. Si tras cinco o seis fichas el ajuste funciona y es un patron de verdad, se pasa a la capa 2
-   y se borra el ajuste.
+   ni reiniciar. Si tras cinco o seis fichas el ajuste funciona y es un patron de verdad, boton **Pasar al
+   criterio**: el modelo propone en que seccion va, como queda redactada y que lineas del criterio deja
+   sobrando; al aceptarlo pasa al criterio base (capa 2, en `criterio_cambios.json`) y sale de Mis reglas.
 2. **El criterio**: `reglas_patrones.md` (el criterio en uso) y `ejemplos.md` (las fichas aprobadas). Son
    ficheros de texto: se abren con el Bloc de notas o Notepad++, se busca la seccion con Ctrl+F, se cambia
    y se guarda en UTF-8. El redactor los lee en cada envio. Antes de tocar, copia de seguridad.
@@ -533,7 +536,9 @@ Lo que decide el descriptor (RUEDA DE PRENSA, DECLARACIONES, COMPARECENCIA, ENTR
 2. **La imagen.** El servidor saca `escenas_fotogramas` fotogramas de cada envio (6 por defecto; no se mandan al modelo ni gastan cuota, salvo que `miniaturas` sea mayor que 0). Cada fotograma vota una escena y se descartan el primero y el ultimo. La imagen solo cuenta si la mayoria coincide (`escenas_umbral`) y si esa clase acerto al menos un 85 % al entrenar (`escenas_fiabilidad_min`). Si el shotlist no dice el acto, se le cuenta al modelo; si lo dice, manda el shotlist. Si la ficha no cuadra con la imagen, aviso "Por la imagen parece...: revisar". Nunca cambia la ficha sola.
 3. **Aprende de ti.** Al pulsar **Buena** en una ficha, sus fotogramas se copian a `escenas_auto/<tipo de acto>/`, con el tipo que dice la ficha aprobada (si la corriges, el de tu correccion). Las de archivo y resumenes no se usan. Si se vuelve a aprobar con otro descriptor, sus fotogramas cambian de carpeta. Reuters repite numeros: si la carpeta `miniaturas/<numero>` ya se ha sobrescrito con otro envio, no se copia nada.
 
-Para entrenar (con el servidor en marcha o parado; la primera vez baja el modelo de vision, 352 MB):
+Lo normal es hacerlo todo desde la pestaña **Imágenes** del panel: las categorías (los tipos de acto y las que crees tú, por ejemplo DESFILE DE MODA, en `escenas_clases.json`), sus imágenes (las de fichas aprobadas y las tuyas, que se suben arrastrándolas, eligiéndolas o pegándolas con Ctrl+V), y el entrenamiento, que se lanza con un botón o solo unos minutos después de que cambien las imágenes (`escenas_entrenar_auto`). Las categorías tuyas no son tipos de acto: se le cuentan al modelo como pista de lo que se ve ("Los fotogramas parecen: DESFILE DE MODA"). Si subes varios fotogramas del mismo vídeo, marca "Son fotogramas del mismo vídeo": cuentan como un solo ejemplo y el acierto que se mide no sale inflado. Funciona igual en la Raspberry Pi (medio segundo por imagen la primera vez; después solo se calculan las nuevas).
+
+Desde la consola (con el servidor en marcha o parado; la primera vez baja el modelo de vision, 352 MB):
 
 ```
 pip install numpy onnxruntime pillow

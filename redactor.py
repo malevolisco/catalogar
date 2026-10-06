@@ -28,7 +28,6 @@ BASE_DIR = Path(__file__).resolve().parent
 REGLAS_PATH = BASE_DIR / "reglas.md"
 REGLAS_EXTRA_PATH = BASE_DIR / "reglas_extra.md"
 EJEMPLOS_PATH = BASE_DIR / "ejemplos.md"
-MAX_EJEMPLOS_AVISO = 12
 WORKDIR = BASE_DIR / "claude_ws"   # carpeta vacia: Claude Code no debe leer nada del proyecto
 
 CAMPOS = ("ENVIO", "NAME", "COMMENT", "RESTRICCIONES")
@@ -54,6 +53,7 @@ CFG = {
     "escenas_fiabilidad_min": 0.85,       # acierto minimo medido al entrenar para fiarse de una clase
     "escenas_sin_imagenes": True,         # con etiqueta fiable, no adjuntar los fotogramas
     "escenas_fotogramas": 6,              # fotogramas que se sacan solo para el clasificador (no van al modelo)
+    "ejemplos_por_ficha": 8,              # fichas aprobadas que acompañan a cada envio: las mas parecidas a el
 }
 
 
@@ -125,7 +125,8 @@ class RedactorError(Exception):
     pass
 
 
-def _reglas():
+def criterio_vigente():
+    """El criterio con el que se redacta: el base con los cambios del catalogador y sus ajustes al final."""
     ruta = BASE_DIR / CFG.get("reglas", "reglas.md")
     if not ruta.exists():
         ruta = REGLAS_PATH
@@ -139,16 +140,11 @@ def _reglas():
                 extra.append("- " + linea.lstrip("-• ").strip())
     if extra:
         base += ("\n\n=== AJUSTES DEL CATALOGADOR (prevalecen sobre todo lo anterior) ===\n\n" + "\n".join(extra) + "\n")
-    ejemplos = listar_ejemplos()
-    if ejemplos:
-        bloques = []
-        for e in ejemplos:
-            bloques.append(f"ENVIO: {e['envio']}\nNAME: {e['name']}\nCOMMENT: {e['comment']}\nRESTRICCIONES: {e['restricciones']}")
-        base += ("\n\n=== FICHAS APROBADAS POR EL CATALOGADOR ===\n\n"
-                 "Sirven para el tono, el orden y la medida. Cuando una ficha aprobada contradiga una regla del "
-                 "criterio, manda la regla: las fichas se aprobaron enteras, no frase a frase, y pueden arrastrar "
-                 "detalles que el criterio ya corrige.\n\n"
-                 + "\n\n".join(bloques) + "\n")
+    return base
+
+
+def _reglas():
+    base = criterio_vigente()
     # la version en escritura normal se pide aqui, con el resto de instrucciones fijas (va en la parte
     # cacheada de la API y no contradice el "devuelve solo estas lineas" del preambulo)
     if CFG.get("generar_normal", True):
@@ -207,7 +203,7 @@ def listar_ejemplos():
 
 def anadir_ejemplo(campos):
     """Guarda una ficha aprobada en ejemplos.md. Si ya hay una con ese numero, la sustituye.
-    Devuelve (numero_de_ejemplos, aviso_o_None)."""
+    Devuelve (numero_de_ejemplos, None); el segundo valor queda por compatibilidad."""
     envio = (campos.get("ENVIO") or "").strip()
     num = envio.split("·")[0].strip() if envio else ""
     campos = dict(campos, RESTRICCIONES=limpiar_restricciones(campos.get("RESTRICCIONES") or "SIN AVISO"))
@@ -222,12 +218,8 @@ def anadir_ejemplo(campos):
         EJEMPLOS_PATH.write_text("# Fichas aprobadas\n", encoding="utf-8")
     with EJEMPLOS_PATH.open("a", encoding="utf-8") as f:
         f.write("\n" + bloque)
-    n = len(listar_ejemplos())
-    aviso = None
-    if n > MAX_EJEMPLOS_AVISO:
-        aviso = (f"Hay {n} fichas aprobadas: cada una alarga el prompt y la redaccion. "
-                 f"Conviene quedarse con unas {MAX_EJEMPLOS_AVISO}, variadas por tipo.")
-    return n, aviso
+    # no hay tope: en cada envio solo entran las mas parecidas (elegir_ejemplos)
+    return len(listar_ejemplos()), None
 
 
 def quitar_ejemplo(numero):
@@ -263,8 +255,77 @@ def listar_reglas_extra():
             if l.strip() and not l.strip().startswith("#")]
 
 
+# ====================================================================== fichas aprobadas parecidas
+# Palabras que no distinguen un envio de otro (ingles de las agencias, español de las fichas)
+VACIAS = set("""
+THE AND FOR WITH FROM THAT THIS THESE THOSE ARE WAS WERE HAS HAVE HAD NOT BUT ITS HIS HER THEIR THEY SAID SAYS SAYING
+ABOUT AFTER BEFORE OVER INTO ONTO WHO WHICH WHEN WHERE WHILE WILL WOULD CAN COULD ALSO MORE THAN BEEN BEING ONE TWO
+VIDEO SHOWS SHOW SHOT SHOTS STORY SOUNDBITE ENGLISH SPANISH FRENCH NATS NATURAL SOUND REUTERS ASSOCIATED PRESS EBU
+ACCESS RESTRICTIONS DURATION SOURCE LOCATION DATE MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY
+JANUARY FEBRUARY MARCH APRIL MAY JUNE JULY AUGUST SEPTEMBER OCTOBER NOVEMBER DECEMBER WIDE MEDIUM CLOSE VARIOUS
+DEL LOS LAS CON POR PARA QUE UNA UNO SUS SOBRE ENTRE TRAS ANTE DESDE HASTA SIN MAS COMO ESTE ESTA ESTOS ESTAS
+PLANOS PLANO GENERAL GENERALES DETALLE VARIOS DIVERSOS IMAGENES DECLARACIONES AVISO
+""".split())
+
+
+def _palabras(texto):
+    t = unicodedata.normalize("NFKD", (texto or "").upper())
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    # raiz de seis letras: ZELENSKIY (agencia) y ZELENSKI (ficha) cuentan como la misma palabra
+    return {w[:6] for w in re.findall(r"[A-Z0-9]{3,}", t) if w not in VACIAS and not w.isdigit()}
+
+
+def elegir_ejemplos(ficha, ejemplos=None, n=None):
+    """Las fichas aprobadas mas parecidas a este envio, para que acompañen a la redaccion sin cargar todas.
+    Parecido: palabras en comun (nombres, lugares, slug y titular de la agencia, que las aprobadas guardan
+    en ENVIO), pesando mas las raras. Si hay menos parecidas que n, se completa con las mas recientes."""
+    ejemplos = listar_ejemplos() if ejemplos is None else ejemplos
+    n = int(CFG.get("ejemplos_por_ficha", 8) if n is None else n)
+    if n <= 0 or not ejemplos:
+        return []
+    if len(ejemplos) <= n:
+        return list(ejemplos)
+    import math
+    buscadas = _palabras(" ".join([ficha.get("slug") or "", ficha.get("headline") or "",
+                                   (ficha.get("texto") or "")[:2500]]))
+    bolsas = [_palabras(" ".join([e["envio"], e["name"], e["comment"]])) for e in ejemplos]
+    df = {}
+    for b in bolsas:
+        for w in b:
+            df[w] = df.get(w, 0) + 1
+    total = len(ejemplos)
+    puntos = []
+    for i, b in enumerate(bolsas):
+        comunes = buscadas & b
+        p = sum(math.log((total + 1) / df[w]) for w in comunes) / math.sqrt(max(len(b), 1))
+        puntos.append((p, i))
+    elegidos = [i for p, i in sorted(puntos, key=lambda x: (-x[0], -x[1])) if p > 0][:n]
+    for i in range(total - 1, -1, -1):          # el resto, las mas recientes
+        if len(elegidos) >= n:
+            break
+        if i not in elegidos:
+            elegidos.append(i)
+    return [ejemplos[i] for i in elegidos]
+
+
+def bloque_ejemplos(ficha):
+    elegidos = elegir_ejemplos(ficha)
+    if not elegidos:
+        return ""
+    total = len(listar_ejemplos())
+    bloques = [f"ENVIO: {e['envio']}\nNAME: {e['name']}\nCOMMENT: {e['comment']}\nRESTRICCIONES: {e['restricciones']}"
+               for e in elegidos]
+    return ("=== FICHAS APROBADAS POR EL CATALOGADOR"
+            + (f" (las {len(elegidos)} mas parecidas a este envio, de {total})" if total > len(elegidos) else "")
+            + " ===\n\n"
+            "Sirven para el tono, el orden y la medida. Cuando una ficha aprobada contradiga una regla del "
+            "criterio, manda la regla: las fichas se aprobaron enteras, no frase a frase, y pueden arrastrar "
+            "detalles que el criterio ya corrige.\n\n" + "\n\n".join(bloques) + "\n\n")
+
+
 def construir_partes(ficha):
-    """(system, user): las reglas van como system para poder cachearlas en la API."""
+    """(system, user): las reglas van como system para poder cachearlas en la API; las fichas aprobadas
+    parecidas, en user, porque cambian con cada envio."""
     texto = ficha.get("texto", "")
     datos = (
         f"agencia: {ficha.get('agencia', '')}\n"
@@ -276,7 +337,8 @@ def construir_partes(ficha):
     )
     pistas = ficha.get("pistas") or ""            # lo que situaciones.py ha detectado en el texto
     user = (
-        "=== DATOS DE CODIGO ===\n" + datos
+        bloque_ejemplos(ficha)
+        + "=== DATOS DE CODIGO ===\n" + datos
         + (("\n=== DETECTADO AUTOMATICAMENTE EN EL TEXTO (compruebalo, no lo copies a ciegas) ===\n" + pistas + "\n") if pistas else "")
         + "\n=== TEXTO DE LA FICHA ===\n" + texto
         + "\n=== FIN ===\n\nDevuelve ahora las lineas pedidas.\n"
@@ -1075,8 +1137,13 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
                 imagen = (etiqueta, confianza, fiable)
                 ficha["escena"] = {"clase": etiqueta, "confianza": round(confianza, 2), "fiabilidad": fiab,
                                    "detalle": detalle, "fiable": fiable}
+                propia = etiqueta not in DESCRIPTOR_ACTO       # categoria creada en la pestaña Imagenes
+                if fiable and propia:
+                    user += (f"\n\nLOS FOTOGRAMAS PARECEN, SEGUN EL CLASIFICADOR LOCAL: {_escenas.descriptor(etiqueta)} "
+                             f"(lo ven {confianza:.0%} de los fotogramas). Es una pista de lo que se ve; en el COMMENT "
+                             "solo entra lo que esta en el shotlist.")
                 # el shotlist manda: la imagen solo se le cuenta al modelo cuando el texto no dice el acto
-                if fiable and not (ficha.get("acto") or {}).get("clase"):
+                elif fiable and not (ficha.get("acto") or {}).get("clase"):
                     user += (f"\n\nESCENA RECONOCIDA POR EL CLASIFICADOR LOCAL: "
                              f"{DESCRIPTOR_ACTO.get(etiqueta, etiqueta.replace('_', ' ').upper())} "
                              f"(la ven {confianza:.0%} de los fotogramas). "
@@ -1084,7 +1151,7 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
                              "del material (RUEDA DE PRENSA, DECLARACIONES, COMPARECENCIA, INTERVENCION, ENTREVISTA) "
                              "cuando el shotlist no lo dice. No añade planos: en el COMMENT solo entra lo que esta "
                              "en el shotlist.")
-                if fiable and CFG.get("escenas_sin_imagenes", True):
+                if fiable and not propia and CFG.get("escenas_sin_imagenes", True):
                     imgs = []      # con etiqueta fiable no hace falta gastar cuota en imagenes
         except Exception:
             imagen = None

@@ -51,6 +51,9 @@ DEFAULTS = {
     "escenas_fiabilidad_min": 0.85,  # acierto minimo de esa clase al entrenar para fiarse de ella
     "escenas_sin_imagenes": True,  # con etiqueta fiable, no mandar los fotogramas (ahorra cuota)
     "escenas_fotogramas": 6,   # fotogramas que se sacan para reconocer y aprender la escena, aunque no se manden al modelo
+    "escenas_entrenar_auto": True,   # volver a entrenar solo cuando cambian las imagenes (pestaña Imagenes)
+    "ejemplos_por_ficha": 8,   # fichas aprobadas que acompañan a cada envio: las mas parecidas a el
+    "aprender_correcciones": True,   # al aprobar una ficha corregida, proponer la regla que enseña (Reglas → Sugerencias)
     "miniaturas": 0,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
     "navegador_oculto": True,   # ventana fuera de la pantalla (no es headless); sale sola si hay que iniciar sesion

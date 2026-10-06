@@ -52,6 +52,8 @@ import listas
 from actos import huella_fotogramas, guardar_para_entrenar
 from catalogar import guardar_csv, FECHA_RE
 import admin
+import aprender
+import imagenes
 from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -532,6 +534,7 @@ class Worker(threading.Thread):
             ficha["alerta"] = hecha.get("alerta", "")
             ficha["script_paginas"] = hecha.get("script_paginas")
             ficha["fotogramas"] = hecha.get("fotogramas") or []
+            ficha["borrador"] = hecha.get("borrador")
             ficha["estado"] = "hecha"
             ficha["segundos"] = 0
             ficha["copiada"] = origen.get("creado", "")          # de cuando es la que se copia
@@ -569,6 +572,7 @@ class Worker(threading.Thread):
                 ficha["normal"] = campos["NORMAL"]        # viene de la misma llamada al modelo
             ficha["avisos"] = avisos
             ficha["fotogramas"] = huella_fotogramas(datos.get("miniaturas"))   # para entrenar al aprobarla
+            ficha["borrador"] = {c: campos.get(c, "") for c in CAMPOS}         # lo del modelo, para aprender al aprobarla
             ficha["estado"] = "hecha"
             ficha["segundos"] = round(time.time() - t0)
             ESTADO.guardar()
@@ -1318,7 +1322,10 @@ async def aprobar(id_lote: str, id_ficha: str, request: Request):
         ficha["avisos"] = validar(campos)
         ESTADO.guardar()
         foto = {"numero": ficha.get("numero"), "fecha": ficha.get("fecha"), "fotogramas": ficha.get("fotogramas")}
+        borrador = ficha.get("borrador")
     log(f"Ficha aprobada: {campos['ENVIO'][:50]} (total {n})")
+    # si se ha corregido, se estudia la correccion por si enseña una regla (Reglas → Sugerencias)
+    aprendiendo = aprender.encolar(borrador, campos, campos["ENVIO"])
     # sus fotogramas pasan a ser ejemplo de su tipo de acto (entrenar_escenas.py los recoge)
     try:
         copiados, motivo = guardar_para_entrenar(foto, campos)
@@ -1328,7 +1335,7 @@ async def aprobar(id_lote: str, id_ficha: str, request: Request):
             log(f"  fotogramas no guardados para entrenar: {motivo}")
     except Exception as e:                       # entrenar es un extra: nunca estropea una aprobacion
         log(f"  no se han podido guardar los fotogramas para entrenar ({type(e).__name__})")
-    return {"total": n, "aviso": aviso, "avisos": ficha["avisos"]}
+    return {"total": n, "aviso": aviso, "avisos": ficha["avisos"], "aprendiendo": aprendiendo}
 
 
 @app.post("/api/fichas/{id_lote}/{id_ficha}/normalizar")
@@ -1423,6 +1430,10 @@ def reabrir_navegador():
 # ====================================================================== administracion (admin.py)
 admin.iniciar(globals())
 app.include_router(admin.router)
+aprender.iniciar(globals())
+app.include_router(aprender.router)
+imagenes.iniciar(globals())
+app.include_router(imagenes.router)
 
 
 # ====================================================================== arranque
