@@ -1004,6 +1004,9 @@ async def exigir_clave(request: Request, call_next):
     ruta = request.url.path
     if ruta.startswith("/api/") and not autenticado(request):
         return JSONResponse({"error": "sin sesion"}, status_code=401)
+    if admin.ruta_protegida(ruta) and not admin.desbloqueado(request):
+        return JSONResponse({"error": "admin bloqueado", "detail": "Admin está bloqueado: escribe su contraseña"},
+                            status_code=403)
     return await call_next(request)
 
 

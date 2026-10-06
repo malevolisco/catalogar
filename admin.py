@@ -176,9 +176,119 @@ def _es_este_pc(request):
 def direccion(request: Request):
     url, motivo = direccion_fuera()
     datos = {"url": url, "motivo": motivo, "este_pc": _es_este_pc(request)}
-    if datos["este_pc"]:
-        datos["clave"] = g("CFG").get("servidor_clave", "")     # solo a quien esta delante del PC
+    if datos["este_pc"] and desbloqueado(request):
+        datos["clave"] = g("CFG").get("servidor_clave", "")     # solo a quien esta delante del PC y en Admin
     return datos
+
+
+# ====================================================================== contraseña de Admin
+# Aparte de la clave de la pagina: la pestaña Admin (ajustes, contraseñas, copia de datos, reiniciar) pide
+# la suya. Se guarda en config.json como huella (admin_clave_hash: sal$pbkdf2), nunca en claro. Si se
+# olvida: borrar la linea "admin_clave_hash" de config.json y crearla de nuevo al entrar en Admin.
+ADMIN_ABIERTO = {}               # token de la sesion de la pagina -> hasta cuando vale (8 h)
+ADMIN_LIBRES = {"/api/admin/direccion", "/api/admin/clave", "/api/admin/entrar", "/api/admin/crear-clave"}
+DURA_ADMIN = 8 * 3600
+_FALLOS_ADMIN = {"n": 0, "hasta": 0.0}
+
+
+def _huella_clave(clave, sal=None):
+    import hashlib
+    sal = sal or secrets.token_hex(8)
+    h = hashlib.pbkdf2_hmac("sha256", clave.encode("utf-8"), sal.encode("ascii"), 200_000).hex()
+    return f"{sal}${h}"
+
+
+def _clave_admin():
+    return str(_config_cruda().get("admin_clave_hash") or "")
+
+
+def _token(request):
+    return request.cookies.get(g("COOKIE")) or ""
+
+
+def desbloqueado(request):
+    hasta = ADMIN_ABIERTO.get(_token(request), 0)
+    return bool(_clave_admin()) and hasta > time.time()
+
+
+def ruta_protegida(ruta):
+    """Lo que solo se usa desde la pestaña Admin y exige su contraseña (la comprueba el middleware de servidor.py)."""
+    return ruta.startswith("/api/admin/") and ruta not in ADMIN_LIBRES
+
+
+def _abrir(request):
+    ADMIN_ABIERTO[_token(request)] = time.time() + DURA_ADMIN
+    for t in [t for t, h in ADMIN_ABIERTO.items() if h < time.time()]:
+        ADMIN_ABIERTO.pop(t, None)
+
+
+def _guardar_clave_admin(clave):
+    cruda = _config_cruda()
+    cruda["admin_clave_hash"] = _huella_clave(clave)
+    tmp = CONFIG_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cruda, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(CONFIG_PATH)
+
+
+def _valida(clave):
+    import hmac
+    guardada = _clave_admin()
+    if "$" not in guardada:
+        return False
+    sal, _ = guardada.split("$", 1)
+    return hmac.compare_digest(_huella_clave(clave, sal), guardada)
+
+
+@router.get("/api/admin/clave")
+def estado_clave(request: Request):
+    return {"configurada": bool(_clave_admin()), "desbloqueado": desbloqueado(request)}
+
+
+@router.post("/api/admin/crear-clave")
+async def crear_clave(request: Request):
+    if _clave_admin():
+        raise HTTPException(409, "Ya hay contraseña de Admin")
+    clave = str((await g("_json")(request)).get("clave") or "")
+    if len(clave) < 6:
+        raise HTTPException(400, "La contraseña tiene que tener al menos 6 caracteres")
+    _guardar_clave_admin(clave)
+    _abrir(request)
+    g("log")("Contraseña de Admin creada")
+    return {"ok": True}
+
+
+@router.post("/api/admin/entrar")
+async def entrar_admin(request: Request):
+    if time.time() < _FALLOS_ADMIN["hasta"]:
+        raise HTTPException(429, "Demasiados intentos; espera un momento")
+    clave = str((await g("_json")(request)).get("clave") or "")
+    if not _valida(clave):
+        _FALLOS_ADMIN["n"] += 1
+        _FALLOS_ADMIN["hasta"] = time.time() + min(2 ** _FALLOS_ADMIN["n"], 60)
+        g("log")("Contraseña de Admin incorrecta")
+        raise HTTPException(403, "Contraseña incorrecta")
+    _FALLOS_ADMIN.update(n=0, hasta=0.0)
+    _abrir(request)
+    return {"ok": True}
+
+
+@router.post("/api/admin/salir")
+def salir_admin(request: Request):
+    ADMIN_ABIERTO.pop(_token(request), None)
+    return {"ok": True}
+
+
+@router.post("/api/admin/cambiar-clave")
+async def cambiar_clave(request: Request):
+    datos = await g("_json")(request)
+    if not _valida(str(datos.get("actual") or "")):
+        raise HTTPException(403, "La contraseña actual no es esa")
+    nueva = str(datos.get("nueva") or "")
+    if len(nueva) < 6:
+        raise HTTPException(400, "La contraseña nueva tiene que tener al menos 6 caracteres")
+    _guardar_clave_admin(nueva)
+    g("log")("Contraseña de Admin cambiada")
+    return {"ok": True}
 
 
 # ====================================================================== resumen y acciones
@@ -767,35 +877,6 @@ def _guardar_en_descargas(datos, nombre):
         except Exception:
             pass
     return ruta
-
-
-# ====================================================================== datos de AP (para estudiar AP sin abrir la ficha)
-def _zip_datos_ap():
-    import io
-    import zipfile
-    carpeta = BASE_DIR / "debug" / "datos_ap"
-    ficheros = sorted(carpeta.glob("*.json")) if carpeta.is_dir() else []
-    if not ficheros:
-        raise HTTPException(404, "Todavía no hay datos de AP: cataloga antes algún número de AP")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in ficheros:
-            z.write(f, f.name)
-    return buf.getvalue(), f"datos-ap-{datetime.now():%Y%m%d-%H%M}.zip"
-
-
-@router.get("/api/admin/datos-ap")
-def descargar_datos_ap():
-    datos, nombre = _zip_datos_ap()
-    return Response(datos, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
-
-
-@router.post("/api/admin/datos-ap/guardar")
-def guardar_datos_ap(request: Request):
-    if not _es_este_pc(request):
-        raise HTTPException(403, "Solo desde este PC; desde fuera usa Descargar")
-    datos, nombre = _zip_datos_ap()
-    return {"ok": True, "ruta": str(_guardar_en_descargas(datos, nombre))}
 
 
 @router.post("/api/admin/copia")
