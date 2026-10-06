@@ -276,6 +276,8 @@ CAMPOS = [
     ("navegador_oculto", "Agencias", "Navegador de las agencias oculto", "si_no", "Trabaja fuera de la pantalla; solo aparece si hace falta que inicies sesión o pases una verificación.", None, True),
     ("agencias_solo_texto", "Agencias", "Cargar solo el texto de las agencias", "si_no",
      "Sin vídeo, imágenes ni tipos de letra: las páginas cargan antes. Si una agencia dejara de leerse bien, apágalo.", None, True),
+    ("reuters_xml", "Agencias", "Leer Reuters por su XML", "si_no",
+     "Descarga el XML de cada ficha (botón XML): guion completo y restricciones exactas. Si falla, se lee la página como antes.", None, False),
     ("navegador", "Agencias", "Navegador", "opcion", "", [("auto", "Automático (Chrome, si no Edge)"), ("chrome", "Chrome"), ("msedge", "Edge"), ("chromium", "Chromium")], True),
     ("espera_login", "Agencias", "Segundos de espera para iniciar sesión a mano", "numero", "0 = no esperar.", None, False),
     ("ebu", "Agencias", "EBU News Exchange activado", "si_no", "", None, True),

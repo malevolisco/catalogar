@@ -39,6 +39,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   normal si falta (`correo.ASEGURAR_NORMAL` = `Worker.asegurar_normal`); al aprobar con cambios se rehace sola.
 - Solo texto (6 oct, `agencias_solo_texto`): Network.setBlockedURLs en la pagina de trabajo (video, imagenes, letras,
   medidores; conserva la cache). Se quita al pedir login/antibot y si no hay fotogramas en la pagina.
+- Reuters por XML (6 oct, `reuters_xml`): en la ficha abierta se pulsa el boton XML (NewsML-G2) y `reuters_xml.py` saca
+  guion, restricciones (usageTerms), duracion, Edit No, version y slug; si falla o el Edit No no cuadra, texto de la pagina.
+  Probado con el XML real que mando Adrian y una pagina simulada; falta probarlo en Reuters Connect.
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).
