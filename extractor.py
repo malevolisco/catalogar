@@ -1193,8 +1193,13 @@ class Extractor:
                 ct = ""
             if "json" in ct or "graphql" in resp.url.lower():
                 respuestas.append(resp)
+                try:                                # el cuerpo se lee ya: al cambiar de pagina se pierde
+                    self._ap_cuerpos[id(resp)] = resp.text()
+                except Exception:
+                    pass
 
         t0 = _time.time()
+        self._ap_cuerpos = {}
         page.on("response", _on_response)          # se escucha todo el envio: busqueda y ficha
         try:
             return self._fetch_ap_con(numero, fecha, respuestas, avisos, t0)
@@ -1207,16 +1212,21 @@ class Extractor:
         mencionan el envio, para estudiar si se puede leer AP sin abrir la ficha. Solo contenido: de cada
         respuesta, la direccion sin parametros y el cuerpo. Se quedan los 10 ultimos envios."""
         try:
-            guardar = []
+            guardar, vistas = [], []
+            cuerpos = getattr(self, "_ap_cuerpos", {})
             for r in list(respuestas):
-                try:
-                    txt = r.text()
-                except Exception:
-                    continue
-                if numero in txt:
+                txt = cuerpos.get(id(r))
+                if txt is None:
+                    try:
+                        txt = r.text()
+                    except Exception:
+                        txt = None
+                vistas.append({"url": r.url.split("?")[0], "leida": txt is not None,
+                               "tamano": len(txt or ""), "con_numero": bool(txt and numero in txt)})
+                if txt and numero in txt:
                     guardar.append({"url": r.url.split("?")[0], "cuerpo": txt[:3_000_000]})
-            if not guardar:
-                return
+            # siempre se guarda que se ha visto, aunque ninguna respuesta traiga el numero: tambien dice algo
+            guardar.append({"resumen": vistas})
             carpeta = DEBUG_DIR / "datos_ap"
             carpeta.mkdir(parents=True, exist_ok=True)
             (carpeta / f"{numero}.json").write_text(json.dumps(guardar, ensure_ascii=False), encoding="utf-8")
