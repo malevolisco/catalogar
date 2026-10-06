@@ -747,19 +747,53 @@ def guardar_copia(request: Request):
     if not _es_este_pc(request):
         raise HTTPException(403, "Solo desde este PC; desde fuera usa Descargar")
     datos, nombre = _zip_copia()
+    ruta = _guardar_en_descargas(datos, nombre)              # y abre Descargas con el fichero marcado
+    g("log")(f"Copia de los datos guardada en {ruta}")
+    return {"ok": True, "ruta": str(ruta)}
+
+
+def _guardar_en_descargas(datos, nombre):
     carpeta = Path.home() / "Downloads"
     if not carpeta.is_dir():
         carpeta = Path.home()
     ruta = carpeta / nombre
     ruta.write_bytes(datos)
-    g("log")(f"Copia de los datos guardada en {ruta}")
     if sys.platform == "win32":
         try:
             import subprocess
-            subprocess.Popen(["explorer", "/select,", str(ruta)])     # abre Descargas con el fichero marcado
+            subprocess.Popen(["explorer", "/select,", str(ruta)])
         except Exception:
             pass
-    return {"ok": True, "ruta": str(ruta)}
+    return ruta
+
+
+# ====================================================================== datos de AP (para estudiar AP sin abrir la ficha)
+def _zip_datos_ap():
+    import io
+    import zipfile
+    carpeta = BASE_DIR / "debug" / "datos_ap"
+    ficheros = sorted(carpeta.glob("*.json")) if carpeta.is_dir() else []
+    if not ficheros:
+        raise HTTPException(404, "Todavía no hay datos de AP: cataloga antes algún número de AP")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in ficheros:
+            z.write(f, f.name)
+    return buf.getvalue(), f"datos-ap-{datetime.now():%Y%m%d-%H%M}.zip"
+
+
+@router.get("/api/admin/datos-ap")
+def descargar_datos_ap():
+    datos, nombre = _zip_datos_ap()
+    return Response(datos, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@router.post("/api/admin/datos-ap/guardar")
+def guardar_datos_ap(request: Request):
+    if not _es_este_pc(request):
+        raise HTTPException(403, "Solo desde este PC; desde fuera usa Descargar")
+    datos, nombre = _zip_datos_ap()
+    return {"ok": True, "ruta": str(_guardar_en_descargas(datos, nombre))}
 
 
 @router.post("/api/admin/copia")

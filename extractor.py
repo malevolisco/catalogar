@@ -1195,12 +1195,42 @@ class Extractor:
                 respuestas.append(resp)
 
         t0 = _time.time()
-        page.on("response", _on_response)
+        page.on("response", _on_response)          # se escucha todo el envio: busqueda y ficha
         try:
-            page.goto(AP_SEARCH_URL.format(numero=numero), wait_until="domcontentloaded")
-            tarjeta = self._ap_tarjeta(numero, 30000)
+            return self._fetch_ap_con(numero, fecha, respuestas, avisos, t0)
         finally:
             page.remove_listener("response", _on_response)
+            self._ap_guardar_datos(numero, respuestas)
+
+    def _ap_guardar_datos(self, numero, respuestas):
+        """Guarda en debug/datos_ap/<numero>.json los datos (JSON) que la pagina de AP ha recibido y que
+        mencionan el envio, para estudiar si se puede leer AP sin abrir la ficha. Solo contenido: de cada
+        respuesta, la direccion sin parametros y el cuerpo. Se quedan los 10 ultimos envios."""
+        try:
+            guardar = []
+            for r in list(respuestas):
+                try:
+                    txt = r.text()
+                except Exception:
+                    continue
+                if numero in txt:
+                    guardar.append({"url": r.url.split("?")[0], "cuerpo": txt[:3_000_000]})
+            if not guardar:
+                return
+            carpeta = DEBUG_DIR / "datos_ap"
+            carpeta.mkdir(parents=True, exist_ok=True)
+            (carpeta / f"{numero}.json").write_text(json.dumps(guardar, ensure_ascii=False), encoding="utf-8")
+            viejos = sorted(carpeta.glob("*.json"), key=lambda p: p.stat().st_mtime)[:-10]
+            for v in viejos:
+                v.unlink()
+        except Exception:
+            pass
+
+    def _fetch_ap_con(self, numero, fecha, respuestas, avisos, t0):
+        import time as _time
+        page = self._page
+        page.goto(AP_SEARCH_URL.format(numero=numero), wait_until="domcontentloaded")
+        tarjeta = self._ap_tarjeta(numero, 30000)
         if tarjeta is None:
             self._comprobar_acceso("AP Newsroom")
         t_lista = _time.time() - t0
