@@ -1044,7 +1044,24 @@ async def logout(request: Request):
 def pagina():
     if not PANEL_PATH.exists():
         return HTMLResponse("<p>Falta panel/index.html</p>", status_code=500)
-    return HTMLResponse(PANEL_PATH.read_text(encoding="utf-8"))
+    # la huella va dentro de la pagina: si el servidor se actualiza, la pagina abierta lo ve y se recarga
+    html = PANEL_PATH.read_text(encoding="utf-8").replace("__HUELLA_PANEL__", huella_panel())
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+_HUELLA = {"marca": None, "huella": ""}
+
+
+def huella_panel():
+    """Huella de panel/index.html (cambia con cada version que lo toca); se recalcula solo si cambia el fichero."""
+    try:
+        marca = PANEL_PATH.stat().st_mtime_ns
+    except OSError:
+        return ""
+    if _HUELLA["marca"] != marca:
+        import hashlib
+        _HUELLA.update(marca=marca, huella=hashlib.sha1(PANEL_PATH.read_bytes()).hexdigest()[:12])
+    return _HUELLA["huella"]
 
 
 @app.get("/api/estado")
@@ -1057,7 +1074,8 @@ def lotes():
     # se convierte a JSON dentro del cerrojo: fuera, el worker puede tocar una ficha mientras se
     # recorre y eso da un 500 intermitente ("dictionary changed size during iteration")
     with ESTADO.lock:
-        cuerpo = json.dumps({"lotes": ESTADO.lotes[:MAX_LOTES_EN_PANEL], **ESTADO.resumen()}, ensure_ascii=False)
+        cuerpo = json.dumps({"lotes": ESTADO.lotes[:MAX_LOTES_EN_PANEL], **ESTADO.resumen(), "panel": huella_panel()},
+                            ensure_ascii=False)
     return Response(cuerpo, media_type="application/json")
 
 

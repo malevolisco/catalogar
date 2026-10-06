@@ -1063,10 +1063,15 @@
   });
 
   // ---------------------------------------------------------------- estado y lotes
+  const HUELLA_PANEL = "__HUELLA_PANEL__";      // la pone el servidor al servir la pagina
   async function refrescar() {
     let d;
     try { d = await api("GET", "/api/lotes"); }
     catch (e) { $("pulso-texto").textContent = e.message; $("pulso").classList.remove("activa"); return; }
+
+    // Catalogator se ha actualizado y esta pagina es la de antes: se recarga, salvo a mitad de escribir
+    if (d.panel && HUELLA_PANEL !== "__HUELLA_" + "PANEL__" && d.panel !== HUELLA_PANEL && !editando.size
+        && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")) { location.reload(); return; }
 
     const trabajando = !!d.trabajando;
     $("pulso").classList.toggle("activa", trabajando);
