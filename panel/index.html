@@ -394,6 +394,14 @@
   .detalles { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; margin:0; font-size:14px; }
   .detalles dt { color:var(--gris); }
   .detalles dd { margin:0; word-break:break-word; }
+  .consumo-horas { display:grid; grid-template-columns:repeat(24, 1fr); gap:2px; align-items:end; height:64px; margin:14px 0 4px; }
+  .consumo-horas div { background:var(--azul); opacity:.75; border-radius:2px 2px 0 0; min-height:1px; }
+  .consumo-horas div.vacia { background:var(--linea); opacity:1; }
+  .consumo-eje { display:flex; justify-content:space-between; font-size:11px; color:var(--gris); }
+  .consumo-tabla { width:100%; border-collapse:collapse; font-size:13px; margin-top:12px; font-variant-numeric:tabular-nums; }
+  .consumo-tabla th, .consumo-tabla td { padding:4px 6px; border-bottom:1px solid var(--linea); text-align:right; }
+  .consumo-tabla th:first-child, .consumo-tabla td:first-child { text-align:left; }
+  .consumo-tabla th { color:var(--gris); font-weight:500; }
   .grupo-acc { margin-top:4px; }
   .grupo-acc + .grupo-acc { margin-top:14px; padding-top:14px; border-top:1px solid var(--linea); }
   .grupo-acc h3 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--gris); margin:0 0 8px; font-weight:600; }
@@ -816,6 +824,10 @@
           <div class="caja">
             <h2>Este equipo</h2>
             <dl class="detalles" id="detalles-equipo"></dl>
+          </div>
+          <div class="caja">
+            <h2>Consumo</h2>
+            <div id="consumo-cuerpo"><p class="pista" style="margin:0">Midiendo…</p></div>
           </div>
           <div class="caja">
             <h2>Copia de tus datos</h2>
@@ -2460,7 +2472,39 @@
       + dato("Navegador de agencias", r.navegador_oculto ? "Oculto" : "Visible")
       + dato("Versión", r.version)
       + dato("En marcha desde", r.arrancado + " · " + horas);
+    pedirConsumo();
   }
+  // ---- consumo: trafico y luz (consumo.py)
+  let consumoVisto = 0;
+  async function pedirConsumo() {
+    if (Date.now() - consumoVisto < 60000) return;          // se mide cada minuto: no hace falta pedirlo mas
+    let c;
+    try { c = await api("GET", "/api/admin/consumo"); } catch (e) { return; }
+    consumoVisto = Date.now();
+    const num = (n, dec) => n == null ? "—" : Number(n).toLocaleString("es-ES", { maximumFractionDigits: dec ?? 1 });
+    const m = c.media;
+    const dato = (et, va) => `<dt>${esc(et)}</dt><dd>${esc(va)}</dd>`;
+    const ahora = new Date().getHours();
+    const tope = Math.max(...c.hoy.map(h => h.wh), 0.001);
+    const barras = c.hoy.map((h, i) => `<div class="${i > ahora || !h.wh ? "vacia" : ""}" style="height:${i > ahora ? 1 : Math.max(2, h.wh / tope * 100)}%"
+        title="${h.hora}:00 · ${num(h.wh)} Wh · ${num(h.mb)} MB · ${h.items} ítems"></div>`).join("");
+    const dias = c.dias.slice(-7).reverse().map(d => `<tr><td>${esc(d.dia.split("-").reverse().slice(0, 2).join("/"))}</td>
+        <td>${num(d.items, 0)}</td><td>${num(d.mb)} MB</td><td>${num(d.wh / 1000, 3)} kWh</td></tr>`).join("");
+    $("consumo-cuerpo").innerHTML = `<dl class="detalles">
+        ${dato("Ahora", c.vatios == null ? "—" : num(c.vatios) + " W (" + (c.fuente === "medido" ? "medido por la placa" : "estimado") + ")")}
+        ${dato("Media al día", num(m.mb_dia) + " MB · " + num(m.kwh_dia, 3) + " kWh")}
+        ${dato("Por ítem", m.mb_item == null ? "Aún sin ítems" : num(m.mb_item, 2) + " MB · " + num(m.wh_item, 2) + " Wh")}
+        ${dato("Al mes", "≈ " + num(m.mb_mes / 1000, 2) + " GB · " + num(m.euros_mes, 2) + " €")}
+        ${dato("Al año", "≈ " + num(m.kwh_anio) + " kWh · " + num(m.euros_anio, 2) + " €")}
+      </dl>
+      <div class="consumo-horas" aria-label="Electricidad de hoy por horas">${barras}</div>
+      <div class="consumo-eje"><span>0 h</span><span>Hoy, luz por horas</span><span>23 h</span></div>
+      ${dias ? `<table class="consumo-tabla"><tr><th>Día</th><th>Ítems</th><th>Red</th><th>Luz</th></tr>${dias}</table>` : ""}
+      <p class="pista" style="margin:10px 0 0">${c.dias_medidos < 2 ? "Las medias se afinan con unos días de medida. " : ""}La red es todo el tráfico del equipo.
+        Precio de la luz: ${num(c.precio_kwh, 3)} €/kWh (se cambia en Ajustes → Consumo).
+        ${c.fuente === "medido" ? "La placa mide su propio consumo, sin contar el alimentador ni lo que cuelgue de los USB." : "Para el dato exacto, un enchufe con medidor."}</p>`;
+  }
+
   const accionAdmin = (id, fn) => $(id).addEventListener("click", async () => {
     $(id).disabled = true;
     try { await fn(); } catch (e) { avisar(e.message, true); }

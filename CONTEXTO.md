@@ -40,6 +40,11 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   `escenas_modelo` (6 oct): "ligero" (vision_model_quantized.onnx de Xenova, ~90 MB) por defecto o "completo" (352 MB);
   si el ligero no baja, usa el completo. El npz guarda la variante y no se usa con la otra (se reentrena solo: la firma
   la incluye); cache de vectores por variante. No verificado desde aqui (huggingface bloqueado en el entorno de Claude).
+- Cerebro intercambiable (6 oct): `redactor` = claude_code | api | openai. `llamar_openai` (chat/completions, imagenes como
+  data URL); con `openai_url` de Azure manda cabecera api-key. Por la jefa (seguridad / IA de la casa); Claude sigue por defecto.
+- `consumo.py` (6 oct): cada minuto trafico de red (psutil o /proc/net/dev) y vatios (Pi 5: vcgencmd pmic_read_adc,
+  "medido"; si no, reposo+carga*cpu, "estimado") por horas en cola/consumo.json (90 dias); contar_item() al redactar.
+  Caja "Consumo" en Admin, `precio_kwh` en Ajustes → Consumo.
 - Escritura normal (6 oct): `redactor.fusionar_normal` arma la version en minusculas palabra a palabra (lo que el modelo
   cambia se pasa a minuscula sin el), nunca deja un campo en mayusculas. Javier recibe siempre en minusculas
   (`config.PERSONAS_NORMALIZADO`, se puede anular en la agenda) y antes de mandar en minusculas se genera la version

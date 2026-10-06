@@ -39,6 +39,7 @@ CORREOS_PATH = BASE_DIR / "cola" / "correos.jsonl"
 CODIGO_REINICIO = 75          # el lanzador vuelve a arrancar el servidor si sale con este codigo
 
 router = APIRouter()
+CEREBROS = {"claude_code": "Claude Code", "api": "Claude (API)", "openai": "ChatGPT"}
 S = {}                        # los globales de servidor.py (CFG, ESTADO, WORKER, log...)
 
 
@@ -377,8 +378,8 @@ def resumen():
         "version": _version(),
         "arrancado": arrancado.strftime("%d/%m/%Y %H:%M"),
         "minutos": int((datetime.now() - arrancado).total_seconds() // 60),
-        "redactor": "Claude Code" if cfg.get("redactor", "claude_code") == "claude_code" else "API",
-        "modelo": cfg.get("claude_model") if cfg.get("redactor", "claude_code") == "claude_code" else cfg.get("api_model"),
+        "redactor": CEREBROS.get(cfg.get("redactor", "claude_code"), "Claude Code"),
+        "modelo": {"api": cfg.get("api_model"), "openai": cfg.get("openai_model")}.get(cfg.get("redactor"), cfg.get("claude_model")),
         "criterio": cfg.get("reglas", "reglas.md"),
         "criterio_cambios": criterio.hay_cambios(cfg.get("reglas", "reglas.md")),
         "buzon_minutos": float(cfg.get("correo_buzon_minutos") or 0),
@@ -410,8 +411,10 @@ def reiniciar():
 # ====================================================================== ajustes
 # (clave, grupo, etiqueta, tipo, ayuda, opciones, pide_reinicio)
 CAMPOS = [
-    ("redactor", "Redacción", "Cómo se redacta", "opcion", "Claude Code usa tu suscripción; la API, una clave de pago por uso.",
-     [("claude_code", "Claude Code"), ("api", "API de Anthropic")], False),
+    ("redactor", "Redacción", "Cerebro que redacta", "opcion",
+     "Claude Code usa tu suscripción; la API de Anthropic y ChatGPT, una clave de pago por uso. El criterio, los ejemplos "
+     "y las comprobaciones son los mismos con cualquiera.",
+     [("claude_code", "Claude (Claude Code)"), ("api", "Claude (API de Anthropic)"), ("openai", "ChatGPT (OpenAI o Azure)")], False),
     ("claude_model", "Redacción", "Modelo (Claude Code)", "opcion", "", [("sonnet", "Sonnet"), ("opus", "Opus"), ("haiku", "Haiku")], False),
     ("claude_token", "Redacción", "Token de Claude Code (dura un año)", "secreto",
      "Para que la sesión no caduque. En el equipo de Catalogator abre una ventana de comandos, escribe  claude setup-token, "
@@ -420,6 +423,11 @@ CAMPOS = [
     ("api_reserva", "Redacción", "Usar la API de reserva si Claude Code pierde la sesión", "si_no",
      "Solo si hay clave de la API. Cuesta céntimos por ficha y evita que la cola se pare.", None, False),
     ("api_model", "Redacción", "Modelo (API)", "texto", "", None, False),
+    ("openai_key", "Redacción", "Clave de ChatGPT", "secreto", "La de OpenAI, o la de Azure OpenAI si usáis el de la empresa.", None, False),
+    ("openai_model", "Redacción", "Modelo (ChatGPT)", "texto", "Por ejemplo gpt-5-mini o gpt-5. En Azure da igual: manda el despliegue.", None, False),
+    ("openai_url", "Redacción", "Dirección de Azure OpenAI", "texto",
+     "Vacía para OpenAI. Para Azure, la dirección completa del despliegue que os den en informática "
+     "(…openai.azure.com/openai/deployments/NOMBRE/chat/completions?api-version=…).", None, False),
     ("reglas", "Redacción", "Criterio base", "opcion", "El ligero es el mismo criterio en la mitad de tamaño.",
      [("reglas_patrones.md", "Completo (reglas_patrones.md)"), ("reglas_ligeras.md", "Ligero (reglas_ligeras.md)")], False),
     ("generar_normal", "Redacción", "Pedir también la versión en texto normal", "si_no", "", None, False),
@@ -469,6 +477,11 @@ CAMPOS = [
     ("lote_max_envios", "Lotes", "Envíos máximos por lote", "numero", "Una lista más grande se trocea.", None, False),
     ("ya_hecha_dias", "Lotes", "Días en que un Reuters ya hecho se reutiliza", "numero", "", None, False),
     ("script_max_paginas", "Lotes", "Páginas máximas del script", "numero", "Más, y la ficha lleva ALERTA.", None, False),
+
+    ("precio_kwh", "Consumo", "Precio de la luz (€/kWh)", "numero", "El de vuestra factura; sirve para calcular el coste en Admin.", None, False),
+    ("consumo_vatios_reposo", "Consumo", "Vatios en reposo", "numero",
+     "Solo si el equipo no puede medirse a sí mismo (una Raspberry Pi 5 sí puede). 0 = 3 W en una Raspberry, 40 W en un PC.", None, False),
+    ("consumo_vatios_carga", "Consumo", "Vatios trabajando", "numero", "0 = 9 W en una Raspberry, 90 W en un PC.", None, False),
 
     ("servidor_clave", "Acceso", "Clave de la página", "secreto", "Para entrar desde fuera de este PC. Mínimo 12 caracteres.", None, False),
     ("servidor_puerto", "Acceso", "Puerto", "numero", "", None, True),
@@ -585,7 +598,7 @@ async def guardar_ajustes(request: Request):
     except Exception:
         pass
     cambiadas = [c for c in por_clave if antes.get(c) != cruda.get(c)]
-    if {"claude_token", "api_key", "redactor", "api_reserva"} & set(cambiadas):
+    if {"claude_token", "api_key", "openai_key", "openai_url", "redactor", "api_reserva"} & set(cambiadas):
         # puede que ya se pueda redactar: la pausa del modelo se levanta y se prueba en la siguiente ficha
         sys.modules["redactor"].CLAUDE_SIN_SESION["hasta"] = 0.0
         if g("WORKER").pausa_hasta:

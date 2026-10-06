@@ -3,9 +3,11 @@
 redactor.py - Envia el texto de la ficha y las reglas a Claude y devuelve la ficha (ENVIO, NAME, COMMENT, RESTRICCIONES)
 normalizadas y validadas.
 
-Dos motores, elegidos con "redactor" en config.json:
+Tres motores ("cerebros"), elegidos con "redactor" en config.json:
   claude_code  Claude Code en modo no interactivo (claude -p) con la cuenta Pro. Sin coste por ficha.
   api          API de Anthropic con clave (api_key). Centimos por ficha, mas rapido, reglas cacheadas.
+  openai       ChatGPT por la API de OpenAI (openai_key), o el de Azure si openai_url apunta a un despliegue
+               de Azure OpenAI. Mismo criterio, mismos ejemplos y mismas comprobaciones.
 
 El modelo local (Ollama) no vive aqui: es una demo aparte, en la carpeta demo\, que sustituye
 llamar_modelo desde fuera sin tocar este fichero.
@@ -34,7 +36,7 @@ CAMPOS = ("ENVIO", "NAME", "COMMENT", "RESTRICCIONES")
 
 # configuracion activa (la fija catalogar.py / worker.py con configurar(cfg))
 CFG = {
-    "redactor": "claude_code",            # "claude_code" (Pro, sin coste) o "api" (clave, centimos, rapido)
+    "redactor": "claude_code",            # "claude_code" (Pro, sin coste), "api" (clave, centimos, rapido) u "openai" (ChatGPT/Azure)
     "claude_model": "sonnet",
     "claude_extra_args": [],              # flags extra; herramientas y turnos los pone _cmd_claude
     "claude_timeout": 240,
@@ -44,6 +46,10 @@ CFG = {
     "api_reserva": True,                  # si Claude Code pierde la sesion y hay api_key, se redacta con la API mientras
     "api_model": "claude-haiku-4-5-20251001",
     "api_max_tokens": 1200,
+    "openai_key": "",
+    "openai_model": "gpt-5-mini",
+    "openai_url": "",                     # vacio = OpenAI; o la direccion del despliegue de Azure OpenAI
+    "openai_max_tokens": 6000,            # los modelos que razonan gastan parte en pensar antes de escribir
     "acortar_comment": True,
     "reglas": "reglas.md",                # fichero de reglas a usar (reglas.md o reglas_ligeras.md)
     "generar_normal": True,               # pedir en la misma llamada la version en escritura normal
@@ -633,6 +639,60 @@ def llamar_api(system, user, timeout=120):
     return texto
 
 
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+
+
+def _bloques_openai(user):
+    """El mensaje con fotogramas (bloques al estilo de Anthropic) en el formato de OpenAI."""
+    if isinstance(user, str):
+        return user
+    salida = []
+    for b in user:
+        if b.get("type") == "text":
+            salida.append({"type": "text", "text": b["text"]})
+        elif b.get("type") == "image":
+            src = b["source"]
+            salida.append({"type": "image_url", "image_url": {"url": f"data:{src['media_type']};base64,{src['data']}"}})
+    return salida
+
+
+def llamar_openai(system, user, timeout=120):
+    """ChatGPT por la API de OpenAI, o Azure OpenAI si openai_url es de Azure. OpenAI guarda en cache el
+    principio repetido del mensaje (el criterio) por su cuenta."""
+    import requests
+    clave = CFG.get("openai_key")
+    if not clave:
+        raise RedactorError("redactor=openai pero falta openai_key en config.json")
+    url = (CFG.get("openai_url") or "").strip() or OPENAI_URL
+    azure = ".azure.com" in url or "api-version=" in url
+    cuerpo = {
+        "model": CFG.get("openai_model") or "gpt-5-mini",
+        "max_completion_tokens": int(CFG.get("openai_max_tokens") or 6000),
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": _bloques_openai(user)}],
+    }
+    cabeceras = {"content-type": "application/json"}
+    cabeceras.update({"api-key": clave} if azure else {"authorization": f"Bearer {clave}"})
+    try:
+        r = requests.post(url, headers=cabeceras, json=cuerpo, timeout=timeout)
+    except requests.RequestException as e:
+        raise ModeloNoDisponible(f"OpenAI no accesible: {e}", 5 * 60)
+    if r.status_code != 200:
+        if r.status_code in (401, 403, 404):
+            raise ModeloNoDisponible(f"OpenAI devolvio {r.status_code} (clave, modelo o direccion no validos): {r.text[:300]}", None)
+        if r.status_code in (429, 500, 502, 503):
+            raise ModeloNoDisponible(f"OpenAI devolvio {r.status_code} (limite o servicio saturado): {r.text[:300]}",
+                                     15 * 60 if r.status_code == 429 else 5 * 60)
+        raise RedactorError(f"OpenAI devolvio {r.status_code}: {r.text[:500]}")
+    eleccion = (r.json().get("choices") or [{}])[0]
+    texto = (eleccion.get("message") or {}).get("content") or ""
+    if eleccion.get("finish_reason") == "length":
+        if "RESTRICCIONES" not in parsear(texto)["_presentes"]:
+            raise RedactorError(f"OpenAI corto la respuesta en {cuerpo['max_completion_tokens']} tokens antes de "
+                                "RESTRICCIONES: sube openai_max_tokens en config.json")
+        AVISOS_LLAMADA.append(f"OpenAI corto la respuesta (faltan las lineas _NORMAL): sube openai_max_tokens")
+    return texto
+
+
 CLAUDE_SIN_SESION = {"hasta": 0.0}   # Claude Code sin sesion: mientras, se va directo a la API de reserva
 ESPERA_SESION = 10 * 60
 
@@ -642,12 +702,14 @@ def _reserva_api():
 
 
 def llamar_modelo(system, user, timeout=None, con_imagenes=False):
-    """Enruta al motor configurado en "redactor": claude_code o api. Si Claude Code ha perdido la sesion
+    """Enruta al motor configurado en "redactor": claude_code, api u openai. Si Claude Code ha perdido la sesion
     y hay clave de la API (api_reserva), redacta con la API mientras tanto y vuelve a probar Claude Code
     cada 10 minutos."""
     import time as _t
     if CFG.get("redactor") == "api":
         return llamar_api(system, user, timeout=timeout or 120)
+    if CFG.get("redactor") == "openai":
+        return llamar_openai(system, user, timeout=timeout or 120)
     if _reserva_api() and _t.time() < CLAUDE_SIN_SESION["hasta"]:
         AVISOS_LLAMADA.append("Redactada con la API de reserva: Claude Code no tiene sesion")
         return llamar_api(system, user, timeout=timeout or 120)
@@ -668,6 +730,8 @@ def probar_modelo():
     try:
         if CFG.get("redactor") == "api":
             salida = llamar_api("Responde solo con la palabra OK.", "OK?", timeout=60)
+        elif CFG.get("redactor") == "openai":
+            salida = llamar_openai("Responde solo con la palabra OK.", "OK?", timeout=60)
         else:
             salida = llamar_claude("Responde solo con la palabra OK.", model=CFG["claude_model"],
                                    extra_args=CFG["claude_extra_args"], timeout=90)
@@ -1235,7 +1299,7 @@ def adjuntar_imagenes(user, rutas):
         "ENTREVISTA cuando el shotlist no lo dice, y para las marcas del material. No añaden planos: en el COMMENT "
         "solo entra lo que esta en el shotlist. Si un fotograma contradice un plano del shotlist, manda el shotlist "
         "y no se menciona. No describas los fotogramas uno a uno ni los menciones en la ficha.")
-    if CFG.get("redactor") == "api":
+    if CFG.get("redactor") in ("api", "openai"):
         bloques = [{"type": "text", "text": user + instruccion}]
         for r in rutas:
             f = Path(r)

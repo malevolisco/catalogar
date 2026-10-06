@@ -32,11 +32,18 @@ DEFAULTS = {
     "claude_extra_args": [],      # flags extra de claude -p; las herramientas y los turnos los fija redactor.py
     "claude_timeout": 240,
     "claude_thinking_tokens": 1024,   # limita el razonamiento de Claude Code (MAX_THINKING_TOKENS)
-    "redactor": "claude_code",        # "claude_code" (Pro) o "api" (clave, centimos por envio, rapido)
+    "redactor": "claude_code",        # "claude_code" (Pro), "api" (clave de Anthropic) u "openai" (ChatGPT o Azure OpenAI)
     "claude_token": "",             # token de un año de Claude Code (claude setup-token): la sesion no caduca
     "api_key": "",
     "api_reserva": True,            # si Claude Code pierde la sesion y hay api_key, redactar con la API mientras
     "api_model": "claude-haiku-4-5-20251001",
+    "openai_key": "",               # cerebro alternativo: ChatGPT (OpenAI) o Azure OpenAI
+    "openai_model": "gpt-5-mini",
+    "openai_url": "",               # vacio = OpenAI; para Azure, la direccion completa del despliegue
+    "openai_max_tokens": 6000,
+    "precio_kwh": 0.18,             # euros por kWh, para el coste de la luz en Admin
+    "consumo_vatios_reposo": 0,     # 0 = 3 W en una Raspberry, 40 W en un PC (solo si no se puede medir)
+    "consumo_vatios_carga": 0,      # 0 = 9 W en una Raspberry, 90 W en un PC
     "api_max_tokens": 1200,     # con generar_normal son siete lineas: 700 se quedaba corto y cortaba el final
     "acortar_comment": True,    # segunda pasada automatica si el COMMENT supera el tope
     "script_max_paginas": 2,    # paginas de Word que admite el campo de script del archivo; mas, y salta ALERTA
