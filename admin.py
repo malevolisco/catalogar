@@ -187,7 +187,7 @@ def direccion(request: Request):
 BROMA_DIR = BASE_DIR / "broma" / "archivos"
 BROMA_SONIDO = (".mp3", ".ogg", ".wav", ".m4a")
 BROMA_IMAGEN = (".gif", ".webp", ".png", ".apng")
-BROMA_MAX = 15 * 1024 * 1024
+BROMA_MAX = 100 * 1024 * 1024        # una cancion entera, incluso en WAV
 
 
 def _broma_lista():

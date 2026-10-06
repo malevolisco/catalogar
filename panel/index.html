@@ -2337,17 +2337,25 @@
     try {
       const r = await api("POST", "/api/admin/broma", fd, true);
       broma = r; pintarBroma();
-      if (r.malos.length) avisar("No valen (formato o más de 15 MB): " + r.malos.join(", "), true);
+      if (r.malos.length) avisar("No valen (formato o más de 100 MB): " + r.malos.join(", "), true);
     } catch (err) { avisar(err.message, true); }
     e.target.value = "";
   });
   pedirBroma.hecho = false;
 
+  let sonando = null;                          // el audio tuyo que esta sonando: otra pulsacion lo para
   $("no-tocar").addEventListener("click", async () => {
+    if (sonando && !sonando.paused && !sonando.ended) {
+      sonando.pause(); sonando = null;
+      return;
+    }
     if (!pedirBroma.hecho) { pedirBroma.hecho = true; await pedirBroma(); }
     const nombre = azar(Object.keys(GRITOS));
     if (broma.sonidos.length) {
-      try { const a = new Audio(azar(broma.sonidos).url); a.volume = 0.8; a.play().catch(() => gritito(nombre)); } catch (e) { gritito(nombre); }
+      try {
+        sonando = new Audio(azar(broma.sonidos).url); sonando.volume = 0.8;   // suena entero, dure lo que dure
+        sonando.play().catch(() => { sonando = null; gritito(nombre); });
+      } catch (e) { gritito(nombre); }
     } else gritito(nombre);
     bailarMJ(broma.imagenes.length ? azar(broma.imagenes).url : null);
     avisar({ "ji-jí": "¡Ji-jí!", "¡au!": "¡Au!", "¡ju!": "¡Ju!" }[nombre] + " " + fraseProhibida());
