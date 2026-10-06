@@ -665,6 +665,12 @@
         </div>
         <div id="copia-resultado"></div>
       </div>
+      <div class="caja">
+        <h2>Datos de AP</h2>
+        <p class="pista" style="margin:0 0 12px">Lo que la página de AP recibe por detrás de los últimos 10 envíos de AP que has catalogado. Sirve para estudiar si AP se puede leer sin abrir la ficha. No lleva contraseñas.</p>
+        <div class="acciones-admin"><a class="b" id="ap-bajar" href="/api/admin/datos-ap" download>Descargar datos de AP</a></div>
+        <div id="ap-resultado"></div>
+      </div>
       <div class="tiles" id="tiles-estado"></div>
       <div class="caja">
         <h2>Acciones</h2>
@@ -1919,6 +1925,20 @@
       const r = await api("POST", "/api/admin/copia/guardar");
       $("copia-resultado").innerHTML = `<p class="pista" style="margin:10px 0 0">Guardada en <b>${esc(r.ruta)}</b></p>`;
       avisar("Copia guardada en Descargas.");
+    } catch (err) { avisar(err.message, true); }
+  });
+  $("ap-bajar").addEventListener("click", async e => {
+    e.preventDefault();
+    try {
+      if (enEscritorio || window.pywebview) {
+        const r = await api("POST", "/api/admin/datos-ap/guardar");
+        $("ap-resultado").innerHTML = `<p class="pista" style="margin:10px 0 0">Guardados en <b>${esc(r.ruta)}</b></p>`;
+        avisar("Datos de AP guardados en Descargas.");
+      } else {
+        const r = await fetch("/api/admin/datos-ap");
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "No se han podido descargar");
+        location.href = "/api/admin/datos-ap";
+      }
     } catch (err) { avisar(err.message, true); }
   });
   $("copia-subir").addEventListener("change", async e => {
