@@ -65,7 +65,7 @@ AQUI = EXE.parent
 DATOS_USUARIO = ("config.json", "cola", "ejemplos.md", "reglas_extra.md", "fichas.csv", "perfil_chromium",
                  "perfil_mediacentral", "mediacentral.json", "mediacentral_registro.csv", "miniaturas", "escenas",
                  "escenas_auto", "escenas_modelo.npz", "escenas_cache.npz", "modelos", "debug", "catalogator.log",
-                 "criterio_cambios.json", "escenas_clases.json", "escenas_entreno.json")
+                 "criterio_cambios.json", "escenas_clases.json", "escenas_entreno.json", "broma")
 
 
 # ====================================================================== carpetas y ajustes del lanzador
