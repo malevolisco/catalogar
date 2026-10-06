@@ -414,7 +414,6 @@
   @media (prefers-reduced-motion:reduce) { .no-tocar::after { animation:none; } }
   #aviso.fantasma { background:rgba(21,24,29,.14); color:rgba(27,30,36,.75); -webkit-backdrop-filter:blur(12px);
                     backdrop-filter:blur(12px); box-shadow:none; border:1px solid rgba(255,255,255,.25); }
-  .moonwalk img { height:150px; width:auto; display:block; margin:0 auto; }
   .broma-panel { position:fixed; right:14px; bottom:50px; width:300px; z-index:70; padding:14px; border-radius:14px;
                  background:rgba(255,255,255,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
                  border:1px solid rgba(255,255,255,.6); box-shadow:0 10px 30px rgba(16,24,40,.08); font-size:13px; color:rgba(27,30,36,.8); }
@@ -422,19 +421,69 @@
   .broma-panel ul { list-style:none; margin:0 0 10px; padding:0; max-height:180px; overflow:auto; }
   .broma-panel li { display:flex; gap:6px; align-items:center; padding:3px 0; word-break:break-all; }
   .broma-panel li button { margin-left:auto; background:none; border:0; cursor:pointer; color:rgba(200,57,43,.7); }
-  /* moonwalk: mira a la derecha y se desliza hacia la izquierda; las piernas alternan talon y punta */
-  .moonwalk { position:fixed; bottom:24px; left:105%; z-index:60; pointer-events:none; text-align:center;
-              animation:moonwalk 3.4s linear forwards; filter:drop-shadow(0 6px 6px rgba(16,24,40,.18)); }
-  .moonwalk svg { width:62px; height:134px; display:block; margin:0 auto; overflow:visible; }
-  .moonwalk .etapa { font-size:11px; letter-spacing:.06em; color:rgba(27,30,36,.55); margin-top:4px; white-space:nowrap; }
-  .moonwalk .pierna-a, .moonwalk .pierna-b { transform-box:view-box; animation:paso .42s ease-in-out infinite alternate; }
-  .moonwalk .pierna-a { transform-origin:27px 64px; }
-  .moonwalk .pierna-b { transform-origin:33px 64px; animation-direction:alternate-reverse; }
-  .moonwalk .cuerpo { animation:balanceo .42s ease-in-out infinite alternate; transform-box:view-box; transform-origin:30px 64px; }
-  @keyframes paso { from { transform:rotate(-9deg); } to { transform:rotate(7deg); } }
-  @keyframes balanceo { from { transform:translateY(0) rotate(-1.5deg); } to { transform:translateY(-1.5px) rotate(1deg); } }
-  @keyframes moonwalk { from { left:105%; } to { left:-12%; } }
-  @media (prefers-reduced-motion:reduce) { .moonwalk, .moonwalk * { animation-duration:.01s !important; } }
+  /* el bailarin: el contenedor recorre la pantalla (Web Animations) y cada numero mueve brazos, piernas,
+     cabeza y sombrero con su propia coreografia (clase m-<numero> y --d = duracion) */
+  .mj { position:fixed; left:0; top:0; z-index:60; pointer-events:none; text-align:center; will-change:transform; }
+  .mj .lienzo { width:74px; height:139px; margin:0 auto; perspective:420px; }
+  .mj .actor { width:100%; height:100%; display:block; overflow:visible; transform-origin:50% 94%;
+               filter:drop-shadow(0 7px 5px rgba(16,24,40,.22)); }
+  .mj img.actor { object-fit:contain; height:150px; width:auto; }
+  .mj .etapa { font-size:10.5px; letter-spacing:.08em; color:rgba(27,30,36,.5); margin-top:2px; white-space:nowrap; }
+  .mj svg g { transform-box:view-box; }
+  .mj .pierna-d { transform-origin:43px 78px; } .mj .pierna-t { transform-origin:37px 78px; }
+  .mj .brazo-d { transform-origin:49px 40px; } .mj .brazo-t { transform-origin:31px 40px; }
+  .mj .cabeza { transform-origin:40px 31px; } .mj .sombrero { transform-origin:41px 10px; } .mj .cuerpo { transform-origin:40px 78px; }
+  .mj .atras { filter:brightness(.78); }
+  /* moonwalk: talon y punta alternos, brazos sueltos */
+  .m-moonwalk .pierna-d { animation:mwP .48s ease-in-out infinite alternate; }
+  .m-moonwalk .pierna-t { animation:mwP .48s ease-in-out infinite alternate-reverse; }
+  .m-moonwalk .brazo-d { animation:mwB .48s ease-in-out infinite alternate; }
+  .m-moonwalk .brazo-t { animation:mwB .48s ease-in-out infinite alternate-reverse; }
+  .m-moonwalk .cuerpo { animation:mwC .48s ease-in-out infinite alternate; }
+  @keyframes mwP { from { transform:rotate(-12deg); } to { transform:rotate(8deg); } }
+  @keyframes mwB { from { transform:rotate(14deg); } to { transform:rotate(-10deg); } }
+  @keyframes mwC { from { transform:translateY(0); } to { transform:translateY(-1.6px); } }
+  /* de puntillas: sube, mano al sombrero */
+  .m-puntas .actor { animation:ptS var(--d) ease both; }
+  .m-puntas .brazo-d { animation:ptB var(--d) ease both; }
+  .m-puntas .sombrero { animation:ptH var(--d) ease both; }
+  .m-puntas .cabeza { animation:ptC var(--d) ease both; }
+  @keyframes ptS { 0%, 28% { transform:none; } 40%, 72% { transform:translateY(-8px) scaleY(1.035); } 84%, 100% { transform:none; } }
+  @keyframes ptB { 0%, 30% { transform:none; } 44%, 70% { transform:rotate(-165deg); } 84%, 100% { transform:none; } }
+  @keyframes ptH { 0%, 46% { transform:none; } 54%, 64% { transform:translateY(-3px) rotate(-9deg); } 74%, 100% { transform:none; } }
+  @keyframes ptC { 0%, 34% { transform:none; } 44%, 70% { transform:rotate(-12deg); } 84%, 100% { transform:none; } }
+  /* giro triple y pose */
+  .m-giro .actor { animation:grS var(--d) cubic-bezier(.3,.6,.3,1) both; }
+  .m-giro .brazo-d { animation:grB var(--d) ease both; }
+  .m-giro .brazo-t { animation:grBt var(--d) ease both; }
+  .m-giro .pierna-d { animation:grP var(--d) ease both; }
+  .m-giro .cabeza { animation:ptC var(--d) ease both; }
+  @keyframes grS { 0%, 22% { transform:rotateY(0); } 50%, 100% { transform:rotateY(1080deg); } }
+  @keyframes grB { 0%, 50% { transform:none; } 56%, 80% { transform:rotate(-172deg); } 90%, 100% { transform:none; } }
+  @keyframes grBt { 0%, 50% { transform:none; } 56%, 80% { transform:rotate(38deg); } 90%, 100% { transform:none; } }
+  @keyframes grP { 0%, 50% { transform:none; } 56%, 80% { transform:rotate(-16deg); } 90%, 100% { transform:none; } }
+  /* la inclinacion imposible */
+  .m-inclina .actor { transform-origin:50% 97%; animation:inS var(--d) cubic-bezier(.55,0,.3,1) both; }
+  .m-inclina .brazo-d, .m-inclina .brazo-t { animation:inB var(--d) ease both; }
+  @keyframes inS { 0%, 22% { transform:none; } 46%, 70% { transform:rotate(42deg); } 90%, 100% { transform:none; } }
+  @keyframes inB { 0%, 22% { transform:none; } 46%, 70% { transform:rotate(-14deg); } 90%, 100% { transform:none; } }
+  /* zombi: brazos al frente, paso a trompicones, cabeza caida */
+  .m-zombi .brazo-d { animation:zbB .9s ease-in-out infinite alternate; }
+  .m-zombi .brazo-t { animation:zbB .9s ease-in-out infinite alternate-reverse; }
+  .m-zombi .pierna-d { animation:zbP .9s steps(3) infinite alternate; }
+  .m-zombi .pierna-t { animation:zbP .9s steps(3) infinite alternate-reverse; }
+  .m-zombi .cabeza { animation:zbH 1.8s ease-in-out infinite alternate; }
+  .m-zombi .cuerpo { transform:rotate(5deg); }
+  @keyframes zbB { from { transform:rotate(-74deg); } to { transform:rotate(-94deg); } }
+  @keyframes zbP { from { transform:rotate(-14deg); } to { transform:rotate(12deg); } }
+  @keyframes zbH { from { transform:rotate(-14deg); } to { transform:rotate(9deg); } }
+  /* asomarse por un lado y saludar con el sombrero */
+  .m-asoma .brazo-d { animation:asB var(--d) ease both; }
+  .m-asoma .sombrero { animation:asH var(--d) ease both; }
+  .m-asoma .actor { animation:asS var(--d) ease both; }
+  @keyframes asB { 0%, 20% { transform:none; } 30%, 46%, 62% { transform:rotate(-152deg); } 38%, 54% { transform:rotate(-122deg); } 76%, 100% { transform:none; } }
+  @keyframes asH { 0%, 26% { transform:none; } 38%, 60% { transform:translate(2px, -5px) rotate(-14deg); } 72%, 100% { transform:none; } }
+  @keyframes asS { 0%, 15% { transform:none; } 30%, 70% { transform:rotate(7deg); } 85%, 100% { transform:none; } }
 
   /* pasar una regla al criterio y sugerencias aprendidas */
   .propuesta { margin-top:10px; padding:12px 14px; border:1px solid #c9d5ec; background:#f5f8fd; border-radius:var(--radio); }
@@ -2086,58 +2135,182 @@
     ].filter(Boolean);
     return azar(frases);
   }
-  // El bailarin, dibujado aqui mismo (sin imagenes): la silueta de siempre con la ropa de cada etapa
+  // El bailarin, dibujado aqui mismo (sin imagenes): una figura articulada (brazos, piernas, cabeza y
+  // sombrero sueltos) vestida segun la etapa, y un numero distinto cada vez, por un lado distinto de la pantalla.
   const ETAPAS_MJ = [
-    { nombre: "Thriller · 1982", pelo: "#1a1410", chaqueta: "#c3202a", detalle: "thriller", pantalon: "#b51d26", calcetin: "#b51d26", zapato: "#151515" },
-    { nombre: "Billie Jean · 1983", sombrero: "#121212", cinta: "#e9e9e9", pelo: "#1a1410", chaqueta: "#1b1b1f", detalle: "lentejuelas",
-      camisa: "#e8a3b5", pantalon: "#151518", calcetin: "#f7f7f7", zapato: "#0d0d0d", guante: true, corto: true },
-    { nombre: "Bad · 1987", pelo: "#1a1410", chaqueta: "#141414", detalle: "hebillas", pantalon: "#161616", calcetin: "#161616", zapato: "#0d0d0d" },
-    { nombre: "Smooth Criminal · 1988", sombrero: "#f3f3f0", cinta: "#151515", pelo: "#1a1410", chaqueta: "#f3f3f0", detalle: "brazalete-azul",
-      camisa: "#3a6fd8", pantalon: "#efefea", calcetin: "#f7f7f7", zapato: "#f3f3f0", corto: true },
-    { nombre: "Dangerous · 1992", pelo: "#1a1410", chaqueta: "#a8141c", detalle: "militar", pantalon: "#121212", calcetin: "#f7f7f7",
-      zapato: "#0d0d0d", corto: true },
+    { nombre: "Jackson 5 · 1970", piel: "#6b3f26", pelo: "afro", chaqueta: "#e0782a", detalle: "flecos", camisa: "#f2c230",
+      pantalon: "#7fb3d9", acampanado: true, calcetin: "#7fb3d9", zapato: "#5a3418", plataforma: true, numeros: ["giro", "asoma", "puntas"] },
+    { nombre: "Off the Wall · 1979", piel: "#744329", pelo: "afro-corto", chaqueta: "#16161a", detalle: "esmoquin", camisa: "#f4f4f4",
+      pajarita: "#111", pantalon: "#16161a", corto: true, calcetin: "#ffffff", brillo: true, zapato: "#0c0c0c", numeros: ["giro", "puntas", "asoma"] },
+    { nombre: "Thriller · 1982", piel: "#86553a", pelo: "rizos", chaqueta: "#c4202b", detalle: "thriller", camisa: "#1a1a1a",
+      pantalon: "#b51d27", corto: true, calcetin: "#ffffff", zapato: "#121212", numeros: ["giro", "puntas", "moonwalk"] },
+    { nombre: "Thriller · zombi", piel: "#8e9e7c", pelo: "rizos", chaqueta: "#9c1c25", detalle: "zombi", camisa: "#1a1a1a",
+      pantalon: "#8f1a23", rasgado: true, corto: true, calcetin: "#cfcfbf", zapato: "#121212", zombi: true, numeros: ["zombi", "zombi", "asoma"] },
+    { nombre: "Billie Jean · 1983", piel: "#8a593d", pelo: "rizos", sombrero: "#121212", cinta: "#ececec", chaqueta: "#1b1b20",
+      detalle: "lentejuelas", camisa: "#e9a4b8", pajarita: "#c4202b", pantalon: "#141417", corto: true, calcetin: "#ffffff", brillo: true,
+      zapato: "#0c0c0c", guante: true, numeros: ["moonwalk", "moonwalk", "puntas", "giro"] },
+    { nombre: "Bad · 1987", piel: "#94644a", pelo: "largo", chaqueta: "#141414", detalle: "hebillas", camisa: "#1d1d1d",
+      pantalon: "#151515", hebillasPierna: true, calcetin: "#151515", zapato: "#0c0c0c", brazalete: "#efefef", numeros: ["moonwalk", "puntas", "giro", "asoma"] },
+    { nombre: "Smooth Criminal · 1988", piel: "#a27454", pelo: "largo", sombrero: "#f3f3ef", cinta: "#151515", chaqueta: "#f3f3ef",
+      detalle: "traje", camisa: "#3a6fd8", corbata: "#f3f3ef", pantalon: "#efefea", corto: true, calcetin: "#ffffff", zapato: "#f3f3ef",
+      brazalete: "#2f5bd3", numeros: ["inclina", "inclina", "moonwalk", "giro"] },
+    { nombre: "Black or White · 1991", piel: "#bb8f6e", pelo: "largo", sombrero: "#121212", cinta: "#121212", chaqueta: "#141414",
+      detalle: "camiseta", camisa: "#f6f6f6", pantalon: "#141414", corto: true, calcetin: "#ffffff", zapato: "#0c0c0c",
+      brazalete: "#f6f6f6", numeros: ["puntas", "giro", "moonwalk", "asoma"] },
+    { nombre: "Dangerous · 1992", piel: "#c49b7e", pelo: "largo", chaqueta: "#a8141c", detalle: "militar", camisa: "#111",
+      pantalon: "#121212", corto: true, calcetin: "#ffffff", brillo: true, zapato: "#0c0c0c", brazalete: "#d7b14a", cinturon: "#d7b14a",
+      numeros: ["moonwalk", "giro", "puntas", "inclina"] },
+    { nombre: "HIStory · 1996", piel: "#cfa98c", pelo: "largo", gafas: true, chaqueta: "#d4a93c", detalle: "oro", camisa: "#b8892a",
+      pantalon: "#cfa236", corto: true, calcetin: "#ffffff", zapato: "#0c0c0c", cinturon: "#111", brazalete: "#111",
+      numeros: ["puntas", "giro", "moonwalk", "asoma"] },
   ];
+  const oscurece = (hex, f) => "#" + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * f).toString(16).padStart(2, "0")).join("");
   function figuraMJ(e) {
-    const piel = "#8d5a3c";
-    const bajo = e.corto ? 106 : 112;                              // con pantalon corto se ven los calcetines blancos
-    const pierna = (x, clase) => `<g class="${clase}">
-        <rect x="${x}" y="62" width="9" height="${bajo - 62}" rx="3" fill="${e.pantalon}"/>
-        <rect x="${x + 0.5}" y="${bajo - 2}" width="8" height="${116 - bajo}" fill="${e.calcetin}"/>
-        <path d="M${x - 1} 116 h13 a3 3 0 0 1 0 6 h-13 z" fill="${e.zapato}"/></g>`;
-    const detalles = {
-      thriller: `<path d="M21 34 l9 14 l9 -14 M22 44 l8 10 l8 -10" stroke="#111" stroke-width="2.2" fill="none"/>`,
-      lentejuelas: [26, 33, 38, 30, 35].map((x, i) => `<circle cx="${x}" cy="${38 + i * 4}" r="0.9" fill="#d9d9e6"/>`).join(""),
-      hebillas: [38, 44, 50].map(y => `<rect x="20" y="${y}" width="20" height="1.6" fill="#bfc3c9"/><rect x="28" y="${y - 1}" width="4" height="3.6" fill="none" stroke="#d6d9de" stroke-width=".9"/>`).join(""),
-      "brazalete-azul": `<rect x="41" y="40" width="5" height="4" fill="#2f5bd3" transform="rotate(-12 43 42)"/>`,
-      militar: `<rect x="19" y="31" width="7" height="3" rx="1" fill="#d7b14a"/><rect x="34" y="31" width="7" height="3" rx="1" fill="#d7b14a"/>`
-        + [38, 44, 50, 56].map(y => `<circle cx="27" cy="${y}" r="1" fill="#e2c15a"/><circle cx="33" cy="${y}" r="1" fill="#e2c15a"/>`).join("")
-        + `<rect x="41" y="40" width="5" height="4" fill="#d7b14a" transform="rotate(-12 43 42)"/>`,
+    const piel = e.piel, sombra = oscurece(piel, .78), pelo = "#17120e";
+    const fondo = e.corto ? 126 : 133;
+    const pierna = (x, clase) => {
+      const pantalon = e.acampanado
+        ? `<path d="M${x - 5} 76 h10 l3.5 ${fondo - 76} h-17 z" fill="${e.pantalon}"/>`
+        : `<path d="M${x - 5} 76 h10 l-.6 ${fondo - 76} h-8.8 z" fill="${e.pantalon}"/>`;
+      const roto = e.rasgado ? `<path d="M${x - 4.5} ${fondo - 1} l2 3 l2 -3 l2 4 l2 -4" fill="${e.pantalon}"/>` : "";
+      const hebillas = e.hebillasPierna ? [92, 104, 116].map(y => `<rect x="${x - 4.5}" y="${y}" width="9" height="1.4" fill="#9ea3aa"/><rect x="${x + 1}" y="${y - .8}" width="2.6" height="3" fill="none" stroke="#c9cdd2" stroke-width=".7"/>`).join("") : "";
+      const brillo = e.brillo ? `<circle cx="${x - 2}" cy="${fondo + 2}" r=".7" fill="#fff"/><circle cx="${x + 2}" cy="${fondo + 4}" r=".6" fill="#fff"/><path d="M${x + 3} ${fondo + 1} l.6 1.2 l1.2 .4 l-1.2 .4 l-.6 1.2 l-.6 -1.2 l-1.2 -.4 l1.2 -.4 z" fill="#fffbe0"/>` : "";
+      const suela = e.plataforma ? `<rect x="${x - 6}" y="137" width="17" height="3.5" rx="1" fill="${oscurece(e.zapato, .7)}"/>` : "";
+      return `<g class="${clase}">${pantalon}
+        <path d="M${x} 80 V${fondo - 2}" stroke="#000" stroke-opacity=".18" stroke-width=".8"/>${roto}${hebillas}
+        <rect x="${x - 4}" y="${fondo - 1}" width="8" height="${134 - fondo + 1}" fill="${e.calcetin}"/>${brillo}
+        <path d="M${x - 5} 133 h12 q5.5 0 5.5 3.6 q0 2.4 -3 2.4 h-14.5 z" fill="${e.zapato}"/>
+        <path d="M${x + 1} 134.6 h6" stroke="#fff" stroke-opacity=".45" stroke-width=".8" stroke-linecap="round"/>${suela}</g>`;
     };
-    const cabeza = e.sombrero
-      ? `<path d="M20 15 q10 -5 22 0" stroke="${e.pelo}" stroke-width="5" fill="none"/>
-         <ellipse cx="31" cy="12.5" rx="17" ry="2.6" fill="${e.sombrero}"/>
-         <path d="M22 12 q1 -10 9 -10 q8 0 9 10 z" fill="${e.sombrero}"/>
-         <rect x="22.3" y="8.6" width="17.4" height="2.6" fill="${e.cinta}"/>`
-      : `<path d="M22 20 q-2 -13 9 -14 q12 -1 11 13 q-3 -6 -10 -6 q-7 0 -10 7 z" fill="${e.pelo}"/>
-         <path d="M23 18 q-3 6 -1 12" stroke="${e.pelo}" stroke-width="2.5" fill="none"/>`;
-    return `<svg viewBox="0 0 60 126" aria-hidden="true">
-      ${pierna(23, "pierna-b")}
+    const brazo = (x, clase, delante) => {
+      const mano = delante && e.guante
+        ? `<ellipse cx="${x}" cy="72" rx="3.4" ry="4" fill="#fbfbff" stroke="#d6d6e6" stroke-width=".6"/>
+           <path d="M${x - 1.6} 70.6 l.5 1 l1 .3 l-1 .3 l-.5 1 l-.5 -1 l-1 -.3 l1 -.3 z M${x + 1.4} 73 l.4 .8 l.8 .3 l-.8 .3 l-.4 .8 l-.4 -.8 l-.8 -.3 l.8 -.3 z" fill="#ffe680"/>`
+        : `<ellipse cx="${x}" cy="72" rx="3.2" ry="3.8" fill="${piel}"/>`;
+      const garras = e.zombi ? `<path d="M${x - 2} 75 l-.8 3.2 M${x} 75.6 l0 3.4 M${x + 2} 75 l.8 3.2" stroke="#d8d2b0" stroke-width=".8" stroke-linecap="round"/>` : "";
+      const banda = delante && e.brazalete ? `<rect x="${x - 3.8}" y="47" width="7.6" height="4" fill="${e.brazalete}"/>` : "";
+      const manga = e.rasgado ? `<path d="M${x - 3.6} 64 l1.5 3 l1.6 -2.5 l1.8 3 l1.6 -3 l1 2.5" fill="none" stroke="${e.chaqueta}" stroke-width="1.6"/>` : "";
+      const puno = e.camisa && !e.rasgado ? `<rect x="${x - 3.6}" y="65.5" width="7.2" height="2.6" fill="${e.camisa}"/>` : "";
+      return `<g class="${clase}"><path d="M${x - 3.8} 38 q-1.2 15 -.2 29 h7.8 q1.2 -14 .2 -29 z" fill="${e.chaqueta}"/>
+        ${e.detalle === "militar" || e.detalle === "oro" ? `<path d="M${x - 3.6} 62 h7.6" stroke="#e8c55c" stroke-width="1.4"/>` : ""}
+        ${banda}${manga}${puno}${mano}${garras}</g>`;
+    };
+    const lentejuelas = Array.from({ length: 26 }, (_, i) => `<circle cx="${31 + (i * 7.3) % 18}" cy="${41 + (i * 4.7) % 33}" r=".75" fill="#d9d9ea" opacity="${.5 + (i % 3) * .2}"/>`).join("");
+    const detalle = {
+      flecos: `<path d="M28 38 Q34 35 36.5 36 L36 76 L30 77 Z M52 38 Q46 35 43.5 36 L44 76 L50 77 Z" fill="${e.chaqueta}"/>`
+        + Array.from({ length: 6 }, (_, i) => `<path d="M${30.5 + i} 76 v5 M${44.5 + i} 76 v5" stroke="${e.chaqueta}" stroke-width=".8"/>`).join("")
+        + `<path d="M34 36 l-5 6 l7 -2 z M46 36 l5 6 l-7 -2 z" fill="${e.camisa}"/>`,
+      esmoquin: `<path d="M35.5 36 L40 54 M44.5 36 L40 54" stroke="#333" stroke-width="1.6"/><circle cx="40" cy="58" r=".8" fill="#ddd"/>`,
+      thriller: `<path d="M30.5 44 L40 60 L49.5 44 M31.2 52 L40 67 L48.8 52" stroke="#111" stroke-width="2.4" fill="none"/>
+        <path d="M28 38 q-2 3 0 6 M52 38 q2 3 0 6" stroke="${oscurece(e.chaqueta, .7)}" stroke-width="2" fill="none"/>`,
+      zombi: `<path d="M30.5 44 L40 60 L49.5 44 M31.2 52 L40 67 L48.8 52" stroke="#111" stroke-width="2.4" fill="none"/>
+        <path d="M30 77 l2 -4 l2 5 l2 -3 l2 4 l2 -5 l2 4 l2 -3 l2 4 l2 -2 v-2 h-20 z" fill="#f2f3f7"/>
+        <path d="M33 47 l3 2 l-2 3 z M46 58 l2 3 l-3 1 z" fill="#4a0e12"/>`,
+      lentejuelas,
+      hebillas: [42, 50, 58, 66].map(y => `<path d="M30.5 ${y} L49.5 ${y - 3}" stroke="#2c2c2c" stroke-width="2.4"/><rect x="${43 - (y - 42) / 8}" y="${y - 3.6}" width="3.2" height="3.6" fill="none" stroke="#c9cdd2" stroke-width=".8"/>`).join(""),
+      traje: `<path d="M35.5 36 L40 56 M44.5 36 L40 56" stroke="#cfcfc8" stroke-width="1.4"/><path d="M28.5 46 h5 M46.5 46 h5" stroke="#cfcfc8" stroke-width=".8"/>`,
+      camiseta: `<path d="M34 36 L33 77 L30 77 L28 38 Z M46 36 L47 77 L50 77 L52 38 Z" fill="${e.chaqueta}"/><path d="M36 36 q4 5 8 0" stroke="#d9d9d9" stroke-width=".8" fill="none"/>`,
+      militar: `<rect x="27" y="36.5" width="8" height="3.4" rx="1.2" fill="#d7b14a"/><rect x="45" y="36.5" width="8" height="3.4" rx="1.2" fill="#d7b14a"/>`
+        + Array.from({ length: 5 }, (_, i) => `<path d="M${27.5 + i * 1.6} 40 v3 M${45.5 + i * 1.6} 40 v3" stroke="#e8c55c" stroke-width=".7"/>`).join("")
+        + [44, 50, 56, 62, 68].map(y => `<circle cx="36.5" cy="${y}" r="1" fill="#f0cf63"/><circle cx="43.5" cy="${y}" r="1" fill="#f0cf63"/>`).join("")
+        + `<path d="M30 41 L50 72" stroke="#e8c55c" stroke-width="2" opacity=".85"/>`,
+      oro: `<path d="M31 46 h18 M31.5 56 h17 M32 66 h16" stroke="#9d7a22" stroke-width="1.2"/><path d="M40 37 V73" stroke="#9d7a22" stroke-width="1"/>
+        <rect x="27" y="36.5" width="8" height="3.4" rx="1.2" fill="#111"/><rect x="45" y="36.5" width="8" height="3.4" rx="1.2" fill="#111"/>`,
+    }[e.detalle] || "";
+    const camisa = e.camisa && !["flecos", "camiseta"].includes(e.detalle) ? `<path d="M35.5 36 L40 52 L44.5 36 Z" fill="${e.camisa}"/>` : "";
+    const fondoCamiseta = e.detalle === "camiseta" ? `<path d="M30 37 L50 37 L49 77 L31 77 Z" fill="${e.camisa}"/>` : "";
+    const fondoFlecos = e.detalle === "flecos" ? `<path d="M30 37 L50 37 L49 77 L31 77 Z" fill="${e.camisa}"/>` : "";
+    const pajarita = e.pajarita ? `<path d="M36.6 36.4 l3.4 1.6 l-3.4 1.6 z M43.4 36.4 l-3.4 1.6 l3.4 1.6 z" fill="${e.pajarita}"/><circle cx="40" cy="38" r=".9" fill="${e.pajarita}"/>` : "";
+    const corbata = e.corbata ? `<path d="M39 37.5 h2 l.8 10 l-1.8 2 l-1.8 -2 z" fill="${e.corbata}"/>` : "";
+    const cinturon = e.cinturon ? `<rect x="30.5" y="72.5" width="19" height="3.6" fill="${e.cinturon}"/><rect x="38" y="72" width="4.6" height="4.6" rx=".6" fill="none" stroke="#f3d77a" stroke-width=".9"/>` : "";
+    const peinado = {
+      afro: `<circle cx="38.5" cy="16.5" r="14.5" fill="${pelo}"/><circle cx="27" cy="20" r="5" fill="${pelo}"/><circle cx="48" cy="9" r="5" fill="${pelo}"/>`,
+      "afro-corto": `<circle cx="39" cy="17.5" r="11.5" fill="${pelo}"/>`,
+      rizos: `<path d="M32 22 q-3 -15 9 -15 q11 0 9 12 q-3 -5 -9 -5 q-6 0 -8 8 z" fill="${pelo}"/>`
+        + [[33, 24], [32, 28.5], [33.5, 32.5], [36, 30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${pelo}"/>`).join(""),
+      largo: `<path d="M33 22 q-4 -16 8.5 -16 q11 0 9.5 12 q-3 -5 -9 -5 q-6 0 -8 7 z" fill="${pelo}"/>`
+        + `<path d="M32 18 q-5 10 -2 22 q3 2 6 -1 q-3 -9 0 -18 z" fill="${pelo}"/>`
+        + `<path d="M45.5 10 q3.5 6 .5 12 q-.8 1 -1.2 0 q2 -6 -.6 -11 z" fill="${pelo}"/>`,
+    }[e.pelo] || "";
+    const sombrero = e.sombrero ? `<g class="sombrero">
+        <ellipse cx="41" cy="11.6" rx="15.5" ry="2.7" fill="${e.sombrero}"/>
+        <path d="M30.6 11.2 Q31 .8 41 .8 Q51 .8 51.4 11.2 Z" fill="${e.sombrero}"/>
+        <path d="M37 2.5 q4 2.4 8 0" stroke="${oscurece(e.sombrero, .75)}" stroke-width=".8" fill="none"/>
+        <rect x="30.9" y="7.9" width="20.2" height="2.8" fill="${e.cinta}"/></g>` : "";
+    const ojos = e.zombi
+      ? `<circle cx="44.6" cy="19.6" r="2.1" fill="#3a3f2e"/><circle cx="44.8" cy="19.6" r="1.1" fill="#f2e14b"/>`
+      : `<circle cx="44.6" cy="19.6" r=".95" fill="#1a1a1a"/>`;
+    const gafas = e.gafas ? `<rect x="41.6" y="17.6" width="7.4" height="3.6" rx="1.4" fill="#111"/><path d="M36 19 h5.6" stroke="#111" stroke-width=".8"/>` : "";
+    return `<svg class="actor" viewBox="0 0 80 150" aria-hidden="true">
+      <ellipse cx="41" cy="141" rx="15" ry="2.6" fill="#000" opacity=".12"/>
+      ${pierna(37, "pierna-t atras")}
+      ${brazo(31, "brazo-t atras", false)}
       <g class="cuerpo">
-        <path d="M42 33 q9 12 5 25" stroke="${e.chaqueta}" stroke-width="6.5" fill="none" stroke-linecap="round"/>
-        <circle cx="47" cy="60" r="3" fill="${e.guante ? "#ffffff" : piel}" ${e.guante ? 'stroke="#d9d9e6" stroke-width=".8"' : ""}/>
-        ${e.guante ? '<path d="M47 54 l1 -2 M51 58 l2 -1 M50 55 l2 -2" stroke="#ffe680" stroke-width=".9"/>' : ""}
-        <path d="M19 30 h22 l3 33 h-28 z" fill="${e.chaqueta}"/>
-        ${e.camisa ? `<path d="M27 30 l3 7 l3 -7 z" fill="${e.camisa}"/>` : ""}
-        ${detalles[e.detalle] || ""}
-        <path d="M20 33 q-8 12 -5 26" stroke="${e.chaqueta}" stroke-width="6.5" fill="none" stroke-linecap="round"/>
-        <circle cx="15" cy="60" r="3" fill="${piel}"/>
-        <rect x="28" y="25" width="5" height="6" fill="${piel}"/>
-        <ellipse cx="31" cy="19" rx="7" ry="8" fill="${piel}"/>
-        <path d="M37 18 l3 1.5 l-3 1" fill="${piel}"/>
-        ${cabeza}
+        <path d="M28 38 Q40 33 52 38 L50 77 Q40 79 30 77 Z" fill="${e.chaqueta}"/>
+        ${fondoFlecos}${fondoCamiseta}${camisa}${detalle}${pajarita}${corbata}${cinturon}
+        <g class="cabeza">
+          <rect x="37.6" y="28" width="5" height="9" fill="${piel}"/>
+          ${e.pelo.startsWith("afro") ? peinado : ""}
+          <ellipse cx="40.6" cy="21" rx="7.8" ry="9.2" fill="${piel}"/>
+          <path d="M47.9 19.6 l2.7 2.4 l-2.5 .9 z" fill="${piel}"/>
+          <ellipse cx="37" cy="22" rx="1.6" ry="2.4" fill="${sombra}"/>
+          ${ojos}${gafas}
+          <path d="M45 26.2 q1.6 .6 2.6 -.2" stroke="${oscurece(piel, .6)}" stroke-width=".7" fill="none"/>
+          ${e.pelo.startsWith("afro") ? "" : peinado}
+          ${sombrero}
+        </g>
       </g>
-      ${pierna(29, "pierna-a")}
+      ${pierna(43, "pierna-d")}
+      ${brazo(49, "brazo-d", true)}
     </svg>`;
+  }
+  // Cada numero: por donde entra y sale el bailarin (keyframes del contenedor), hacia donde mira y cuanto dura
+  function numeroMJ(nombre) {
+    const W = innerWidth, H = innerHeight, fw = 74, fh = 160, al = (a, b) => a + Math.random() * (b - a);
+    const t = (x, y) => ({ transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)` });
+    const suelo = () => H - fh - al(6, 70);
+    if (nombre === "moonwalk") {                     // mira a un lado y se desliza al contrario
+      const mira = azar([1, -1]), y = suelo();
+      return { mira, dur: 4200, easing: "linear", frames: mira === 1 ? [t(W + 20, y), t(-fw - 20, y)] : [t(-fw - 20, y), t(W + 20, y)] };
+    }
+    if (nombre === "zombi") {                        // anda hacia donde mira, a trompicones
+      const mira = azar([1, -1]), y = suelo();
+      return { mira, dur: 6400, easing: "linear", frames: mira === 1 ? [t(-fw - 20, y), t(W + 20, y)] : [t(W + 20, y), t(-fw - 20, y)] };
+    }
+    if (nombre === "puntas") {                       // sube desde abajo en cualquier sitio
+      const x = al(60, W - fw - 60);
+      return { mira: azar([1, -1]), dur: 3300, easing: "ease-in-out",
+               frames: [{ ...t(x, H + 8), offset: 0 }, { ...t(x, H - fh - 4), offset: .18 }, { ...t(x, H - fh - 4), offset: .84 }, { ...t(x, H + 8), offset: 1 }] };
+    }
+    if (nombre === "giro") {                         // entra por un lado, gira tres veces, pose y se va
+      const izq = Math.random() < .5, x0 = izq ? -fw - 20 : W + 20, x = al(W * .2, W * .75), y = suelo();
+      return { mira: izq ? 1 : -1, dur: 3800, easing: "ease-in-out",
+               frames: [{ ...t(x0, y), offset: 0 }, { ...t(x, y), offset: .2 }, { ...t(x, y), offset: .82 }, { ...t(x0, y), offset: 1 }] };
+    }
+    if (nombre === "inclina") {                      // aparece, se inclina sin caerse y desaparece
+      const x = al(80, W - fw - 80), y = H - fh - al(6, 40);
+      return { mira: azar([1, -1]), dur: 3900, easing: "ease",
+               frames: [{ ...t(x, y), opacity: 0, offset: 0 }, { ...t(x, y), opacity: 1, offset: .12 }, { ...t(x, y), opacity: 1, offset: .9 }, { ...t(x, y), opacity: 0, offset: 1 }] };
+    }
+    // asoma: por un lateral, a cualquier altura, saluda y se esconde
+    const izq = Math.random() < .5, y = al(H * .2, H - fh - 20);
+    const fuera = izq ? -fw - 12 : W + 12, dentro = izq ? -fw * .3 : W - fw * .7;
+    return { mira: izq ? 1 : -1, dur: 3300, easing: "ease-in-out",
+             frames: [{ ...t(fuera, y), offset: 0 }, { ...t(dentro, y), offset: .2 }, { ...t(dentro, y), offset: .8 }, { ...t(fuera, y), offset: 1 }] };
+  }
+  function bailarMJ(gif) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const etapa = azar(ETAPAS_MJ);
+    const nombre = gif ? azar(["moonwalk", "puntas", "asoma", "giro"]) : azar(etapa.numeros);
+    const n = numeroMJ(nombre);
+    const mj = document.createElement("div");
+    mj.className = "mj m-" + nombre; mj.setAttribute("aria-hidden", "true");
+    mj.style.setProperty("--d", n.dur + "ms");
+    mj.innerHTML = `<div class="lienzo" style="transform:scaleX(${n.mira})">`
+      + (gif ? `<img class="actor" src="${esc(gif)}" alt="">` : figuraMJ(etapa)) + `</div>`
+      + (gif ? "" : `<div class="etapa">${esc(etapa.nombre)}</div>`);
+    document.body.appendChild(mj);
+    mj.animate(n.frames, { duration: n.dur, easing: n.easing, fill: "both" }).finished.then(() => mj.remove(), () => mj.remove());
   }
   let avisoFantasma = null;
   // lo que el catalogador ha subido (clic derecho sobre el boton); si no hay nada, grito y dibujo de aqui
@@ -2176,14 +2349,7 @@
     if (broma.sonidos.length) {
       try { const a = new Audio(azar(broma.sonidos).url); a.volume = 0.8; a.play().catch(() => gritito(nombre)); } catch (e) { gritito(nombre); }
     } else gritito(nombre);
-    const etapa = azar(ETAPAS_MJ);
-    const mj = document.createElement("div");
-    mj.className = "moonwalk"; mj.setAttribute("aria-hidden", "true");
-    mj.innerHTML = broma.imagenes.length ? `<img src="${esc(azar(broma.imagenes).url)}" alt="">`
-      : figuraMJ(etapa) + `<div class="etapa">${esc(etapa.nombre)}</div>`;
-    mj.style.bottom = (14 + Math.random() * 40) + "px";
-    document.body.appendChild(mj);
-    setTimeout(() => mj.remove(), 3600);
+    bailarMJ(broma.imagenes.length ? azar(broma.imagenes).url : null);
     avisar({ "ji-jí": "¡Ji-jí!", "¡au!": "¡Au!", "¡ju!": "¡Ju!" }[nombre] + " " + fraseProhibida());
     const aviso = $("aviso");
     aviso.classList.add("fantasma");
