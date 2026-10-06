@@ -275,6 +275,99 @@ def _palabras(texto):
     return {w[:6] for w in re.findall(r"[A-Z0-9]{3,}", t) if w not in VACIAS and not w.isdigit()}
 
 
+# ====================================================================== salud de las fichas aprobadas
+USO_PATH = BASE_DIR / "cola" / "ejemplos_uso.json"
+DIAS_SIN_USO = 30            # una aprobada que lleva este tiempo sin elegirse para ningun envio, "sin uso"
+PARECIDO_REPETIDA = .6       # palabras en comun (Jaccard) a partir de las que dos aprobadas son la misma
+
+
+def _leer_uso():
+    import json
+    try:
+        datos = json.loads(USO_PATH.read_text(encoding="utf-8"))
+        return datos if isinstance(datos, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def registrar_uso(numeros):
+    """Apunta que esas aprobadas han acompañado a un envio (para saber cuales no se usan nunca)."""
+    import json
+    uso = _leer_uso()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    uso.setdefault("_desde", hoy)
+    for n in numeros:
+        if n:
+            d = uso.setdefault(n, {"veces": 0, "ultimo": ""})
+            d["veces"] += 1
+            d["ultimo"] = hoy
+    try:
+        USO_PATH.parent.mkdir(exist_ok=True)
+        tmp = USO_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(uso, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(USO_PATH)
+    except OSError:
+        pass
+
+
+_SALUD = {"marca": None, "datos": {}}
+
+
+def salud_ejemplos():
+    """Estado de cada aprobada, por numero: {estado, motivos, veces, ultimo}.
+       repetida  hay otra aprobada mas nueva casi igual (mismo pais al frente y la mayoria de palabras en comun)
+       revisar   el validador de ahora le pone avisos: puede arrastrar algo que el criterio ya corrige
+       sin_uso   en DIAS_SIN_USO dias no se ha elegido nunca para acompañar a un envio
+       valiosa   lo demas
+    Las repetidas ya no entran en la redaccion; las de revisar entran solo si no hay otras igual de parecidas."""
+    try:
+        marca = (EJEMPLOS_PATH.stat().st_mtime_ns, USO_PATH.stat().st_mtime_ns if USO_PATH.exists() else 0)
+    except OSError:
+        return {}
+    if _SALUD["marca"] == marca:
+        return _SALUD["datos"]
+    ejemplos = listar_ejemplos()
+    uso = _leer_uso()
+    desde = uso.get("_desde")
+    dias_mirando = (datetime.now() - datetime.strptime(desde, "%Y-%m-%d")).days if desde else 0
+    bolsas = [_palabras(e["name"] + " " + e["comment"]) for e in ejemplos]
+    datos = {}
+    for i, e in enumerate(ejemplos):
+        clave = e["numero"] or f"#{i + 1}"
+        motivos = []
+        repetida_de = None
+        pais = (e["name"].split() or [""])[0]
+        for j in range(len(ejemplos) - 1, i, -1):                 # las de despues son mas nuevas
+            otra = ejemplos[j]
+            if (otra["name"].split() or [""])[0] != pais:
+                continue
+            union = bolsas[i] | bolsas[j]
+            if union and len(bolsas[i] & bolsas[j]) / len(union) >= PARECIDO_REPETIDA:
+                repetida_de = otra["numero"] or f"#{j + 1}"
+                break
+        try:
+            avisos = validar({"ENVIO": e["envio"], "NAME": e["name"], "COMMENT": e["comment"],
+                              "RESTRICCIONES": e["restricciones"]})
+        except Exception:
+            avisos = []
+        u = uso.get(e["numero"]) or {}
+        if repetida_de:
+            estado = "repetida"
+            motivos.append(f"Casi igual que la {repetida_de}, más nueva")
+        elif avisos:
+            estado = "revisar"
+            motivos += avisos[:3]
+        elif dias_mirando >= DIAS_SIN_USO and not u.get("veces"):
+            estado = "sin_uso"
+            motivos.append(f"En {dias_mirando} días no ha acompañado a ningún envío")
+        else:
+            estado = "valiosa"
+        datos[clave] = {"estado": estado, "motivos": motivos, "veces": u.get("veces", 0), "ultimo": u.get("ultimo", ""),
+                        "repetida_de": repetida_de}
+    _SALUD.update(marca=marca, datos=datos)
+    return datos
+
+
 def elegir_ejemplos(ficha, ejemplos=None, n=None):
     """Las fichas aprobadas mas parecidas a este envio, para que acompañen a la redaccion sin cargar todas.
     Parecido: palabras en comun (nombres, lugares, slug y titular de la agencia, que las aprobadas guardan
@@ -294,16 +387,22 @@ def elegir_ejemplos(ficha, ejemplos=None, n=None):
         for w in b:
             df[w] = df.get(w, 0) + 1
     total = len(ejemplos)
+    salud = salud_ejemplos()
+    estado = lambda i: (salud.get(ejemplos[i]["numero"] or f"#{i + 1}") or {}).get("estado")
     puntos = []
     for i, b in enumerate(bolsas):
+        if estado(i) == "repetida":              # su version mas nueva ya enseña lo mismo
+            continue
         comunes = buscadas & b
         p = sum(math.log((total + 1) / df[w]) for w in comunes) / math.sqrt(max(len(b), 1))
+        if estado(i) == "revisar":
+            p *= .5                              # entra solo si no hay otra igual de parecida
         puntos.append((p, i))
     elegidos = [i for p, i in sorted(puntos, key=lambda x: (-x[0], -x[1])) if p > 0][:n]
-    for i in range(total - 1, -1, -1):          # el resto, las mas recientes
+    for i in range(total - 1, -1, -1):          # el resto, las mas recientes (y sanas)
         if len(elegidos) >= n:
             break
-        if i not in elegidos:
+        if i not in elegidos and estado(i) not in ("repetida", "revisar"):
             elegidos.append(i)
     return [ejemplos[i] for i in elegidos]
 
@@ -312,6 +411,7 @@ def bloque_ejemplos(ficha):
     elegidos = elegir_ejemplos(ficha)
     if not elegidos:
         return ""
+    registrar_uso([e["numero"] for e in elegidos])
     total = len(listar_ejemplos())
     bloques = [f"ENVIO: {e['envio']}\nNAME: {e['name']}\nCOMMENT: {e['comment']}\nRESTRICCIONES: {e['restricciones']}"
                for e in elegidos]

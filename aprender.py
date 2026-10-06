@@ -29,6 +29,7 @@ import criterio
 
 BASE_DIR = Path(__file__).resolve().parent
 SUGERENCIAS_PATH = BASE_DIR / "cola" / "sugerencias.json"
+CONSOLIDADAS_PATH = BASE_DIR / "cola" / "consolidadas.json"   # reglas que han pasado solas al criterio
 CAMPOS_FICHA = ("NAME", "COMMENT", "RESTRICCIONES")
 MAX_DESCARTADAS = 300
 
@@ -42,6 +43,7 @@ def iniciar(globales):
     S.clear()
     S["_g"] = globales
     threading.Thread(target=_bucle, name="aprender", daemon=True).start()
+    threading.Thread(target=_consolidar_bucle, name="consolidar", daemon=True).start()
 
 
 def g(nombre):
@@ -129,7 +131,7 @@ def aplicar_sitio(despues_de, texto, quitar=(), indice=None):
     """Añade la regla al criterio base tras despues_de, quita las lineas que sobran y, si venia de
     Mis reglas, la quita de alli (ya no hace falta repetirla al final)."""
     nombre, base = _criterio_base()
-    criterio.anadir(nombre, base, str(despues_de or ""), texto)
+    aplicar_sitio.ultimo_id = criterio.anadir(nombre, base, str(despues_de or ""), texto)
     for ident in quitar or ():
         try:
             criterio.quitar(nombre, base, str(ident))
@@ -177,6 +179,110 @@ async def colocar_aplicar(request: Request):
         raise HTTPException(400, str(e).strip("'\""))
     _log("Regla pasada al criterio base" + (f" (quitadas {len(datos.get('quitar') or [])} linea(s) que sobraban)" if datos.get("quitar") else ""))
     return {"reglas": reglas}
+
+
+# ====================================================================== consolidacion automatica
+# Una regla de Mis reglas que lleva reglas_auto_dias sin tocarse ya esta asentada: pasa sola a su sitio del
+# criterio y sale de Mis reglas. Solo añade (no quita lineas del criterio por su cuenta) y se puede deshacer.
+_cerrojo_consolidar = threading.Lock()
+
+
+def _leer_consolidadas():
+    try:
+        datos = json.loads(CONSOLIDADAS_PATH.read_text(encoding="utf-8"))
+        return datos if isinstance(datos, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def _guardar_consolidadas(lista):
+    CONSOLIDADAS_PATH.parent.mkdir(exist_ok=True)
+    tmp = CONSOLIDADAS_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(lista[-100:], ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(CONSOLIDADAS_PATH)
+
+
+def fecha_regla(linea):
+    m = re.search(r"\((\d{4}-\d{2}-\d{2})\)\s*$", linea or "")
+    try:
+        return datetime.strptime(m.group(1), "%Y-%m-%d") if m else None
+    except ValueError:
+        return None
+
+
+def consolidar_una():
+    """Pasa al criterio la regla mas antigua que ya cumple el plazo. Devuelve el registro o None."""
+    cfg = g("CFG")
+    if not cfg.get("reglas_auto_criterio", True):
+        return None
+    dias = int(cfg.get("reglas_auto_dias", 3) or 3)
+    r = _redactor()
+    with _cerrojo_consolidar:
+        lista = r.listar_reglas_extra()
+        maduras = [(fecha_regla(l), i, l) for i, l in enumerate(lista, 1)
+                   if fecha_regla(l) and (datetime.now() - fecha_regla(l)).days >= dias]
+        if not maduras:
+            return None
+        _, indice, linea = min(maduras)
+        propuesta = proponer_sitio(linea)
+        # la lista puede haber cambiado mientras pensaba el modelo: se busca otra vez la misma linea
+        lista = r.listar_reglas_extra()
+        if linea not in lista:
+            return None
+        aplicar_sitio(propuesta["despues_de"], propuesta["texto"], quitar=(), indice=lista.index(linea) + 1)
+        registro = {"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "regla": linea, "texto": propuesta["texto"],
+                    "seccion": propuesta["seccion"], "id": aplicar_sitio.ultimo_id, "deshecha": False}
+        todas = _leer_consolidadas()
+        todas.append(registro)
+        _guardar_consolidadas(todas)
+    _log(f"Regla pasada sola al criterio ({propuesta['seccion'] or 'instrucciones generales'}): {propuesta['texto'][:90]}")
+    return registro
+
+
+def _consolidar_bucle():
+    import time
+    time.sleep(300)                              # que arranque antes lo demas
+    while True:
+        try:
+            while consolidar_una():              # todas las que cumplan, de una en una
+                pass
+        except r_error() as e:
+            _log(f"Pasar reglas al criterio: el modelo no ha podido ahora ({str(e).splitlines()[0][:120]}); se reintenta luego")
+        except Exception as e:
+            _log(f"Pasar reglas al criterio: no ha salido ({type(e).__name__}: {str(e)[:120]})")
+        time.sleep(3600)
+
+
+def r_error():
+    return _redactor().RedactorError
+
+
+@router.get("/api/consolidadas")
+def ver_consolidadas():
+    cfg = g("CFG")
+    return {"consolidadas": list(reversed(_leer_consolidadas()))[:30],
+            "auto": bool(cfg.get("reglas_auto_criterio", True)), "dias": int(cfg.get("reglas_auto_dias", 3) or 3)}
+
+
+@router.post("/api/consolidadas/deshacer")
+async def deshacer_consolidada(request: Request):
+    """Quita del criterio la linea que se añadio sola y devuelve la regla a Mis reglas, tal como estaba
+    pero con la fecha de hoy (para que no vuelva a pasar enseguida)."""
+    datos = await g("_json")(request)
+    ident = str(datos.get("id") or "")
+    with _cerrojo_consolidar:
+        todas = _leer_consolidadas()
+        reg = next((x for x in todas if x.get("id") == ident and not x.get("deshecha")), None)
+        if reg is None:
+            raise HTTPException(404, "Esa ya no está o ya se deshizo")
+        nombre, _ = _criterio_base()
+        criterio.restaurar(nombre, ident)
+        r = _redactor()
+        r.anadir_regla(re.sub(r"\s+\(\d{4}-\d{2}-\d{2}\)\s*$", "", reg["regla"]))
+        reg["deshecha"] = True
+        _guardar_consolidadas(todas)
+    _log("Deshecho el paso de una regla al criterio: vuelve a Mis reglas")
+    return {"consolidadas": list(reversed(todas))[:30], "reglas": r.listar_reglas_extra()}
 
 
 # ====================================================================== aprender de las correcciones

@@ -30,6 +30,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   por raiz de 6 letras pesadas por rareza). `aprender.py`: "Pasar al criterio" (el modelo propone sitio, texto y lineas
   que sobran; se aplica con criterio.anadir/quitar) y sugerencias al aprobar una ficha corregida (borrador del modelo en
   `ficha["borrador"]`, cola/sugerencias.json, pestaña Reglas → Sugerencias; nunca se añaden solas).
+- Consolidacion (6 oct): una regla de Mis reglas con mas de `reglas_auto_dias` (3) pasa sola al criterio (aprender.consolidar_una,
+  cada hora; solo añade, no quita lineas) y sale de Mis reglas; registro en cola/consolidadas.json con Deshacer.
+  Salud de las aprobadas (redactor.salud_ejemplos): repetida (otra mas nueva casi igual: no entra), revisar (avisos del
+  validador: mitad de peso), sin_uso (30 dias sin elegirse, cola/ejemplos_uso.json), valiosa. Filtro y "Quitar las repetidas".
 - `imagenes.py` (6 oct): pestaña Imagenes. Categorias = tipos de acto + propias (`escenas_clases.json`), subir/pegar/mover/
   quitar imagenes (`escenas/<clase>/`), entrenar en segundo plano con `entrenar_escenas.entrenar()` (boton o solo, cada
   10 min si cambio la firma de imagenes, `escenas_entreno.json`). Las imagenes viajan en la copia de datos.
