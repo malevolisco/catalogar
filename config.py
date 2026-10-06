@@ -43,7 +43,7 @@ DEFAULTS = {
     "documentalistas": {},      # agenda: nombre -> correo, o nombre -> {correo, id, formal, presentacion}
     "catalogadores": {},        # usuario de MediaCentral -> persona: {"I23785": "yo", "I24082": "javier"}
     "correo_formal": [],        # nombres o direcciones que reciben siempre en formal
-    "correo_presentacion_personas": {},   # nombre -> "normalizado" | "mayusculas"
+    "correo_presentacion_personas": {},   # nombre -> "normalizado" | "mayusculas" (y siempre PERSONAS_NORMALIZADO)
     "reglas": "reglas_patrones.md",      # o "reglas_ligeras.md" (misma criterio, mitad de tamano)
     "espera_login": 60,        # segundos para iniciar sesion a mano antes de rendirse (0 = no esperar)
     "escenas": True,           # usar el clasificador local de escenas si esta entrenado
@@ -56,6 +56,7 @@ DEFAULTS = {
     "aprender_correcciones": True,   # al aprobar una ficha corregida, proponer la regla que enseña (Reglas → Sugerencias)
     "miniaturas": 0,            # 0 = apagado; N = fotogramas por envio que se bajan y se mandan al modelo
     "headless": False,          # ventana visible: evita que el antibot cambie de criterio entre login y uso
+    "agencias_solo_texto": True,   # de las agencias solo el texto: sin video, imagenes ni tipos de letra (carga antes)
     "navegador_oculto": True,   # ventana fuera de la pantalla (no es headless); sale sola si hay que iniciar sesion
     "navegador": "auto",        # auto | chrome | msedge | chromium | sistema (el instalado, para Raspberry)
     "navegador_ruta": "",       # ejecutable concreto, si hace falta (ej. /usr/bin/chromium)
@@ -84,6 +85,9 @@ class ConfigError(Exception):
     pass
 
 
+PERSONAS_NORMALIZADO = {"javier": "normalizado"}
+
+
 def desplegar_agenda(cfg):
     """Desdobla los bloques por persona de "documentalistas" en las claves planas. Lo escrito a mano en
     esas claves se conserva; lo del bloque se añade. Deja la agenda como nombre -> correo."""
@@ -93,7 +97,8 @@ def desplegar_agenda(cfg):
     planos = {}
     ids = dict(cfg.get("catalogadores") or {})
     formales = list(cfg.get("correo_formal") or [])
-    presentaciones = dict(cfg.get("correo_presentacion_personas") or {})
+    # Javier recibe siempre en minusculas (fase de pruebas de la escritura normal), salvo que se diga otra cosa
+    presentaciones = dict(PERSONAS_NORMALIZADO, **(cfg.get("correo_presentacion_personas") or {}))
     for nombre, datos in agenda.items():
         if isinstance(datos, str):
             planos[nombre] = datos.strip()

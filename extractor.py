@@ -211,6 +211,19 @@ FUERA_DE_PANTALLA = (-10000, -10000)   # lejos de cualquier monitor (los de la i
 # el ultimo y pisaria la lista que pone Playwright.
 ARGS_OCULTO = ["--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
                "--disable-background-timer-throttling"]
+# Modo solo texto (agencias_solo_texto): de las paginas de las agencias se necesita el texto. Lo que se deja de
+# bajar: video (ademas de pesar, no deja que la pagina quede "en reposo" y cada espera llegaba a los 15 s), tipos de
+# letra, imagenes y medidores de audiencia. Va con Network.setBlockedURLs de Chrome, que conserva la cache (las
+# rutas de Playwright la desactivan). El antibot (DataDome) no se toca. Los fotogramas se bajan aparte, con la sesion,
+# y cuando hace falta una persona (inicio de sesion, verificacion) se quita el bloqueo para que lo vea todo.
+BLOQUEO_SOLO_TEXTO = [
+    "*.mp4*", "*.m4s*", "*.m3u8*", "*.webm*", "*.ts", "*.ts?*", "*.mpd*", "*.aac*", "*.mp3*",
+    "*.woff*", "*.ttf*", "*.otf*", "*.eot*",
+    "*.jpg*", "*.jpeg*", "*.png*", "*.gif*", "*.webp*", "*.avif*", "*.svg*",
+    "*googletagmanager.com*", "*google-analytics.com*", "*doubleclick.net*", "*hotjar.com*", "*segment.io*",
+    "*segment.com/v1*", "*newrelic.com*", "*nr-data.net*", "*optimizely.com*", "*chartbeat*", "*facebook.net*",
+]
+
 ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer",
                 "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512"]
 
@@ -307,8 +320,11 @@ class NotFound(Exception):
 class Extractor:
     _url_busqueda_vista = False      # ya se ha anotado en consola la URL de una busqueda a mano
     def __init__(self, headless=False, debug=False, canal="auto", ruta=None, miniaturas=0,
-                 espera_login=60, oculto=False):
+                 espera_login=60, oculto=False, solo_texto=False):
         self.headless = headless
+        self.solo_texto = solo_texto
+        self._cdp_bloqueo = None
+        self._bloqueando = False
         self.oculto = oculto and not headless
         self.espera_login = int(espera_login or 0)
         self.debug = debug
@@ -328,6 +344,31 @@ class Extractor:
         self._ctx, self.navegador = abrir_contexto(self._pw, headless=self.headless, canal=self.canal, ruta=self.ruta,
                                                    oculto=self.oculto)
         self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        self._bloquear(self.solo_texto)
+
+    def _bloquear(self, si):
+        """Pone o quita el modo solo texto en la pagina de trabajo. Nunca falla: sin el, todo se baja como antes."""
+        if not self.solo_texto or si == self._bloqueando:
+            return
+        try:
+            if self._cdp_bloqueo is None:
+                self._cdp_bloqueo = self._ctx.new_cdp_session(self._page)
+                self._cdp_bloqueo.send("Network.enable")
+            self._cdp_bloqueo.send("Network.setBlockedURLs", {"urls": BLOQUEO_SOLO_TEXTO if si else []})
+            self._bloqueando = si
+        except Exception:
+            self._cdp_bloqueo = None
+            self._bloqueando = False
+
+    def _ver_completa(self):
+        """Quita el modo solo texto y recarga, para que una persona vea la pagina entera (login, verificacion)."""
+        if not self._bloqueando:
+            return
+        self._bloquear(False)
+        try:
+            self._page.reload(wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            pass
 
     def close(self):
         try:
@@ -400,6 +441,7 @@ class Extractor:
         if self.headless or not self.espera_login:
             return False
         limite = self.espera_login
+        self._ver_completa()            # la verificacion o el login tienen que verse enteros
         if self.oculto:                 # estaba fuera de la pantalla: se trae para que la vea alguien
             mostrar_ventana(self._ctx, self._page, True)
         try:
@@ -884,7 +926,9 @@ class Extractor:
         try:
             crudas = page.eval_on_selector_all(
                 "img",
-                "els => els.map(e => ({s: e.currentSrc || e.src || '', w: e.naturalWidth, h: e.naturalHeight}))")
+                "els => els.map(e => { const r = e.getBoundingClientRect();"
+                " let s = e.currentSrc || e.src || ''; try { s = s && !s.startsWith('data:') ? new URL(s, document.baseURI).href : s; } catch (x) {}"
+                " return {s: s, w: Math.max(e.naturalWidth, r.width), h: Math.max(e.naturalHeight, r.height)}; })")
         except Exception:
             return []
         vistas, cand = set(), []
@@ -901,6 +945,10 @@ class Extractor:
         if self.debug:
             print(f"[miniaturas] {len(cand)} candidatas de {len(crudas)} imagenes en la pagina")
         if len(cand) < 3:
+            if self._bloqueando:                         # en modo solo texto la pagina no las ha dibujado: se ve entera
+                self._ver_completa()
+                self._esperar(800)
+                return self.miniaturas(numero, cuantas)
             return []
         if len(cand) > cuantas:                            # muestreo repartido por la duracion
             paso = len(cand) / cuantas
@@ -1263,21 +1311,26 @@ class Extractor:
                 momento = datetime.strptime(str(creado).strip()[:16], "%d/%m/%Y %H:%M")
             except ValueError:
                 momento = None
-        if EBU_ID_RE.match(numero):
-            ficha = self._fetch_ebu(numero)
-        else:
-            if numero.startswith("AP"):
-                numero = numero[2:].strip()
-            if fecha:
-                fecha = fecha.strip()
-                if not re.fullmatch(r"\d{2}/\d{2}/\d{4}", fecha):
-                    raise ValueError("La fecha debe ser DD/MM/AAAA")
-            if not numero.isdigit():
-                raise ValueError(f"Numero no valido: {numero}")
-            if len(numero) >= 6:
-                ficha = self._fetch_ap(numero, fecha)
+        self._bloquear(True)
+        try:
+            if EBU_ID_RE.match(numero):
+                ficha = self._fetch_ebu(numero)
             else:
-                ficha = self._fetch_reuters(numero.zfill(4), fecha, momento)
+                if numero.startswith("AP"):
+                    numero = numero[2:].strip()
+                if fecha:
+                    fecha = fecha.strip()
+                    if not re.fullmatch(r"\d{2}/\d{2}/\d{4}", fecha):
+                        raise ValueError("La fecha debe ser DD/MM/AAAA")
+                if not numero.isdigit():
+                    raise ValueError(f"Numero no valido: {numero}")
+                if len(numero) >= 6:
+                    ficha = self._fetch_ap(numero, fecha)
+                else:
+                    ficha = self._fetch_reuters(numero.zfill(4), fecha, momento)
+        except (NeedsLogin, AntiBot):
+            self._ver_completa()                 # quien entre en la pestaña Navegador la vera entera
+            raise
         # una ficha kilometrica (rushes, multi-parte) se recorta por el script, nunca por el final,
         # que es donde van Restrictions y los metadatos
         ficha["texto"], recortado = recortar_texto(ficha.get("texto") or "")

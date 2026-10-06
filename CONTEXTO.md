@@ -33,6 +33,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - `imagenes.py` (6 oct): pestaña Imagenes. Categorias = tipos de acto + propias (`escenas_clases.json`), subir/pegar/mover/
   quitar imagenes (`escenas/<clase>/`), entrenar en segundo plano con `entrenar_escenas.entrenar()` (boton o solo, cada
   10 min si cambio la firma de imagenes, `escenas_entreno.json`). Las imagenes viajan en la copia de datos.
+- Escritura normal (6 oct): `redactor.fusionar_normal` arma la version en minusculas palabra a palabra (lo que el modelo
+  cambia se pasa a minuscula sin el), nunca deja un campo en mayusculas. Javier recibe siempre en minusculas
+  (`config.PERSONAS_NORMALIZADO`, se puede anular en la agenda) y antes de mandar en minusculas se genera la version
+  normal si falta (`correo.ASEGURAR_NORMAL` = `Worker.asegurar_normal`); al aprobar con cambios se rehace sola.
+- Solo texto (6 oct, `agencias_solo_texto`): Network.setBlockedURLs en la pagina de trabajo (video, imagenes, letras,
+  medidores; conserva la cache). Se quita al pedir login/antibot y si no hay fotogramas en la pagina.
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).

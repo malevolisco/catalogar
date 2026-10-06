@@ -668,10 +668,70 @@ def _huella(texto):
     return re.findall(r"[A-ZÑ0-9]+", normalizar(texto))
 
 
+# ====================================================================== escritura normal (minusculas)
+SIGLAS = set("""EEUU ONU OTAN UE AP RTVE EBU FMI OMS OIEA BCE PIB IPC NBA FIFA UEFA COI ATP WTA OPEP G7 G20 BRICS UCI
+CNN BBC AFP EFE TVE PSOE PP VOX ERC PNV ONG ADN VIH COVID IA EM UNICEF UNESCO ACNUR OCDE OEA ASEAN DGT CIA FBI KGB
+FSB OSCE NASA ESA SpaceX TV UCI""".upper().split())
+
+
+def _forma_suelta(palabra, inicio_frase):
+    """Una palabra de la ficha en escritura normal sin ayuda del modelo: siglas como estan, el resto en
+    minuscula y con mayuscula inicial al empezar frase. Los nombres propios no se reconocen aqui."""
+    nucleo = re.sub(r"[^\wÑñ]", "", palabra)
+    if nucleo.upper() in SIGLAS or re.fullmatch(r"\d+[A-ZÑ]+|[A-ZÑ]+\d+|[IVXLC]{2,5}", nucleo or "x"):
+        return palabra
+    baja = palabra.lower()
+    return baja[:1].upper() + baja[1:] if inicio_frase else baja
+
+
+def fusionar_normal(original, candidato):
+    """La version en escritura normal de un campo, palabra a palabra: de la que propone el modelo se toma
+    cada palabra que coincide con la original (misma palabra, solo cambian mayusculas y tildes); las que el
+    modelo cambio o no puso se pasan a minuscula aqui (_forma_suelta). Asi nunca se pierde el campo entero
+    ni queda en mayusculas por una palabra. Devuelve (texto, palabras_resueltas_sin_modelo)."""
+    import difflib
+    orig = (original or "").split()
+    cand = (candidato or "").split()
+    clave = lambda w: "".join(_huella(w))
+    co, cc = [clave(w) for w in orig], [clave(w) for w in cand]
+    elegidas = [None] * len(orig)
+    for bloque in difflib.SequenceMatcher(None, co, cc, autojunk=False).get_matching_blocks():
+        for k in range(bloque.size):
+            if co[bloque.a + k]:
+                elegidas[bloque.a + k] = cand[bloque.b + k]
+    signos = ".,:;!?()\"'«»"
+    salida, sueltas = [], 0
+    for i, w in enumerate(orig):
+        inicio = i == 0 or bool(re.search(r"[.:;!?]$", orig[i - 1]))
+        if elegidas[i] is not None:
+            # del modelo solo la palabra; los signos de alrededor, los de la ficha (no se añade ni quita ninguno)
+            nucleo = w.strip(signos)
+            delante = w[:len(w) - len(w.lstrip(signos))]
+            detras = w[len(delante) + len(nucleo):]
+            salida.append(delante + (elegidas[i].strip(signos) or nucleo) + detras)
+        else:
+            salida.append(_forma_suelta(w, inicio))
+            sueltas += bool(re.search(r"[A-ZÑ]", w))
+    return " ".join(salida), sueltas
+
+
+def version_normal(campos, propuesta):
+    """Los tres campos en escritura normal a partir de lo que propone el modelo (puede faltar). Devuelve
+    (normal, avisos)."""
+    normal, avisos = {}, []
+    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
+        normal[c], sueltas = fusionar_normal(campos.get(c, ""), " ".join((propuesta.get(c) or "").split()))
+        if sueltas and propuesta.get(c):
+            avisos.append(f"{c}: {sueltas} palabra(s) de la version en texto normal no venian bien del modelo y se han "
+                          "pasado a minuscula sin el (revisa nombres propios)")
+    return normal, avisos
+
+
 def presentar_normal(campos, timeout=120):
     """Segunda pasada opcional: devuelve NAME, COMMENT y RESTRICCIONES en escritura normal (mayuscula inicial,
     nombres propios, tildes, siglas en mayusculas) sin cambiar ni una palabra. Si el modelo altera el texto,
-    ese campo vuelve en mayusculas tal cual. Devuelve dict con los tres campos y una lista de avisos."""
+    las palabras que cambio se pasan a minuscula sin el (fusionar_normal). Devuelve dict con los tres campos y
+    una lista de avisos."""
     entrada = "\n".join(f"{c}: {campos.get(c, '')}" for c in ("NAME", "COMMENT", "RESTRICCIONES"))
     prompt = (
         "Estos tres textos son campos de una ficha de archivo audiovisual escritos en mayusculas sin tildes. "
@@ -682,16 +742,7 @@ def presentar_normal(campos, timeout=120):
         "Devuelve exactamente tres lineas con el mismo formato, NAME:, COMMENT: y RESTRICCIONES:, sin nada mas.\n\n" + entrada
     )
     salida = llamar_modelo("Eres un corrector ortotipografico. Respondes solo con las tres lineas pedidas.", prompt, timeout=timeout)
-    nuevo = parsear(salida)
-    resultado, avisos = {}, []
-    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
-        cand = " ".join((nuevo.get(c) or "").split())
-        if cand and _huella(cand) == _huella(campos.get(c, "")):
-            resultado[c] = cand
-        else:
-            resultado[c] = campos.get(c, "")
-            avisos.append(f"{c}: la version normal cambiaba palabras y se ha descartado")
-    return resultado, avisos
+    return version_normal(campos, parsear(salida))
 
 
 # Deporte: para saber si la ficha es deportiva se mira el SLUG (en Reuters es SOCCER-..., TENNIS-...),
@@ -1188,20 +1239,12 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
                           "(si lo pide con otras palabras, añadelo a mano)")
     # el tipo de acto que dice la ficha frente al del shotlist y al de la imagen
     avisos += comparar_acto(ficha, campos, imagen)
-    # version en escritura normal generada en la misma llamada (generar_normal); solo se acepta si no cambia palabras
-    normal, vino_alguno = {}, False
-    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
-        cand = " ".join((campos.pop(c + "_NORMAL", "") or "").split())
-        if cand:
-            vino_alguno = True
-        if cand and _huella(cand) == _huella(campos[c]):
-            normal[c] = cand
-        else:
-            if cand:
-                avisos.append(f"{c}: la version en texto normal cambiaba palabras y se ha descartado")
-            normal[c] = campos[c]        # ese campo se ensena en mayusculas; los demas no se pierden
-    if vino_alguno:
-        campos["NORMAL"] = normal
+    # version en escritura normal generada en la misma llamada (generar_normal): palabra a palabra, las que
+    # el modelo cambio se pasan a minuscula sin el; nunca queda un campo en mayusculas
+    propuesta = {c: campos.pop(c + "_NORMAL", "") for c in ("NAME", "COMMENT", "RESTRICCIONES")}
+    if any(propuesta.values()):
+        campos["NORMAL"], avisos_normal = version_normal(campos, propuesta)
+        avisos += avisos_normal
     texto_ficha = (ficha.get("texto") or "").upper()
     todo = campos["NAME"] + " " + campos["COMMENT"]
     hablado = next((h for h in HABLADOS if h in todo), None)
