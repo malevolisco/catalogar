@@ -93,6 +93,9 @@ el panel de Catalogator a pantalla completa, sin escritorio ni clave. Con un rat
 
 Si ya la instalaste sin pantalla, repite la línea del paso 4 y contesta `s`.
 
+Funciona con Raspberry Pi OS Lite (sin escritorio) y con la versión con escritorio: en esta última,
+Catalogator se abre a pantalla completa encima del escritorio al encender. **Alt+F4** lo cierra.
+
 ## Llevarla a otro sitio (por ejemplo, a la oficina)
 
 Necesita internet para catalogar. Si allí no puedes enchufar el cable de red, usa el **wifi del móvil**:

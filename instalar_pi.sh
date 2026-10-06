@@ -170,8 +170,38 @@ if [ -z "$PANTALLA" ] && pregunta "¿Vas a conectar una pantalla (HDMI) para ver
   PANTALLA=s
 fi
 if [ "$PANTALLA" = "s" ]; then
-  sudo apt-get install -y -qq cage >/dev/null
-  sudo tee /etc/systemd/system/catalogator-pantalla.service >/dev/null <<EOF
+  # script que espera a Catalogator y abre el panel a pantalla completa (lo usan los dos casos)
+  cat > "$BASE/pantalla.sh" <<EOF
+#!/bin/sh
+for i in \$(seq 1 90); do
+  curl -fs -o /dev/null http://127.0.0.1:8765/ && [ -s "$BASE/token_local" ] && break
+  sleep 2
+done
+exec $CHROMIUM --kiosk --noerrdialogs --disable-infobars --no-first-run --password-store=basic \\
+  --disable-session-crashed-bubble --user-data-dir="$BASE/pantalla" \\
+  "http://127.0.0.1:8765/local?t=\$(cat "$BASE/token_local")"
+EOF
+  chmod +x "$BASE/pantalla.sh"
+  if [ "$(systemctl get-default)" = "graphical.target" ] || [ -x /usr/sbin/lightdm ] || command -v labwc >/dev/null 2>&1 || command -v wayfire >/dev/null 2>&1; then
+    # Raspberry Pi OS con escritorio: el panel se abre dentro del escritorio al entrar (sin cage)
+    sudo systemctl disable -q --now catalogator-pantalla.service 2>/dev/null || true
+    sudo rm -f /etc/systemd/system/catalogator-pantalla.service
+    mkdir -p "$HOME/.config/autostart"
+    cat > "$HOME/.config/autostart/catalogator.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Catalogator
+Exec=$BASE/pantalla.sh
+X-GNOME-Autostart-enabled=true
+EOF
+    # que entre solo en el escritorio, sin pedir usuario
+    if command -v raspi-config >/dev/null 2>&1; then
+      sudo raspi-config nonint do_boot_behaviour B4 || true
+    fi
+    echo "Escritorio detectado: Catalogator se abrira a pantalla completa al encender (Alt+F4 lo cierra)."
+  else
+    sudo apt-get install -y -qq cage >/dev/null
+    sudo tee /etc/systemd/system/catalogator-pantalla.service >/dev/null <<EOF
 [Unit]
 Description=Catalogator en la pantalla (HDMI)
 After=systemd-user-sessions.service catalogator.service
@@ -196,7 +226,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-  PANTALLA_ACTIVA=1
+    PANTALLA_ACTIVA=1
+  fi
 fi
 
 sudo systemctl daemon-reload
