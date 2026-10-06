@@ -12,7 +12,7 @@ votan por ella). El redactor solo la usa si la confianza pasa de escenas_umbral 
 clase ha demostrado al entrenar un acierto de al menos escenas_fiabilidad_min.
 
 Requisitos:  pip install onnxruntime pillow numpy
-El modelo (352 MB) se descarga solo la primera vez a modelos/clip_vision.onnx
+El modelo se descarga solo la primera vez a modelos/ (escenas_modelo: ligero, unos 90 MB, o completo, 352 MB)
 """
 import json
 import sys
@@ -24,10 +24,14 @@ import numpy as np
 
 BASE_DIR = Path(__file__).resolve().parent
 MODELO_DIR = BASE_DIR / "modelos"
-MODELO_ONNX = MODELO_DIR / "clip_vision.onnx"
 CENTROS = BASE_DIR / "escenas_modelo.npz"
 CLASES_PROPIAS = BASE_DIR / "escenas_clases.json"    # categorias creadas en la pestaña Imagenes: {clase: descriptor}
-URL_MODELO = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model.onnx"
+# dos versiones del mismo modelo: la ligera (cuantizada a 8 bits) ocupa la cuarta parte, gasta mucha menos
+# memoria y reconoce cada fotograma bastante mas rapido (lo que se nota en la Raspberry), con muy poca perdida
+URL_BASE = "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/"
+VARIANTES = {"ligero": ("clip_vision_ligero.onnx", URL_BASE + "vision_model_quantized.onnx", "unos 90 MB"),
+             "completo": ("clip_vision.onnx", URL_BASE + "vision_model.onnx", "352 MB")}
+_variante = {"cargada": None}
 
 # normalizacion propia de CLIP
 MEDIA = np.array([0.48145466, 0.45782750, 0.40821073], dtype=np.float32)
@@ -38,9 +42,25 @@ _sesion = None
 _cerrojo = threading.Lock()       # la redaccion y el entrenamiento desde la pagina pueden cargarlo a la vez
 
 
-def _descargar_modelo():
+def variante_pedida():
+    """La version del modelo que pide config.json (escenas_modelo): ligero (por defecto) o completo."""
+    try:
+        from config import cargar_config
+        v = cargar_config().get("escenas_modelo", "ligero")
+    except Exception:
+        v = "ligero"
+    return v if v in VARIANTES else "ligero"
+
+
+def variante_en_uso():
+    return _variante["cargada"] or variante_pedida()
+
+
+def _descargar_modelo(variante):
+    fichero, url, tam = VARIANTES[variante]
     MODELO_DIR.mkdir(exist_ok=True)
-    print("Descargando el modelo de vision (352 MB). Solo ocurre la primera vez...")
+    destino = MODELO_DIR / fichero
+    print(f"Descargando el modelo de vision {variante} ({tam}). Solo ocurre la primera vez...")
 
     def progreso(bloques, tam, total):
         if total > 0:
@@ -48,9 +68,9 @@ def _descargar_modelo():
             sys.stdout.write(f"\r  {hecho / 1e6:.0f} de {total / 1e6:.0f} MB")
             sys.stdout.flush()
 
-    tmp = MODELO_ONNX.with_suffix(".parcial")
-    urllib.request.urlretrieve(URL_MODELO, tmp, progreso)
-    tmp.rename(MODELO_ONNX)
+    tmp = destino.with_suffix(".parcial")
+    urllib.request.urlretrieve(url, tmp, progreso)
+    tmp.rename(destino)
     print("\n  Listo.")
 
 
@@ -60,9 +80,21 @@ def _cargar():
         if _sesion is not None:
             return _sesion
         import onnxruntime
-        if not MODELO_ONNX.exists():
-            _descargar_modelo()
-        _sesion = onnxruntime.InferenceSession(str(MODELO_ONNX), providers=["CPUExecutionProvider"])
+        variante = variante_pedida()
+        ruta = MODELO_DIR / VARIANTES[variante][0]
+        if not ruta.exists():
+            try:
+                _descargar_modelo(variante)
+            except Exception as e:
+                if variante == "completo":
+                    raise
+                print(f"No se ha podido bajar el modelo ligero ({type(e).__name__}); se usa el completo")
+                variante = "completo"
+                ruta = MODELO_DIR / VARIANTES[variante][0]
+                if not ruta.exists():
+                    _descargar_modelo(variante)
+        _sesion = onnxruntime.InferenceSession(str(ruta), providers=["CPUExecutionProvider"])
+        _variante["cargada"] = variante
         return _sesion
 
 
@@ -118,7 +150,7 @@ def hay_modelo():
     return CENTROS.exists()
 
 
-_centros = {"marca": None, "clases": [], "centros": None, "fiabilidad": {}}
+_centros = {"marca": None, "clases": [], "centros": None, "fiabilidad": {}, "variante": "completo"}
 
 
 def _modelo():
@@ -130,7 +162,9 @@ def _modelo():
         fiab = {}
         if "fiabilidad" in datos.files:                # los modelos entrenados antes no la tienen
             fiab = {c: float(f) for c, f in zip(clases, datos["fiabilidad"])}
-        _centros.update(marca=marca, clases=clases, centros=datos["centros"].astype(np.float32), fiabilidad=fiab)
+        # los entrenados antes de haber dos versiones del modelo son del completo
+        var = str(datos["variante"]) if "variante" in datos.files else "completo"
+        _centros.update(marca=marca, clases=clases, centros=datos["centros"].astype(np.float32), fiabilidad=fiab, variante=var)
     return _centros
 
 
@@ -147,7 +181,7 @@ def precargar(verboso=True):
     if not CENTROS.exists():
         return False
     try:
-        primera = not MODELO_ONNX.exists()
+        primera = not (MODELO_DIR / VARIANTES[variante_pedida()][0]).exists()
         _cargar()
         if verboso and primera:
             print("Clasificador de escenas listo.")
@@ -184,7 +218,9 @@ def clasificar(rutas):
     if not rutas:
         return None, 0.0, "sin fotogramas"
     m = _modelo()
-    vs = vectores(rutas)
+    vs = vectores(rutas)                                # carga el modelo: ya se sabe que version esta en uso
+    if m.get("variante", "completo") != variante_en_uso():
+        return None, 0.0, "entrenado con la otra version del modelo: falta volver a entrenar"
     if len(vs) == 0:
         return None, 0.0, "no se pudo leer ningun fotograma"
     i, parte, votos = votar(vs, m["centros"])

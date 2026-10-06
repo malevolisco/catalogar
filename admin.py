@@ -434,6 +434,9 @@ CAMPOS = [
      "Una regla de Mis reglas que lleva unos días sin tocarse pasa a su sitio del criterio y sale de Mis reglas. Se puede deshacer.", None, False),
     ("reglas_auto_dias", "Redacción", "Días para dar una regla por asentada", "numero", "", None, False),
     ("escenas", "Redacción", "Reconocer escenas con el clasificador local", "si_no", "", None, False),
+    ("escenas_modelo", "Redacción", "Modelo de reconocimiento de imágenes", "opcion",
+     "El ligero ocupa la cuarta parte y reconoce más rápido cada fotograma; al cambiarlo se vuelve a entrenar solo.",
+     [("ligero", "Ligero (rápido, recomendado)"), ("completo", "Completo")], True),
     ("escenas_entrenar_auto", "Redacción", "Volver a entrenar las imágenes solo", "si_no",
      "Cuando hay imágenes nuevas (fichas aprobadas o subidas), unos minutos después.", None, False),
 

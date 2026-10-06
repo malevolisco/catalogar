@@ -37,6 +37,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - `imagenes.py` (6 oct): pestaña Imagenes. Categorias = tipos de acto + propias (`escenas_clases.json`), subir/pegar/mover/
   quitar imagenes (`escenas/<clase>/`), entrenar en segundo plano con `entrenar_escenas.entrenar()` (boton o solo, cada
   10 min si cambio la firma de imagenes, `escenas_entreno.json`). Las imagenes viajan en la copia de datos.
+  `escenas_modelo` (6 oct): "ligero" (vision_model_quantized.onnx de Xenova, ~90 MB) por defecto o "completo" (352 MB);
+  si el ligero no baja, usa el completo. El npz guarda la variante y no se usa con la otra (se reentrena solo: la firma
+  la incluye); cache de vectores por variante. No verificado desde aqui (huggingface bloqueado en el entorno de Claude).
 - Escritura normal (6 oct): `redactor.fusionar_normal` arma la version en minusculas palabra a palabra (lo que el modelo
   cambia se pasa a minuscula sin el), nunca deja un campo en mayusculas. Javier recibe siempre en minusculas
   (`config.PERSONAS_NORMALIZADO`, se puede anular en la agenda) y antes de mandar en minusculas se genera la version

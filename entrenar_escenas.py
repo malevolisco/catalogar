@@ -39,7 +39,10 @@ from actos import (CARPETA_AUTO, EXT_IMAGEN, siguen_igual, clase_de_ficha, copia
                    clave_envio)
 
 BASE_DIR = Path(__file__).resolve().parent
-CACHE = BASE_DIR / "escenas_cache.npz"
+def _cache():
+    """Vectores ya calculados, uno por version del modelo (los de una no valen para la otra)."""
+    v = escenas.variante_pedida()
+    return BASE_DIR / ("escenas_cache.npz" if v == "completo" else f"escenas_cache_{v}.npz")
 ESTADO = BASE_DIR / "cola" / "estado.json"
 MINIATURAS = BASE_DIR / "miniaturas"
 GRUPO_RE = re.compile(r"^(.+_(?:\d{8}|sinfecha))_\d+$")   # numero_aaaammdd_NN -> un envio
@@ -105,6 +108,7 @@ def desde_aprobadas():
 
 # ---------------------------------------------------------------------- vectores con cache
 def _cargar_cache():
+    CACHE = _cache()
     if not CACHE.exists():
         return {}
     try:
@@ -133,7 +137,7 @@ def vectores_con_cache(rutas, decir=print):
         vivas = set(claves)             # la cache solo guarda lo que sigue existiendo
         cache = {k: v for k, v in cache.items() if k in vivas}
         if cache:
-            np.savez(CACHE, claves=np.array(list(cache.keys())), vectores=np.array(list(cache.values()), dtype=np.float32))
+            np.savez(_cache(), claves=np.array(list(cache.keys())), vectores=np.array(list(cache.values()), dtype=np.float32))
     V, ok = [], []
     for p, k in zip(rutas, claves):
         if k in cache:
@@ -222,7 +226,7 @@ def entrenar(carpetas=("escenas", "escenas_auto"), minimo=3, decir=print):
     dichos, buenos, reales = medir(V, Y, G, clases)
     fiab = np.where(dichos >= MIN_DICHOS, buenos / np.maximum(dichos, 1), 0.0)
     centros = _centros(V, Y, len(clases))
-    np.savez(BASE_DIR / "escenas_modelo.npz", clases=np.array(clases), centros=centros,
+    np.savez(BASE_DIR / "escenas_modelo.npz", clases=np.array(clases), centros=centros, variante=np.array(escenas.variante_en_uso()),
              fiabilidad=fiab.astype(np.float32))
 
     umbral = 0.85

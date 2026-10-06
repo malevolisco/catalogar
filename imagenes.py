@@ -291,7 +291,8 @@ def quitar(origen: str, clase: str, nombre: str):
 
 # ====================================================================== entrenar
 def _firma():
-    """Cuantas imagenes hay y la mas reciente: si cambia, hay algo nuevo que aprender."""
+    """Cuantas imagenes hay, la mas reciente y la version del modelo: si cambia, hay que volver a entrenar."""
+    import escenas
     n, ultima = 0, 0.0
     for origen in ORIGENES:
         raiz = BASE_DIR / origen
@@ -304,7 +305,7 @@ def _firma():
                     ultima = max(ultima, p.stat().st_mtime)
                 except OSError:
                     pass
-    return f"{n}:{int(ultima)}"
+    return f"{n}:{int(ultima)}:{escenas.variante_pedida()}"
 
 
 def _ultimo_cambio():
