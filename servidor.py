@@ -39,7 +39,7 @@ from playwright.sync_api import sync_playwright
 
 from config import cargar_config, ConfigError
 from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE
-from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal,
+from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal, version_normal,
                       anadir_ejemplo, listar_ejemplos, quitar_ejemplo,
                       anadir_regla, listar_reglas_extra, REGLAS_EXTRA_PATH)
 from correo import (enviar_lote, enviar_seleccion, enviar_fichas, analizar_reparto, enviar, CorreoError,
@@ -252,7 +252,7 @@ def comprobar_sesion():
     """Abre el navegador, entra en las agencias (Reuters, AP y EBU) y comprueba que la sesion sirve. Devuelve None si todo bien,
     o el texto del problema. Cierra el navegador al terminar. SOLO desde el hilo del Worker."""
     ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
-                   miniaturas=0, espera_login=0)
+                   miniaturas=0, espera_login=0, solo_texto=CFG.get("agencias_solo_texto", True))
     try:
         ex.open()
         VISOR.conectar(ex._ctx, "comprobando la sesión")
@@ -410,7 +410,8 @@ class Worker(threading.Thread):
             except ImportError as e:              # falta numpy/onnxruntime: se sigue sin clasificador
                 log(f"Clasificador de escenas no disponible ({e.name}): pip install numpy onnxruntime pillow")
         self.ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"),
-                            ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0)
+                            ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0,
+                            solo_texto=CFG.get("agencias_solo_texto", True))
         self.ex.open()
         VISOR.conectar(self.ex._ctx, "trabajo")
         ESTADO.sesion_agencia = "abierta"
@@ -581,10 +582,7 @@ class Worker(threading.Thread):
         except OSError as e:                     # fichas.csv abierto en Excel, disco lleno...: la ficha ya esta
             log(f"  {ficha['etiqueta']}: no se ha podido anotar en fichas.csv ({type(e).__name__}); la ficha esta en la pagina")
         log(f"  {ficha['etiqueta']}: hecha en {ficha['segundos']} s")
-        quiere_normal = ("normalizado" in (CFG.get("presentacion", "mayusculas"),
-                                          CFG.get("correo_presentacion", "mayusculas"))
-                         or hay_excepcion_normalizada(CFG))
-        if quiere_normal and not ficha.get("normal"):           # no vino en la generacion: segunda pasada
+        if quiere_normal() and not ficha.get("normal"):           # no vino en la generacion: segunda pasada
             t1 = time.time()
             if self.normalizar_ficha(ficha):
                 log(f"  {ficha['etiqueta']}: version normal en {time.time() - t1:.0f} s")
@@ -603,6 +601,20 @@ class Worker(threading.Thread):
                 ficha["avisos"] = list(ficha.get("avisos", [])) + avisos
             ESTADO.guardar()
         return True
+
+    def asegurar_normal(self, fichas):
+        """Antes de mandar en minusculas: la version normal de las fichas que no la tienen. Con el modelo; si
+        no responde, sin el (las palabras en minuscula, siglas y comienzos de frase bien; los nombres propios
+        tambien en minuscula)."""
+        for f in fichas:
+            if f.get("normal"):
+                continue
+            if not self.normalizar_ficha(f):
+                normal, _ = version_normal(f, {})
+                with ESTADO.lock:
+                    f["normal"] = normal
+                    ESTADO.guardar()
+                log(f"  {f.get('etiqueta', '')}: version normal hecha sin el modelo (revisa nombres propios)")
 
     def marcar_error(self, ficha, mensaje):
         with ESTADO.lock:
@@ -948,6 +960,14 @@ class Buzon(threading.Thread):
 
 BUZON = Buzon()
 WORKER = Worker()
+import correo as _correo
+_correo.ASEGURAR_NORMAL = WORKER.asegurar_normal     # antes de mandar en minusculas, la version normal con el modelo
+
+
+def quiere_normal():
+    """Si alguien ve o recibe las fichas en escritura normal (la pagina, los correos o una persona)."""
+    return ("normalizado" in (CFG.get("presentacion", "mayusculas"), CFG.get("correo_presentacion", "mayusculas"))
+            or hay_excepcion_normalizada(CFG))
 
 
 # ====================================================================== autenticacion
@@ -1314,7 +1334,8 @@ async def aprobar(id_lote: str, id_ficha: str, request: Request):
             n, aviso = anadir_ejemplo(campos)
         except ValueError as e:
             raise HTTPException(400, str(e))
-        if any(ficha.get(c) != campos[c] for c in CAMPOS):
+        rehacer_normal = any(ficha.get(c) != campos[c] for c in CAMPOS)
+        if rehacer_normal:
             ficha["normal"] = None                  # el texto ha cambiado: la version normal ya no vale
         for c in CAMPOS:
             ficha[c] = campos[c]
@@ -1326,6 +1347,9 @@ async def aprobar(id_lote: str, id_ficha: str, request: Request):
     log(f"Ficha aprobada: {campos['ENVIO'][:50]} (total {n})")
     # si se ha corregido, se estudia la correccion por si enseña una regla (Reglas → Sugerencias)
     aprendiendo = aprender.encolar(borrador, campos, campos["ENVIO"])
+    # y la version en minusculas se rehace con el texto corregido, para quien la recibe asi
+    if rehacer_normal and quiere_normal():
+        threading.Thread(target=WORKER.normalizar_ficha, args=(ficha,), daemon=True).start()
     # sus fotogramas pasan a ser ejemplo de su tipo de acto (entrenar_escenas.py los recoge)
     try:
         copiados, motivo = guardar_para_entrenar(foto, campos)

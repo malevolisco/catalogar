@@ -255,6 +255,17 @@ def presentacion_para(cfg, *claves):
     return cfg.get("correo_presentacion", "mayusculas")
 
 
+# servidor.py lo sustituye por uno que pide la version normal al modelo; este es el de reserva, sin modelo
+def _asegurar_normal_local(fichas):
+    from redactor import version_normal
+    for f in fichas:
+        if not f.get("normal"):
+            f["normal"], _ = version_normal(f, {})
+
+
+ASEGURAR_NORMAL = _asegurar_normal_local
+
+
 def hay_excepcion_normalizada(cfg):
     """True si alguna persona tiene excepcion a escritura normal (para saber si hace falta generarla)."""
     return any((m or "") == "normalizado" for m in (cfg.get("correo_presentacion_personas") or {}).values())
@@ -506,6 +517,8 @@ def enviar_fichas(cfg, fichas, etiqueta, direccion, asunto, forzar_formal=False,
     if cabecera is None:
         cabecera = cabecera_fichas(len(fichas), con_avisos, cuando, formal)
     modo = presentacion_para(cfg, etiqueta, direccion)
+    if modo == "normalizado" and any(not f.get("normal") for f in fichas):
+        ASEGURAR_NORMAL(fichas)              # a quien la recibe en minusculas nunca le llega en mayusculas
     saludo, despedida = adorno_para(cfg, nombre_saludo(cfg, etiqueta, direccion), formal)
     lineas_extra = [l for l in lineas_extra if l]
     cuerpo = cuerpo_fichas(fichas, cabecera, modo, saludo, despedida, con_avisos=con_avisos)
