@@ -320,8 +320,9 @@ class NotFound(Exception):
 class Extractor:
     _url_busqueda_vista = False      # ya se ha anotado en consola la URL de una busqueda a mano
     def __init__(self, headless=False, debug=False, canal="auto", ruta=None, miniaturas=0,
-                 espera_login=60, oculto=False, solo_texto=False, reuters_xml=True):
+                 espera_login=60, oculto=False, solo_texto=False, reuters_xml=True, ap_datos=True):
         self.headless = headless
+        self.ap_datos = ap_datos
         self.reuters_xml = reuters_xml
         self.solo_texto = solo_texto
         self._cdp_bloqueo = None
@@ -978,7 +979,11 @@ class Extractor:
         if self.debug:
             print(f"[miniaturas] {len(cand)} candidatas de {len(crudas)} imagenes en la pagina")
         if len(cand) < 3:
-            if self._bloqueando:                         # en modo solo texto la pagina no las ha dibujado: se ve entera
+            try:
+                hay_modal = page.locator("lib-video-detail").count() > 0
+            except Exception:
+                hay_modal = False
+            if self._bloqueando and not hay_modal:       # en modo solo texto la pagina no las ha dibujado: se ve entera
                 self._ver_completa()
                 self._esperar(800)
                 return self.miniaturas(numero, cuantas)
@@ -1293,6 +1298,13 @@ class Extractor:
             print(f"[debug] AP ficha via {modo}, {_time.time() - t0:.1f} s en total", file=sys.stderr)
         self._dump(f"AP{numero}_ficha")
         datos = self._ap_leer(titular)
+        # los detalles que la pagina recibe por detras, si han llegado, mandan sobre lo leido en ella:
+        # traen el guion entero y la restriccion tal cual (ap_json.py)
+        detalles = self._ap_detalles(numero, respuestas) if self.ap_datos else None
+        if detalles:
+            datos.update(headline=detalles["headline"] or datos["headline"], texto=detalles["texto"],
+                         slug=detalles["slug"] or datos["slug"], fecha=detalles["fecha"] or datos["fecha"],
+                         id=detalles["numero"] or datos["id"])
         if numero not in (datos["id"] or "") and numero not in datos["texto"]:
             raise NotFound(f"La ficha abierta no contiene el ID {numero}")
         fecha_ficha = datos["fecha"] or fecha or ""
@@ -1319,7 +1331,28 @@ class Extractor:
             "url": page.url,
             "texto": datos["texto"],
             "avisos": avisos,
+            "fuente_texto": "datos" if detalles else "pagina",
         }
+
+    def _ap_detalles(self, numero, respuestas):
+        """Los datos del envio de la respuesta item/details que ha recibido la pagina, leidos con ap_json, o
+        None (entonces vale lo leido en la pagina)."""
+        import ap_json
+        cuerpos = getattr(self, "_ap_cuerpos", {})
+        for r in reversed(list(respuestas)):
+            try:
+                if not r.url.split("?")[0].endswith("/item/details"):
+                    continue
+                txt = cuerpos.get(id(r))
+                if txt is None:
+                    txt = r.text()
+                fuente = ap_json.item_de(txt, numero)
+                if fuente:
+                    return ap_json.leer(fuente)
+            except Exception as e:
+                if self.debug:
+                    print(f"[debug] detalles de AP no utilizables ({type(e).__name__}: {str(e)[:120]})", file=sys.stderr)
+        return None
 
     # ------------------------------------------------------------------ API publica
     # ================================================================== EBU NEWS EXCHANGE

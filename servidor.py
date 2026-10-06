@@ -253,7 +253,7 @@ def comprobar_sesion():
     o el texto del problema. Cierra el navegador al terminar. SOLO desde el hilo del Worker."""
     ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
                    miniaturas=0, espera_login=0, solo_texto=CFG.get("agencias_solo_texto", True),
-                   reuters_xml=CFG.get("reuters_xml", True))
+                   reuters_xml=CFG.get("reuters_xml", True), ap_datos=CFG.get("ap_datos", True))
     try:
         ex.open()
         VISOR.conectar(ex._ctx, "comprobando la sesión")
@@ -412,7 +412,8 @@ class Worker(threading.Thread):
                 log(f"Clasificador de escenas no disponible ({e.name}): pip install numpy onnxruntime pillow")
         self.ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"),
                             ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0,
-                            solo_texto=CFG.get("agencias_solo_texto", True), reuters_xml=CFG.get("reuters_xml", True))
+                            solo_texto=CFG.get("agencias_solo_texto", True), reuters_xml=CFG.get("reuters_xml", True),
+                            ap_datos=CFG.get("ap_datos", True))
         self.ex.open()
         VISOR.conectar(self.ex._ctx, "trabajo")
         ESTADO.sesion_agencia = "abierta"

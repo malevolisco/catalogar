@@ -42,6 +42,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - Reuters por XML (6 oct, `reuters_xml`): en la ficha abierta se pulsa el boton XML (NewsML-G2) y `reuters_xml.py` saca
   guion, restricciones (usageTerms), duracion, Edit No, version y slug; si falla o el Edit No no cuadra, texto de la pagina.
   Probado con el XML real que mando Adrian y una pagina simulada; falta probarlo en Reuters Connect.
+- AP por sus datos (6 oct, `ap_datos`): la pagina de AP recibe /v1/nrsearch/search/item/details con el envio entero
+  (script.nitf, rightsline, title=slug, headline, arrivaldatetime, renditions.totalduration, sources); `ap_json.py` lo
+  convierte en el texto de la ficha. La busqueda (/v1/nrsearch/search) NO trae el guion. Se sigue abriendo la ficha (la
+  peticion de detalles lleva listas de productos de la cuenta; no se imita). Admin → Estado → Descargar datos de AP.
 - `admin.py`: pestaña Admin (estado, registro en vivo, ajustes de config.json con agenda y Probar correo, historial de
   correos en `cola/correos.jsonl`, estadisticas), reiniciar (sale con codigo 75 y el lanzador lo relanza) y `/local?t=`
   (la ventana de escritorio entra sin clave con el token de CATALOGATOR_TOKEN_LOCAL).

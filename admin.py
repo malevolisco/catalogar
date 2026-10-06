@@ -278,6 +278,8 @@ CAMPOS = [
      "Sin vídeo, imágenes ni tipos de letra: las páginas cargan antes. Si una agencia dejara de leerse bien, apágalo.", None, True),
     ("reuters_xml", "Agencias", "Leer Reuters por su XML", "si_no",
      "Descarga el XML de cada ficha (botón XML): guion completo y restricciones exactas. Si falla, se lee la página como antes.", None, False),
+    ("ap_datos", "Agencias", "Leer AP por sus datos", "si_no",
+     "Usa los datos que la página de AP recibe por detrás: guion completo y restricción exacta. Si faltan, se lee la página como antes.", None, False),
     ("navegador", "Agencias", "Navegador", "opcion", "", [("auto", "Automático (Chrome, si no Edge)"), ("chrome", "Chrome"), ("msedge", "Edge"), ("chromium", "Chromium")], True),
     ("espera_login", "Agencias", "Segundos de espera para iniciar sesión a mano", "numero", "0 = no esperar.", None, False),
     ("ebu", "Agencias", "EBU News Exchange activado", "si_no", "", None, True),
