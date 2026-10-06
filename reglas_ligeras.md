@@ -40,22 +40,23 @@ PAIS + PALABRA CLAVE + una idea. Máximo 10 palabras y 80 caracteres; hasta 12 y
 - PAIS: donde ocurre lo que se ve. Cisjordania y Gaza = PALESTINA; Estados Unidos = EEUU (solo en NAME); varios = VARIOS; publicación en redes sin planos = INTERNET (con planos, el país de los planos). Sedes de la ONU: EEUU ONU (Nueva York), SUIZA ONU (Ginebra), AUSTRIA ONU (Viena), KENIA ONU (Nairobi), y después el órgano.
 - PALABRA CLAVE: la habitual del tema (GUERRA, INUNDACIONES, INCENDIOS, TERREMOTO, ELECCIONES, DETENCIONES, MANIFESTACION, REUNION, VISITA, JUICIO, ATENTADO, ACCIDENTE, DECLARACIONES, ENTREVISTA, PUBLICACION REDES, RECURSOS, FUTBOL, TENIS). Si es un evento (festival, cumbre, congreso, asamblea, feria, torneo, gala), la clave es el evento en forma corta: FESTIVAL CINE VENECIA, CUMBRE OTAN, US OPEN.
 - Nombra lo que se ve, no la noticia; la noticia va con CON MOTIVO.
-- GUERRA (solo tras PALESTINA, UCRANIA, RUSIA, ISRAEL, JERUSALEN) únicamente si el material es de la guerra en sí: bombardeos y sus daños, frente, militares en combate o incursiones, arengas a tropas, víctimas de ataques. Política, diplomacia, visitas, cultura o deporte del país no la llevan (UCRANIA REUNION PRESIDENTE ZELENSKI CON EMMANUEL MACRON EN KIEV SOBRE PATATAS). Ante la duda, sin GUERRA.
+- GUERRA (solo tras PALESTINA, UCRANIA, RUSIA, ISRAEL, JERUSALEN) únicamente si el material es de la guerra en sí: bombardeos y sus daños, frente, militares en combate o incursiones, arengas a tropas, víctimas de ataques. Política, diplomacia, visitas, cultura o deporte del país no la llevan (UCRANIA REUNION PRESIDENTES ZELENSKI Y MACRON EN KIEV SOBRE PATATAS). Ante la duda, sin GUERRA.
 - MODA tras el país en todo lo de moda (desfiles, pasarelas, semanas de la moda, colecciones): ITALIA MODA DESFILE PRADA MILAN. Desfile militar o del orgullo, no.
-- Photocall, alfombra roja, desfiles, llegadas y posados: el NAME dice el acto y el evento, no quién llega; solo reyes y presidentes o jefes de Gobierno de primer nivel para España van por su nombre. Los demás nombres, al COMMENT (INCLUYE PLANOS DE).
+- Photocall, alfombra roja, desfiles, llegadas y posados: el NAME dice el acto y el evento, no quién llega; solo reyes y presidentes o jefes de Gobierno de primer nivel para España van por su nombre. Los demás nombres, al COMMENT (INCLUYE PLANOS DE), sin saturar: los más conocidos, hasta unos seis; una lista larga de la agencia no se copia entera.
 - Precisión para la búsqueda (todos los campos): la ficha sale cuando se busca lo que contiene y no cuando se busca otra cosa. Solo lo que se ve o se oye y la noticia que lo motiva; una sola forma para cada cosa en todas las fichas (mismos nombres, siglas y palabras, sin sinónimos para variar); lo más concreto que el material permita sin inventar; nombres completos en el COMMENT; lugar exacto; fuera el contexto general, quien no sale, valoraciones y lo dicho dos veces.
+- Jefes de Estado y de Gobierno en el NAME: siempre CARGO APELLIDO, nunca el nombre completo (PRESIDENTE ZELENSKI, PRESIDENTE TRUMP, CANCILLER MERZ, PRIMERA MINISTRA TAKAICHI); dos con el mismo cargo, en plural una vez (PRESIDENTES ZELENSKI Y MACRON). En el COMMENT, nombre completo y cargo.
 - Personas: por nombre solo el protagonista y solo si es conocido por el público general; si no, su cargo corto con organización (DIRECTOR COMERCIAL BOEING, PORTAVOZ EXTERIORES) y el nombre al COMMENT. Las secundarias, por cargo (AMENAZAS CONTRA PRESIDENTE, no CONTRA MARCOS). Grupos, por el colectivo y la obra (LLEGADA REPARTO "THE ECHO CHAMBER"), no lista de nombres. Varias personas hablando de lo mismo: hasta tres apellidos o la categoría (JUGADORES, VECINOS).
 - DECLARACIONES + QUIEN + SOBRE + ASUNTO, siempre con SOBRE. Nunca ANTE ni CONTRA tras un nombre.
 - Organizaciones por siglas (ONU, OIEA, OTAN, UE, FMI, OMS, AFD).
 - Deportes, aséptico: PAIS DEPORTE TORNEO RESUMEN PARTIDOS RONDA; un partido, RESUMEN PARTIDO GAUFF - BADOSA.
 
 Ejemplos:
-EEUU DECLARACIONES DONALD TRUMP SOBRE ATAQUE A IRAN
+EEUU DECLARACIONES PRESIDENTE TRUMP SOBRE ATAQUE A IRAN
 KENIA DECLARACIONES DIRECTOR COMERCIAL BOEING SOBRE CRECIMIENTO FLOTA AEREA AFRICA
 FILIPINAS JUICIO FIANZA SARA DUTERTE POR AMENAZAS CONTRA PRESIDENTE
 ITALIA FESTIVAL CINE VENECIA LLEGADA REPARTO THE ECHO CHAMBER
 INDONESIA RECURSOS REPARTO MASCARILLAS CIUDAD Y SISMOLOGOS CON MOTIVO ERUPCION KRAKATOA
-INTERNET PUBLICACION REDES DONALD TRUMP SOBRE CAMBIO NOMBRE NUEVO MEXICO
+INTERNET PUBLICACION REDES PRESIDENTE TRUMP SOBRE CAMBIO NOMBRE NUEVO MEXICO
 EEUU TENIS US OPEN RESUMEN PARTIDOS SEGUNDA RONDA
 SUIZA ONU DECLARACIONES OACDH SOBRE DESPLAZAMIENTO FORZOSO PALESTINOS CISJORDANIA
 
