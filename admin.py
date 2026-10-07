@@ -478,6 +478,18 @@ CAMPOS = [
     ("ya_hecha_dias", "Lotes", "Días en que un Reuters ya hecho se reutiliza", "numero", "", None, False),
     ("script_max_paginas", "Lotes", "Páginas máximas del script", "numero", "Más, y la ficha lleva ALERTA.", None, False),
 
+    ("salud_avisos", "Salud e informes", "Avisarme por correo si algo falla", "si_no",
+     "Llega a «Tu dirección» cuando algo deja de ir bien y cuando se arregla; no se repite cada hora.", None, False),
+    ("salud_diario", "Salud e informes", "Correo diario de «sigo vivo»", "si_no",
+     "Una línea con lo de ayer. Si un día no llega, el equipo está apagado o sin internet.", None, False),
+    ("salud_hora", "Salud e informes", "Hora del correo diario", "texto", "Por ejemplo 08:00. El informe semanal sale los lunes a esta hora.", None, False),
+    ("salud_cada_minutos", "Salud e informes", "Minutos entre chequeos", "numero", "", None, False),
+    ("informe_semanal", "Salud e informes", "Informe semanal", "si_no", "Fichas, aprobadas sin tocar, tiempo ahorrado y consumo.", None, False),
+    ("informe_destinatarios", "Salud e informes", "Quién más recibe el informe semanal", "lista",
+     "Direcciones separadas por comas, además de la tuya.", None, False),
+    ("informe_minutos_a_mano", "Salud e informes", "Minutos por ficha a mano", "numero", "Para calcular el tiempo ahorrado.", None, False),
+    ("informe_minutos_revision", "Salud e informes", "Minutos de revisión por ficha", "numero", "", None, False),
+
     ("precio_kwh", "Consumo", "Precio de la luz (€/kWh)", "numero", "El de vuestra factura; sirve para calcular el coste en Admin.", None, False),
     ("consumo_vatios_reposo", "Consumo", "Vatios en reposo", "numero",
      "Solo si el equipo no puede medirse a sí mismo (una Raspberry Pi 5 sí puede). 0 = 3 W en una Raspberry, 40 W en un PC.", None, False),
@@ -905,7 +917,7 @@ async def visor_orden(request: Request):
 # cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
          "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "cola/consolidadas.json", "cola/ejemplos_uso.json", "escenas_modelo.npz", "escenas_clases.json",
-         "escenas_entreno.json"]
+         "escenas_entreno.json", "cola/consumo.json", "cola/salud.json"]
 CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y lo del boton prohibido: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
