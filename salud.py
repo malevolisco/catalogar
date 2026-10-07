@@ -14,6 +14,10 @@ Lo que se puede arreglar solo, se arregla (el hilo de trabajo muerto dos veces s
 servidor; el disco lleno: limpieza). Si aparece un problema nuevo, o se resuelve, manda un correo a
 correo_copia; un problema que sigue igual no se repite cada hora.
 
+Copias de seguridad: cada noche (a las 03:00) un zip con todos los datos en copias/ (se guardan las 7
+ultimas); y los lunes, con el informe, otra al correo de correo_copia sin config.json (contraseñas) ni lo
+pesado, para que sobreviva aunque se estropee la tarjeta de la Raspberry.
+
 Cada dia a la hora de salud_hora (08:00) manda una linea de "sigo vivo" con lo de ayer; si un dia no
 llega, el equipo esta apagado. Los lunes a esa hora, el informe de la semana (a correo_copia y a
 informe_destinatarios): fichas, agencias, aprobadas sin tocar y corregidas, tiempo ahorrado y consumo.
@@ -26,6 +30,7 @@ informe_destinatarios): fichas, agencias, aprobadas sin tocar y corregidas, tiem
 import json
 import os
 import shutil
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -37,6 +42,9 @@ BASE_DIR = Path(__file__).resolve().parent
 SALUD_PATH = BASE_DIR / "cola" / "salud.json"
 DIAS_HISTORIAL = 7
 DISCO_MIN_GB = 1.0
+COPIAS_DIR = BASE_DIR / "copias"
+COPIA_HORA = 3
+COPIA_CORREO_MAX = 20 * 1024 * 1024       # Gmail admite 25 MB por correo
 MINIATURAS_DIAS = 14
 
 router = APIRouter()
@@ -191,6 +199,16 @@ def chequear(arreglar=True):
     if temp is not None:
         pieza("temperatura", "Temperatura", temp < 80, f"{temp:.0f} °C" + (" (demasiado caliente: necesita aire)" if temp >= 80 else ""))
 
+    # copia de seguridad: la ultima de la noche no puede tener mas de dos dias
+    if cfg.get("copias_locales", True):
+        ultima = ultima_copia()
+        if ultima is None:
+            pieza("copia", "Copia de seguridad", True, "La primera se hace esta noche a las 03:00")
+        else:
+            horas = (time.time() - ultima.stat().st_mtime) / 3600
+            pieza("copia", "Copia de seguridad", horas < 48,
+                  f"Última hace {horas:.0f} h" if horas < 48 else f"La última es de hace {horas / 24:.0f} días")
+
     resultado = {"cuando": datetime.now().strftime("%Y-%m-%d %H:%M"), "piezas": piezas,
                  "ok": all(p["ok"] for p in piezas)}
     _comparar_y_avisar(resultado)
@@ -228,18 +246,57 @@ def _comparar_y_avisar(nuevo):
     _mandar([_cfg().get("correo_copia")], asunto, "\n".join(lineas))
 
 
-def _mandar(destinos, asunto, texto, html=None):
+def _mandar(destinos, asunto, texto, html=None, adjuntos=()):
     cfg = _cfg()
     destinos = [d for d in dict.fromkeys(x.strip() for x in destinos if x and x.strip())]
     if not destinos or not (cfg.get("correo_usuario") and cfg.get("correo_clave")):
         return False
     try:
-        g("enviar")(cfg, ", ".join(destinos), asunto, texto, html=html)
+        g("enviar")(cfg, ", ".join(destinos), asunto, texto, html=html, adjuntos=adjuntos)
         _log(f"Salud: correo '{asunto}' mandado a {', '.join(destinos)}")
         return True
     except Exception as e:
         _log(f"Salud: no se ha podido mandar '{asunto}' ({type(e).__name__})")
         return False
+
+
+# ---------------------------------------------------------------------- copias de seguridad
+def ultima_copia():
+    copias = sorted(COPIAS_DIR.glob("catalogator-datos-*.zip")) if COPIAS_DIR.is_dir() else []
+    return copias[-1] if copias else None
+
+
+def hacer_copia():
+    """Zip con todos los datos en copias/; se quedan las copias_guardar (7) ultimas. Devuelve la ruta."""
+    datos, nombre = sys.modules["admin"]._zip_copia()
+    COPIAS_DIR.mkdir(exist_ok=True)
+    ruta = COPIAS_DIR / nombre
+    ruta.write_bytes(datos)
+    guardar = max(1, int(_cfg().get("copias_guardar") or 7))
+    for vieja in sorted(COPIAS_DIR.glob("catalogator-datos-*.zip"))[:-guardar]:
+        vieja.unlink(missing_ok=True)
+    _log(f"Copia de seguridad hecha: {ruta.name} ({len(datos) / 1e6:.1f} MB)")
+    return ruta
+
+
+def copia_por_correo():
+    """La copia sin contraseñas al correo de correo_copia. Si pesa demasiado, sin imagenes."""
+    zip_copia = sys.modules["admin"]._zip_copia
+    datos, nombre = zip_copia(excluir=("config.json", "broma"))
+    nota = ""
+    if len(datos) > COPIA_CORREO_MAX:
+        datos, nombre = zip_copia(excluir=("config.json", "broma", "escenas", "escenas_auto"))
+        nota = "\nVa sin las imágenes de entrenar (pesaban demasiado para un correo); esas están en las copias del equipo.\n"
+    if len(datos) > COPIA_CORREO_MAX:
+        _log(f"Copia por correo: {len(datos) / 1e6:.0f} MB, demasiado para un correo; se queda solo la del equipo")
+        return False
+    texto = ("Copia semanal de tus datos de Catalogator: fichas aprobadas, reglas, cambios del criterio, historial "
+             "y consumo.\n" + nota +
+             "\nNo lleva config.json (contraseñas y ajustes): si un día hay que montar el equipo de nuevo, se carga "
+             "en Admin → Copia de tus datos → Cargar una copia, y los ajustes se vuelven a poner a mano.\n"
+             "Guarda este correo: es lo que salva tu trabajo si se estropea la tarjeta de la Raspberry.")
+    return _mandar([_cfg().get("correo_copia")], f"Catalogator: copia de tus datos ({datetime.now():%d/%m/%Y})",
+                   texto, adjuntos=[(nombre, datos)])
 
 
 # ---------------------------------------------------------------------- numeros para los correos
@@ -368,13 +425,21 @@ def _bucle():
 
 def _correos_programados(cfg):
     ahora = datetime.now()
+    hoy = ahora.strftime("%Y-%m-%d")
+    # la copia de la noche (o la primera vez que se enciende despues, si estaba apagado)
+    if cfg.get("copias_locales", True) and ahora.hour >= COPIA_HORA and DATOS.get("copia_dia") != hoy:
+        DATOS["copia_dia"] = hoy
+        _guardar()
+        try:
+            hacer_copia()
+        except Exception as e:
+            _log(f"No se ha podido hacer la copia de seguridad ({type(e).__name__}: {e})")
     try:
         h, m = (int(x) for x in str(cfg.get("salud_hora") or "08:00").split(":")[:2])
     except ValueError:
         h, m = 8, 0
     if (ahora.hour, ahora.minute) < (h, m):
         return
-    hoy = ahora.strftime("%Y-%m-%d")
     if cfg.get("salud_diario", True) and DATOS.get("dia_enviado") != hoy:
         DATOS["dia_enviado"] = hoy
         _guardar()
@@ -386,6 +451,11 @@ def _correos_programados(cfg):
         _guardar()
         asunto, texto = informe_semanal()
         _mandar(_destinos_informe(), asunto, texto)
+        if cfg.get("copia_correo_semanal", True):
+            try:
+                copia_por_correo()
+            except Exception as e:
+                _log(f"No se ha podido mandar la copia por correo ({type(e).__name__}: {e})")
 
 
 # ---------------------------------------------------------------------- pagina
@@ -399,6 +469,12 @@ def ver_salud():
 @router.post("/api/admin/salud/comprobar")
 def comprobar_ahora():
     return chequear()
+
+
+@router.post("/api/admin/copia/ahora")
+def copia_ahora():
+    ruta = hacer_copia()
+    return {"ok": True, "nombre": ruta.name}
 
 
 @router.get("/api/admin/informe")

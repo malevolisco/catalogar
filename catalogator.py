@@ -65,7 +65,7 @@ AQUI = EXE.parent
 DATOS_USUARIO = ("config.json", "cola", "ejemplos.md", "reglas_extra.md", "fichas.csv", "perfil_chromium",
                  "perfil_mediacentral", "mediacentral.json", "mediacentral_registro.csv", "miniaturas", "escenas",
                  "escenas_auto", "escenas_modelo.npz", "escenas_cache.npz", "modelos", "debug", "catalogator.log",
-                 "criterio_cambios.json", "escenas_clases.json", "escenas_entreno.json", "broma")
+                 "criterio_cambios.json", "escenas_clases.json", "escenas_entreno.json", "broma", "copias")
 
 
 # ====================================================================== carpetas y ajustes del lanzador
@@ -189,6 +189,9 @@ def instalar_zip(ruta_zip, tag, ventana=None):
         # copia de seguridad de lo que se va a sustituir
         if anterior.exists():
             shutil.rmtree(anterior, ignore_errors=True)
+        if (APP / "VERSION").exists():
+            anterior.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(APP / "VERSION", anterior / "VERSION")     # para volver a ella si la nueva no arranca
         for n in nombres:
             viejo = APP / n
             if viejo.exists():
@@ -214,6 +217,24 @@ def instalar_zip(ruta_zip, tag, ventana=None):
     (APP / "VERSION").write_text(tag, encoding="utf-8")
 
 
+def restaurar_anterior(ventana=None):
+    """La version recien instalada no arranca: vuelve a la de _anterior/ y apunta la mala en VERSION_MALA para
+    no reinstalarla hasta que salga otra. Devuelve True si habia a donde volver."""
+    anterior = APP / "_anterior"
+    if not (anterior / "VERSION").exists():
+        return False
+    mala = version_instalada()
+    for f in anterior.rglob("*"):
+        if f.is_file():
+            destino = APP / f.relative_to(anterior)
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, destino)
+    (APP / "VERSION_MALA").write_text(mala, encoding="utf-8")
+    registrar(f"La version {mala} no arranca: se vuelve a la {version_instalada()} y no se reinstala hasta que "
+              "salga una mas nueva", ventana)
+    return True
+
+
 def actualizar_app(ventana=None):
     """Comprueba la ultima release e instala el zip si es mas nueva. Devuelve (tag instalado, cambio?)."""
     local = version_instalada()
@@ -226,6 +247,13 @@ def actualizar_app(ventana=None):
         return local, False
     if local and version_tupla(tag) <= version_tupla(local):
         registrar(f"Al dia: version {local}", ventana)
+        return local, False
+    try:
+        mala = (APP / "VERSION_MALA").read_text(encoding="utf-8").strip()
+    except OSError:
+        mala = ""
+    if mala and tag == mala:
+        registrar(f"La version {tag} no arranco en este equipo: se sigue con la {local} hasta que salga otra", ventana)
         return local, False
     registrar(f"Version nueva {tag} (instalada: {local or 'ninguna'}). Descargando...", ventana)
     tmp = APP / f"_{ASSET_APP}"
@@ -762,7 +790,7 @@ def preparar(ventana):
     APP.mkdir(parents=True, exist_ok=True)
     ventana.poner_estado("Comprobando actualizaciones...")
     try:
-        actualizar_app(ventana)
+        _, ventana.recien_actualizada = actualizar_app(ventana)
     except Exception as e:
         registrar(f"No se ha podido actualizar ({type(e).__name__}: {str(e)[:160]}); se sigue con lo que hay", ventana)
     if not (APP / "servidor.py").exists():
@@ -825,12 +853,31 @@ def lanzar_servidor(ventana, primera=False):
                 pass
             if primera or getattr(ventana, "token", ""):
                 ventana.abrir_pagina()
+            ventana.recien_actualizada = False
             return
         if ventana.proceso.poll() is not None:
+            if _volver_atras(ventana, primera):
+                return
             ventana.poner_estado("El servidor se ha parado nada mas arrancar: mira el registro")
             return
         time.sleep(1)
+    if _volver_atras(ventana, primera):
+        return
     ventana.poner_estado("El servidor no responde: mira el registro")
+
+
+def _volver_atras(ventana, primera):
+    """Si la version recien instalada no arranca, vuelve a la anterior y lanza el servidor otra vez."""
+    if not getattr(ventana, "recien_actualizada", False):
+        return False
+    ventana.recien_actualizada = False
+    if ventana.proceso.poll() is None:
+        matar(ventana.proceso)
+    if not restaurar_anterior(ventana):
+        return False
+    ventana.poner_estado("La version nueva no arranca: volviendo a la anterior...")
+    lanzar_servidor(ventana, primera)
+    return True
 
 
 def _volcar_salida(ventana, proceso):
@@ -840,8 +887,8 @@ def _volcar_salida(ventana, proceso):
     except Exception:
         pass
     codigo = proceso.wait()
-    if getattr(ventana, "saliendo", False):
-        return
+    if getattr(ventana, "saliendo", False) or proceso is not getattr(ventana, "proceso", proceso):
+        return               # cerrando, o un proceso viejo (la vuelta a la version anterior ya lanzo otro)
     if getattr(ventana, "relanza_el_sistema", False):
         return               # servicio (Raspberry): sale el lanzador entero y systemd lo arranca de nuevo, actualizando
     if codigo == CODIGO_REINICIO or getattr(ventana, "reinicio_pedido", False):

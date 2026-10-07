@@ -470,8 +470,9 @@ def cuerpo_aviso_html(parrafos, saludo="", despedida="", formal=False):
     return _marco_html("sin envíos \u00b7 " + datetime.now().strftime("%d/%m/%Y %H:%M"), "".join(partes), formal)
 
 
-def enviar(cfg, destinatario, asunto, cuerpo, html=None):
-    """Manda un correo de texto plano y, si se le pasa, con su version HTML al lado. Lanza CorreoError si falla."""
+def enviar(cfg, destinatario, asunto, cuerpo, html=None, adjuntos=()):
+    """Manda un correo de texto plano y, si se le pasa, con su version HTML al lado. adjuntos: (nombre, bytes)
+    (la copia semanal de los datos). Lanza CorreoError si falla."""
     servidor = cfg.get("correo_servidor") or ""
     usuario = cfg.get("correo_usuario") or ""
     clave = cfg.get("correo_clave") or ""
@@ -490,6 +491,9 @@ def enviar(cfg, destinatario, asunto, cuerpo, html=None):
     msg.set_content(cuerpo, charset="utf-8")
     if html:
         msg.add_alternative(html, subtype="html")   # el gestor de correo ensena esta; el texto plano viaja debajo
+    for nombre, datos in adjuntos or ():
+        msg.add_attachment(datos, maintype="application", subtype="zip" if nombre.endswith(".zip") else "octet-stream",
+                           filename=nombre)
     try:
         with smtplib.SMTP(servidor, puerto, timeout=30) as s:
             s.ehlo()

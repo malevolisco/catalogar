@@ -782,7 +782,7 @@ def parsear(salida):
 
 # palabras acortadas con punto (PTE. PDTE. EXPDTE. GRAL. SRA.), que nunca van en la ficha
 ABREVIATURA_RE = re.compile(r"\b(?:PTE|PDTE|PDTA|EXPTE|EXPDTE|VICEPTE|GRAL|SR|SRA|SRTA|DR|DRA|DPTO|AYTO|GOB|MIN|SECR|SEC|"
-                            r"PROF|ADMON|CIA|CTRA|AVDA|ADJ|DTOR|DTORA|DIR|PRES)\.(?=\s|,|$)")
+                            r"PROF|ADMON|CTRA|AVDA|ADJ|DTOR|DTORA|DIR|PRES)\.(?=\s|,|$)")
 
 
 def normalizar(texto):

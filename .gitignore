@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 # lo del boton prohibido de cada uno: nunca al repositorio
 broma/
+# copias de seguridad automaticas (salud.py): datos y contraseñas
+copias/
