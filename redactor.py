@@ -780,6 +780,11 @@ def parsear(salida):
     return campos
 
 
+# palabras acortadas con punto (PTE. PDTE. EXPDTE. GRAL. SRA.), que nunca van en la ficha
+ABREVIATURA_RE = re.compile(r"\b(?:PTE|PDTE|PDTA|EXPTE|EXPDTE|VICEPTE|GRAL|SR|SRA|SRTA|DR|DRA|DPTO|AYTO|GOB|MIN|SECR|SEC|"
+                            r"PROF|ADMON|CIA|CTRA|AVDA|ADJ|DTOR|DTORA|DIR|PRES)\.(?=\s|,|$)")
+
+
 def normalizar(texto):
     """Mayusculas y sin tildes ni dieresis, conservando la Ñ."""
     out = []
@@ -1104,6 +1109,9 @@ def validar(campos):
             avisos.append("COMMENT no termina en punto")
         if ":" in comment:
             avisos.append("COMMENT con dos puntos")
+        m = ABREVIATURA_RE.search(comment)
+        if m:
+            avisos.append(f"COMMENT con una palabra abreviada ({m.group(0).strip()}): se escribe entera")
         if len(comment) < 100:
             avisos.append(f"COMMENT de {len(comment)} caracteres (minimo 100): falta gente, motivo o contenido de los planos")
         # IMAGENES DE ARCHIVO es formula obligatoria del patron de archivo: no es palabra poco llana
@@ -1261,11 +1269,12 @@ def acortar_comment(comment, model="sonnet", extra_args=None, timeout=120, inten
         prompt = (
             f"Este es el COMMENT de una ficha de archivo audiovisual y tiene {len(mejor)} caracteres. "
             f"Reescribelo en MENOS DE {objetivo} CARACTERES, que es obligatorio, conservando: el LUGAR inicial "
-            "con su punto, las personas con nombre y cargo (acorta los cargos si hace falta), el hecho principal "
+            "con su punto, las personas con nombre y cargo completo, el hecho principal "
             "y la frase INCLUYE si la hay. Quita en este orden: 1) contexto del STORY (antecedentes, cifras "
             "generales, frase final de cronica, fechas), 2) el detalle de lo que dice cada persona, dejando quien es "
             "y el asunto, 3) adjetivos y matices. Nunca quites a una persona que habla, el LUGAR, el descriptor del "
-            "material, un resultado deportivo ni una pieza del INCLUYE. Estilo nominal, "
+            "material, un resultado deportivo ni una pieza del INCLUYE. Nunca abrevies ni acortes una palabra (PRESIDENTE, "
+            "nunca PTE.; PRIMER MINISTRO, nunca PREMIER) ni uses dos puntos: se quitan frases, no letras. Estilo nominal, "
             "todo en mayusculas sin tildes pero con Ñ, sin fechas, termina en punto. Devuelve solo el texto del "
             "COMMENT, sin etiqueta ni explicaciones.\n\n" + mejor
         )
