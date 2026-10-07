@@ -664,8 +664,11 @@ class Worker(threading.Thread):
         if e.espera is None:
             # sin sesion de Claude Code: se vuelve a probar sola cada 10 minutos (y al guardar un token en Ajustes)
             self.pausa_hasta = time.time() + 10 * 60
-            cuando = ("hasta que vuelva la sesion de Claude Code: se prueba sola cada 10 minutos. Para que no vuelva a "
-                      "pasar, pon un token en Admin → Ajustes → Redaccion (claude setup-token)")
+            if "no esta instalado" in str(e):
+                cuando = "hasta que se instale Claude Code o se elija otro cerebro: se prueba sola cada 10 minutos"
+            else:
+                cuando = ("hasta que vuelva la sesion de Claude Code: se prueba sola cada 10 minutos. Para que no vuelva a "
+                          "pasar, pon un token en Admin → Ajustes → Redaccion (claude setup-token)")
             self.avisar_sin_sesion(str(e))
         else:
             self.pausa_hasta = time.time() + e.espera
