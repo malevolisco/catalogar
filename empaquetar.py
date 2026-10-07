@@ -66,8 +66,8 @@ def modulos_que_faltan(incluidos):
     return faltan
 
 
-# modulos que se importan con plan B si no estan (los escribe la compilacion, no van en el zip)
-EXCLUIR_MODULOS = {"catalogator_version"}
+# modulos que se importan con plan B si no estan (los escribe la compilacion o son opcionales, no van en el zip)
+EXCLUIR_MODULOS = {"catalogator_version", "psutil"}   # psutil: consumo.py lee /proc si no esta
 
 
 def _instalado(modulo, ruta):
