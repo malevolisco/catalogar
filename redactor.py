@@ -460,10 +460,19 @@ def _ruta_claude():
     exe = shutil.which("claude")
     if exe:
         return exe
-    for cand in (Path.home() / ".local" / "bin" / "claude.exe", Path.home() / ".local" / "bin" / "claude"):
+    # instalador nativo (~/.local/bin) o npm en Windows (%APPDATA%\\npm), que a veces no esta en el PATH
+    # del programa aunque si en el de la ventana de comandos
+    appdata = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    for cand in (Path.home() / ".local" / "bin" / "claude.exe", Path.home() / ".local" / "bin" / "claude",
+                 appdata / "npm" / "claude.cmd", appdata / "npm" / "claude"):
         if cand.exists():
             return str(cand)
     return "claude"
+
+
+# "claude" no esta instalado: lo dice la shell de Windows (en español o en ingles) o la de Linux
+NO_INSTALADO_RE = re.compile(r"no se reconoce como un comando|is not recognized as an internal|command not found|"
+                             r"^\S*: \d*:? ?\S*claude\S*: not found$", re.I | re.M)
 
 
 # Flags que pudiera traer claude_extra_args de un config.json antiguo y que fija el redactor: las
@@ -590,6 +599,10 @@ def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imag
     if proceso.returncode != 0:
         # el motivo puede venir por stderr o, con --output-format text, por stdout (limite de uso, login...)
         dicho = " | ".join(t.strip() for t in ((errores or ""), (salida or "")) if t.strip())
+        if NO_INSTALADO_RE.search(dicho):
+            # sin espera: no se arregla solo; si hay clave de la API de reserva, se redacta con ella
+            raise ModeloNoDisponible("Claude Code no esta instalado en este equipo (o no se encuentra). Instalalo o "
+                                     "elige otro cerebro en Admin → Ajustes → Redaccion", None)
         fallo = clasificar_fallo(dicho)
         if fallo:
             espera, motivo = fallo
