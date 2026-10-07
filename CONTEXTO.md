@@ -137,7 +137,7 @@ o instalado, y si no, para la compilacion con el nombre del fichero que falta.
 3. Decidir repositorio publico o privado (privado exige token de solo lectura en el exe).
 4. CSV: Adrian dijo "ahora no me reconoce los csv, hasta ayer si"; no se pudo reproducir con los tres CSV reales. Falta el mensaje exacto y el fichero.
 5. `ejemplos.md` tiene fichas aprobadas que contradicen reglas nuevas (RECURSOS en NAME, SECUELAS): revisar.
-6. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v45.md`…).
+6. Limpiar del repositorio ficheros antiguos que `empaquetar.py` mete en el zip (`bueno.py`, `worker.py`, `login.py`, `regla.py`, `volcar.py`, `atajo_catalogar_v46.md`…).
 7. Seguridad: regenerar el token de GitHub y la contraseña de aplicación de Gmail que se compartieron antes.
 8. Revisar `config.json` del usuario: agenda de documentalistas, `lote_max_envios`, `claude_extra_args: []`.
 9. Ideas sueltas: etiquetas de valor frente a VALORAR de AP, idioma de las declaraciones, excepcion de titulos de rango militar.
