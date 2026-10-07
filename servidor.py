@@ -55,6 +55,7 @@ import admin
 import aprender
 import imagenes
 import consumo
+import salud
 from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1504,6 +1505,8 @@ imagenes.iniciar(globals())
 app.include_router(imagenes.router)
 consumo.iniciar(globals())
 app.include_router(consumo.router)
+salud.iniciar(globals())
+app.include_router(salud.router)
 
 
 # ====================================================================== arranque

@@ -45,6 +45,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - `consumo.py` (6 oct): cada minuto trafico de red (psutil o /proc/net/dev) y vatios (Pi 5: vcgencmd pmic_read_adc,
   "medido"; si no, reposo+carga*cpu, "estimado") por horas en cola/consumo.json (90 dias); contar_item() al redactar.
   Caja "Consumo" en Admin, `precio_kwh` en Ajustes → Consumo.
+- `salud.py` (7 oct): chequeo cada `salud_cada_minutos` (trabajo, redaccion, agencias, buzon, errores nuevos, disco,
+  memoria, temperatura); arreglos solos (worker muerto 2 veces: exit 75; disco < 1 GB: borra miniaturas > 14 dias);
+  correo a correo_copia solo al cambiar de estado. Diario "sigo vivo" a `salud_hora`; lunes, informe semanal a
+  correo_copia + `informe_destinatarios` (aprobadas sin tocar = borrador igual a lo aprobado). cola/salud.json.
 - Escritura normal (6 oct): `redactor.fusionar_normal` arma la version en minusculas palabra a palabra (lo que el modelo
   cambia se pasa a minuscula sin el), nunca deja un campo en mayusculas. Javier recibe siempre en minusculas
   (`config.PERSONAS_NORMALIZADO`, se puede anular en la agenda) y antes de mandar en minusculas se genera la version

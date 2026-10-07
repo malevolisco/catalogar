@@ -394,6 +394,15 @@
   .detalles { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; margin:0; font-size:14px; }
   .detalles dt { color:var(--gris); }
   .detalles dd { margin:0; word-break:break-word; }
+  .salud-lista { list-style:none; margin:0; padding:0; display:grid; gap:7px; font-size:14px; }
+  .salud-lista li { display:flex; align-items:baseline; gap:9px; }
+  .salud-lista .luz { position:relative; top:-1px; }
+  .salud-lista b { font-weight:500; min-width:118px; }
+  .salud-lista span { color:var(--gris); }
+  .salud-lista .arreglo { color:var(--azul); }
+  .salud-hist { font-size:12.5px; color:var(--gris); margin:12px 0 0; padding:0; list-style:none; display:grid; gap:4px; }
+  .informe-texto { white-space:pre-wrap; font-family:var(--sans); font-size:13px; background:var(--papel); border:1px solid var(--linea);
+    border-radius:var(--radio); padding:10px 12px; margin:12px 0 0; }
   .consumo-horas { display:grid; grid-template-columns:repeat(24, 1fr); gap:2px; align-items:end; height:64px; margin:14px 0 4px; }
   .consumo-horas div { background:var(--azul); opacity:.75; border-radius:2px 2px 0 0; min-height:1px; }
   .consumo-horas div.vacia { background:var(--linea); opacity:1; }
@@ -814,6 +823,16 @@
               </div>
               <p class="pista">Al reiniciar no se pierde la cola; lo que estuviera a medias vuelve a empezar.</p>
             </div>
+          </div>
+          <div class="caja">
+            <h2>Salud</h2>
+            <div id="salud-cuerpo"><p class="pista" style="margin:0">El primer chequeo se hace a los dos minutos de arrancar.</p></div>
+            <div class="acciones-admin" style="margin-top:14px">
+              <button class="b" id="salud-comprobar">Comprobar ahora</button>
+              <button class="b" id="informe-ver">Ver el informe semanal</button>
+              <button class="b" id="informe-enviar">Mandar el informe ahora</button>
+            </div>
+            <div id="informe-cuerpo"></div>
           </div>
           <div class="caja acceso" id="caja-acceso">
             <h2>Entrar desde fuera</h2>
@@ -2473,7 +2492,45 @@
       + dato("Versión", r.version)
       + dato("En marcha desde", r.arrancado + " · " + horas);
     pedirConsumo();
+    pedirSalud();
   }
+  // ---- salud: chequeos automaticos e informe (salud.py)
+  let saludVisto = 0;
+  function pintarSalud(d) {
+    const a = d.actual || {};
+    const esc2 = t => esc(t || "");
+    if (!a.piezas) return;
+    const lista = a.piezas.map(p => `<li><span class="luz ${p.ok ? "bien" : "mal"}"></span><b>${esc2(p.nombre)}</b>
+        <span>${esc2(p.texto)}${p.arreglo ? ` · <span class="arreglo">${esc2(p.arreglo)}</span>` : ""}</span></li>`).join("");
+    const fallos = (d.historial || []).filter(h => !h.ok || (h.arreglos || []).length).slice(0, 6);
+    const hist = fallos.length
+      ? `<ul class="salud-hist">${fallos.map(h => `<li>${esc2(h.cuando.slice(8, 10) + "/" + h.cuando.slice(5, 7) + " " + h.cuando.slice(11))} · ${esc2([...(h.mal || []), ...(h.arreglos || [])].join(" · "))}</li>`).join("")}</ul>`
+      : `<p class="pista" style="margin:12px 0 0">Sin problemas en los últimos 7 días.</p>`;
+    $("salud-cuerpo").innerHTML = `<ul class="salud-lista">${lista}</ul>
+      <p class="pista" style="margin:10px 0 0">Último chequeo: ${esc2(a.cuando.slice(11))} · ${esc2(d.diaria || "")}</p>${hist}`;
+  }
+  async function pedirSalud(forzar) {
+    if (!forzar && Date.now() - saludVisto < 60000) return;
+    try { pintarSalud(await api("GET", "/api/admin/salud")); saludVisto = Date.now(); } catch (e) {}
+  }
+  $("salud-comprobar").addEventListener("click", async () => {
+    $("salud-comprobar").disabled = true;
+    try { await api("POST", "/api/admin/salud/comprobar"); await pedirSalud(true); avisar("Chequeo hecho."); }
+    catch (e) { avisar(e.message, true); }
+    $("salud-comprobar").disabled = false;
+  });
+  $("informe-ver").addEventListener("click", async () => {
+    try {
+      const r = await api("GET", "/api/admin/informe");
+      $("informe-cuerpo").innerHTML = `<div class="informe-texto"><b>${esc(r.asunto)}</b>\n\n${esc(r.texto)}</div>
+        <p class="pista" style="margin:6px 0 0">Los lunes llega a: ${esc(r.destinos.join(", ") || "nadie (pon tu dirección en Ajustes → Correo)")}</p>`;
+    } catch (e) { avisar(e.message, true); }
+  });
+  $("informe-enviar").addEventListener("click", async () => {
+    if (!confirm("¿Mandar ahora el informe de la semana?")) return;
+    try { await api("POST", "/api/admin/informe/enviar"); avisar("Informe mandado."); } catch (e) { avisar(e.message, true); }
+  });
+
   // ---- consumo: trafico y luz (consumo.py)
   let consumoVisto = 0;
   async function pedirConsumo() {

@@ -41,6 +41,14 @@ DEFAULTS = {
     "openai_model": "gpt-5-mini",
     "openai_url": "",               # vacio = OpenAI; para Azure, la direccion completa del despliegue
     "openai_max_tokens": 6000,
+    "salud_cada_minutos": 60,       # chequeos de salud (salud.py)
+    "salud_avisos": True,           # correo a correo_copia cuando algo deja de ir bien o se arregla
+    "salud_diario": True,           # correo diario de "sigo vivo" a la hora de salud_hora
+    "salud_hora": "08:00",
+    "informe_semanal": True,        # los lunes a salud_hora, el resumen de la semana
+    "informe_destinatarios": [],    # ademas de correo_copia (p. ej. la jefa)
+    "informe_minutos_a_mano": 8,    # para el tiempo ahorrado del informe
+    "informe_minutos_revision": 1,
     "precio_kwh": 0.18,             # euros por kWh, para el coste de la luz en Admin
     "consumo_vatios_reposo": 0,     # 0 = 3 W en una Raspberry, 40 W en un PC (solo si no se puede medir)
     "consumo_vatios_carga": 0,      # 0 = 9 W en una Raspberry, 90 W en un PC
