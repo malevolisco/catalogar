@@ -9,7 +9,7 @@ Tres motores ("cerebros"), elegidos con "redactor" en config.json:
   openai       ChatGPT por la API de OpenAI (openai_key), o el de Azure si openai_url apunta a un despliegue
                de Azure OpenAI. Mismo criterio, mismos ejemplos y mismas comprobaciones.
 
-El modelo local (Ollama) no vive aqui: es una demo aparte, en la carpeta demo\, que sustituye
+El modelo local (Ollama) no vive aqui: es una demo aparte, en la carpeta demo/, que sustituye
 llamar_modelo desde fuera sin tocar este fichero.
 """
 import os
