@@ -49,6 +49,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   memoria, temperatura); arreglos solos (worker muerto 2 veces: exit 75; disco < 1 GB: borra miniaturas > 14 dias);
   correo a correo_copia solo al cambiar de estado. Diario "sigo vivo" a `salud_hora`; lunes, informe semanal a
   correo_copia + `informe_destinatarios` (aprobadas sin tocar = borrador igual a lo aprobado). cola/salud.json.
+- Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
+  broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
+  arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
+  pruebas.yml en cada PR y paso "Pruebas" en release.yml: si falla, no se publica.
 - Escritura normal (6 oct): `redactor.fusionar_normal` arma la version en minusculas palabra a palabra (lo que el modelo
   cambia se pasa a minuscula sin el), nunca deja un campo en mayusculas. Javier recibe siempre en minusculas
   (`config.PERSONAS_NORMALIZADO`, se puede anular en la agenda) y antes de mandar en minusculas se genera la version

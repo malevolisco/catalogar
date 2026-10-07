@@ -487,6 +487,11 @@ CAMPOS = [
     ("informe_semanal", "Salud e informes", "Informe semanal", "si_no", "Fichas, aprobadas sin tocar, tiempo ahorrado y consumo.", None, False),
     ("informe_destinatarios", "Salud e informes", "Quién más recibe el informe semanal", "lista",
      "Direcciones separadas por comas, además de la tuya.", None, False),
+    ("copias_locales", "Salud e informes", "Copia de seguridad cada noche", "si_no",
+     "A las 03:00, en la carpeta copias del equipo. Se guardan las últimas.", None, False),
+    ("copias_guardar", "Salud e informes", "Copias que se guardan", "numero", "", None, False),
+    ("copia_correo_semanal", "Salud e informes", "Copia semanal a mi correo", "si_no",
+     "Los lunes, sin contraseñas. Es la que te salva si se estropea la tarjeta de la Raspberry.", None, False),
     ("informe_minutos_a_mano", "Salud e informes", "Minutos por ficha a mano", "numero", "Para calcular el tiempo ahorrado.", None, False),
     ("informe_minutos_revision", "Salud e informes", "Minutos de revisión por ficha", "numero", "", None, False),
 
@@ -923,16 +928,20 @@ CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
 
 
-def _zip_copia():
+def _zip_copia(excluir=()):
+    """La copia de los datos en un zip: (bytes, nombre). excluir: ficheros o carpetas que no entran (la copia
+    que va por correo deja fuera config.json, con las contraseñas, y lo pesado)."""
     import io
     import zipfile
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for rel in COPIA:
             ruta = BASE_DIR / rel
-            if ruta.is_file():
+            if ruta.is_file() and rel not in excluir:
                 z.write(ruta, rel)
         for carpeta in CARPETAS_COPIA:
+            if carpeta in excluir:
+                continue
             for ruta in sorted((BASE_DIR / carpeta).glob("*/*")):
                 if ruta.is_file():
                     z.write(ruta, ruta.relative_to(BASE_DIR).as_posix(), compress_type=zipfile.ZIP_STORED)

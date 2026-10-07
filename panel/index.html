@@ -850,9 +850,10 @@
           </div>
           <div class="caja">
             <h2>Copia de tus datos</h2>
-            <p class="pista" style="margin:0 0 12px">Ajustes, reglas, criterio, fichas aprobadas, imágenes e historial, para llevarlos a otro equipo.</p>
+            <p class="pista" style="margin:0 0 12px">Ajustes, reglas, criterio, fichas aprobadas, imágenes e historial, para llevarlos a otro equipo. Además se hace una sola cada noche (Admin → Salud).</p>
             <div class="acciones-admin">
               <a class="b" id="copia-bajar" href="/api/admin/copia" download>Descargar copia</a>
+              <button class="b" id="copia-ahora">Hacer copia ahora</button>
               <label class="b" style="margin:0; color:var(--tinta)">Cargar una copia…<input type="file" id="copia-subir" accept=".zip" class="oculto"></label>
             </div>
             <div id="copia-resultado"></div>
@@ -2529,6 +2530,11 @@
   $("informe-enviar").addEventListener("click", async () => {
     if (!confirm("¿Mandar ahora el informe de la semana?")) return;
     try { await api("POST", "/api/admin/informe/enviar"); avisar("Informe mandado."); } catch (e) { avisar(e.message, true); }
+  });
+
+  $("copia-ahora").addEventListener("click", async () => {
+    try { const r = await api("POST", "/api/admin/copia/ahora"); avisar("Copia guardada en el equipo: " + r.nombre); pedirSalud(true); }
+    catch (e) { avisar(e.message, true); }
   });
 
   // ---- consumo: trafico y luz (consumo.py)
