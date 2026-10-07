@@ -1288,6 +1288,9 @@ def acortar_comment(comment, model="sonnet", extra_args=None, timeout=120, inten
         cand = normalizar(cand)
         # mismo criterio de LUGAR que el validador: admite comas y puntos dentro del parentesis
         valido = bool(cand) and re.match(r"^[A-ZÑ][A-ZÑ0-9 (),.\-]*?\.(\s|$)", cand) and cand.endswith(".")
+        # una version con palabras abreviadas o con dos puntos no vale: mejor el COMMENT largo que uno mutilado
+        if valido and (re.search(r"[:;]", cand) or ABREVIATURA_RE.search(cand)):
+            valido = False
         if valido and len(cand) < len(mejor):
             mejor = cand
             if len(mejor) <= TOPE_COMMENT:
