@@ -38,7 +38,7 @@ import uvicorn
 from playwright.sync_api import sync_playwright
 
 from config import cargar_config, ConfigError
-from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE
+from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE, reuters_login
 from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal, version_normal,
                       anadir_ejemplo, listar_ejemplos, quitar_ejemplo, salud_ejemplos,
                       anadir_regla, listar_reglas_extra, REGLAS_EXTRA_PATH)
@@ -346,7 +346,8 @@ def ventana_login(terminar, limite_minutos=10):
         VISOR.conectar(ctx, "inicio de sesión")
         # una agencia que no carga (caida, red lenta) no tumba el login de las demas: su pestaña se queda
         # abierta con el error y se puede recargar a mano
-        for i, url in enumerate([BASE, AP_BASE] + ([EBU_BASE] if CFG.get("ebu", True) else [])):
+        # Reuters, directamente a su pagina de entrada (la portada no siempre la ofrece); AP lleva sola a la suya
+        for i, url in enumerate([reuters_login(), AP_BASE] + ([EBU_BASE] if CFG.get("ebu", True) else [])):
             try:
                 (page if i == 0 else ctx.new_page()).goto(url, timeout=45000)
             except Exception as e:

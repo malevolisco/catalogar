@@ -16,6 +16,17 @@ PAGINAS = {
     "codigo": """<form onsubmit="event.preventDefault(); document.body.innerHTML = '<input autocomplete=one-time-code><input type=password>'">
         <input type=email><input type=password><button>Log in</button></form>""",
     "portada": f"""<a href="#" onclick="document.body.innerHTML = `<form onsubmit='event.preventDefault(); {ENTRAR.replace("'", "&quot;")}'><input type=email><input type=password><button>Continue</button></form>`">Log in</a>""",
+    # como Reuters Connect: la pagina es una aplicacion que dibuja el formulario al rato, con el aviso de cookies encima
+    "reuters": f"""<div id=app></div>
+        <div id=cookies style="position:fixed;inset:0;background:#0008;z-index:9"><button onclick="cookies.remove()">Accept All</button></div>
+        <script>setTimeout(() => app.innerHTML = `<input type=text name=email><input type=password id=c>
+          <button onclick="if (c.value=='buena') {{ {ENTRAR.replace("'", "&quot;")} }}">Sign in</button>`, 1500)</script>""",
+    # como AP (Auth0): primero el correo y Continue; luego otra pantalla con el correo ya puesto y la contraseña
+    "ap": f"""<form onsubmit="event.preventDefault(); document.body.innerHTML = document.getElementById('p2').innerHTML">
+        <input id=username name=username><button type=submit name=action>Continue</button></form>
+        <template id=p2><input name=username value="yo@rtve.es" readonly><input id=password type=password>
+          <button onclick="if (password.value=='buena') {{ {ENTRAR.replace("'", "&quot;")} }}">Continue</button>
+          <button>Continue with Google</button></template>""",
 }
 
 
@@ -72,3 +83,17 @@ def test_un_intento_cada_media_hora():
     assert not acceso.puede_intentar("ap", 1000 + 60)
     assert acceso.puede_intentar("reuters", 1060)
     assert acceso.puede_intentar("ap", 1000 + acceso.INTENTO_CADA + 1)
+
+
+def test_como_reuters(navegador):
+    assert probar(navegador, "reuters") == (True, "")
+
+
+def test_como_ap(navegador):
+    assert probar(navegador, "ap") == (True, "")
+
+
+def test_direccion_de_entrada_de_reuters():
+    import extractor
+    assert extractor.reuters_login() == ("https://www.reutersconnect.com/login?"
+                                         "url64=aHR0cHM6Ly93d3cucmV1dGVyc2Nvbm5lY3QuY29tL2luZGV4Lmh0bWw=")
