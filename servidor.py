@@ -82,7 +82,8 @@ class Estado:
     def __init__(self):
         self.lock = threading.RLock()
         self.lotes = []
-        self.trabajando = None            # texto: que esta haciendo ahora el worker
+        self.trabajando = None            # texto: que se esta haciendo ahora (una o varias fichas a la vez)
+        self.en_marcha = {}               # id de ficha -> "lote: etiqueta", las que se extraen o redactan ahora
         self.sesion_agencia = "sin abrir"  # sin abrir | abierta | caducada
         self.modelo_parado = ""           # texto: por que el modelo no atiende y hasta cuando (o "")
         self.cargar()
@@ -203,12 +204,48 @@ class Estado:
                     return lote, f
         return None, None
 
-    def siguiente_pendiente(self):
-        """El lote pendiente mas antiguo, ya marcado "en curso" (asi nadie lo borra ni lo reencola
-        entre que el worker lo coge y empieza con el)."""
+    def empezar(self, clave, texto):
         with self.lock:
-            for lote in reversed(self.lotes):          # el mas antiguo primero
-                if lote["estado"] == "pendiente":
+            self.en_marcha[clave] = texto
+            self.trabajando = " · ".join(self.en_marcha.values())
+
+    def terminar(self, clave):
+        with self.lock:
+            self.en_marcha.pop(clave, None)
+            self.trabajando = " · ".join(self.en_marcha.values()) or None
+
+    def siguiente_ficha(self):
+        """La siguiente ficha que hacer, ya marcada "en curso" (y su lote), o None. Reparte el turno: del lote
+        que menos fichas tiene en marcha, y a igualdad el mas antiguo; asi dos encargos que llegan a la vez
+        avanzan a la par en vez de esperar uno a que acabe el otro. No coge un numero que ya se este haciendo
+        en otro lote (al acabar, ese se copia sin volver a redactarlo). Devuelve (lote, ficha, es_el_primero)."""
+        with self.lock:
+            en_marcha = {f.get("numero") for l in self.lotes for f in l["fichas"] if f["estado"] == "en curso"}
+            mejor = None
+            for orden, lote in enumerate(reversed(self.lotes)):          # el mas antiguo primero
+                if lote["estado"] not in ("pendiente", "en curso"):
+                    continue
+                ficha = next((f for f in lote["fichas"] if f["estado"] == "pendiente"
+                              and f.get("numero") not in en_marcha), None)
+                if ficha is None:
+                    continue
+                ocupadas = sum(1 for f in lote["fichas"] if f["estado"] == "en curso")
+                if mejor is None or ocupadas < mejor[0]:
+                    mejor = (ocupadas, lote, ficha)
+            if mejor is None:
+                return None
+            _, lote, ficha = mejor
+            primero = lote["estado"] == "pendiente"
+            lote["estado"] = "en curso"
+            ficha["estado"] = "en curso"
+            self.guardar()
+            return lote, ficha, primero
+
+    def lote_sin_nada_que_hacer(self):
+        """Un lote pendiente que ya no tiene fichas por hacer (todas hechas o con error): se cierra."""
+        with self.lock:
+            for lote in reversed(self.lotes):
+                if lote["estado"] == "pendiente" and not any(f["estado"] in ("pendiente", "en curso") for f in lote["fichas"]):
                     lote["estado"] = "en curso"
                     return lote
         return None
@@ -336,8 +373,12 @@ def ventana_login(terminar, limite_minutos=10):
 
 
 # ====================================================================== worker
+_CERROJO_CSV = threading.Lock()
+
+
 class Worker(threading.Thread):
-    """Un hilo que va sacando lotes pendientes y los procesa uno a uno."""
+    """El hilo del navegador: atiende los encargos (comprobar, login), saca de las agencias la siguiente ficha
+    (repartiendo el turno entre lotes) y la pasa a uno de los hilos de redaccion, que trabajan a la vez."""
 
     def __init__(self):
         super().__init__(daemon=True)
@@ -350,6 +391,11 @@ class Worker(threading.Thread):
         self.pausa_motivo = ""
         self.fallos_seguidos = 0         # redacciones fallidas una tras otra sin motivo reconocido
         self.aviso_sesion_mandado = False   # ya se ha avisado por correo de que Claude Code no tiene sesion
+        # varias fichas a la vez: el navegador es uno (este hilo), pero mientras una ficha se redacta ya se
+        # extrae la siguiente, y hasta "colas" fichas se redactan a la vez en sus propios hilos
+        self.colas = max(1, min(4, int(CFG.get("colas") or 1)))
+        self.huecos = threading.Semaphore(self.colas)
+        self.redaccion = queue.Queue()
 
     # ---------------- encargos desde otros hilos
     def encargar(self, tipo, esperar=0):
@@ -437,7 +483,9 @@ class Worker(threading.Thread):
 
     # ---------------- bucle
     def run(self):
-        log("Worker en marcha.")
+        log(f"Worker en marcha ({self.colas} ficha(s) a la vez).")
+        for n in range(1, self.colas + 1):
+            threading.Thread(target=self._bucle_redaccion, name=f"redaccion-{n}", daemon=True).start()
         while not self.parar:
             try:
                 self._vuelta()
@@ -450,55 +498,91 @@ class Worker(threading.Thread):
     def _vuelta(self):
         if VISOR.activo:
             VISOR.bombear(250)                       # el navegador de trabajo abierto y parado: se puede tocar
-        try:
-            # con el navegador a la vista, la espera la hace bombear (que atiende los clics al momento)
-            encargo = self.encargos.get(timeout=0.01 if VISOR.activo else 2)   # primero los encargos de navegador
-        except queue.Empty:
-            encargo = None
-        if encargo is not None:
-            self._atender_encargo(*encargo)
+        if self._encargo(espera=0):              # primero los encargos de navegador, sin esperar si no hay
             return
         if self.pausa_hasta and time.time() < self.pausa_hasta:
-            return                                   # el modelo no atiende: se espera sin tocar la cola
+            self._encargo(espera=2)                  # el modelo no atiende: se espera sin tocar la cola
+            return
         if self.pausa_hasta:
             self.pausa_hasta, self.pausa_motivo = 0, ""
             ESTADO.modelo_parado = ""
             log("Se vuelve a intentar con el modelo.")
-        lote = ESTADO.siguiente_pendiente()
-        if lote is None:
+        # un hueco libre: si ya hay "colas" fichas en marcha, se espera a que acabe alguna
+        if not self.huecos.acquire(timeout=0.01 if VISOR.activo else 0.5):
             return
+        elegido = ESTADO.siguiente_ficha()
+        if elegido is None:
+            self.huecos.release()
+            lote = ESTADO.lote_sin_nada_que_hacer()
+            if lote is not None:
+                self._comprobar_fin(lote)
+            else:
+                self._encargo(espera=2)              # nada que hacer: se espera a un encargo o a la cola
+            return
+        lote, ficha, primero = elegido
+        if primero:
+            log(f"Lote {lote['id']} ({lote['tipo']}): {len(lote['fichas'])} ficha(s)")
+        entregada = False
         try:
-            self.procesar_lote(lote)
-        except Exception:
-            log("Fallo general en el lote:\n" + traceback.format_exc()[-1500:])
-            with ESTADO.lock:
-                lote["estado"] = "error"
-                lote["mensaje"] = "Fallo general del worker; mira la consola."
-                for f in lote["fichas"]:                       # asi "Volver a intentarlo" las recoge
-                    if f["estado"] in ("en curso", "pendiente"):
-                        f["estado"], f["error"] = "error", "No llego a hacerse: fallo general del lote"
-                ESTADO.trabajando = None
-                ESTADO.guardar()
+            entregada = self._extraer(lote, ficha)   # si la pasa a redaccion, el hueco lo libera ese hilo
+        except Exception as e:
+            log("Fallo al extraer:\n" + traceback.format_exc()[-1500:])
+            self.marcar_error(ficha, f"Fallo inesperado: {type(e).__name__}: {str(e).splitlines()[0][:160]}")
+        finally:
+            if not entregada:
+                ESTADO.terminar(ficha["id"])
+                self.huecos.release()
+                self._comprobar_fin(lote)
 
-    def procesar_lote(self, lote):
+    def _encargo(self, espera):
+        """Atiende un encargo de navegador si lo hay, esperando hasta 'espera' segundos. True si atendio uno."""
+        try:
+            # con el navegador a la vista, la espera la hace bombear (que atiende los clics al momento)
+            encargo = self.encargos.get(timeout=0.01 if VISOR.activo else espera) if espera else self.encargos.get_nowait()
+        except queue.Empty:
+            return False
+        self._atender_encargo(*encargo)
+        return True
+
+    def _bucle_redaccion(self):
+        """Uno de los hilos que redactan: coge una ficha ya extraida, la redacta y deja libre su hueco."""
+        while True:
+            lote, ficha, datos, t0 = self.redaccion.get()
+            try:
+                if self.pausa_hasta and time.time() < self.pausa_hasta:
+                    with ESTADO.lock:                # el modelo esta en pausa: vuelve a la cola sin gastar llamada
+                        ficha["estado"], ficha["error"] = "pendiente", ""
+                        ESTADO.guardar()
+                else:
+                    self.redactar_y_guardar(lote, ficha, datos, t0)
+            except Exception as e:
+                log("Fallo inesperado al redactar:\n" + traceback.format_exc()[-1500:])
+                self.marcar_error(ficha, f"Fallo inesperado: {type(e).__name__}: {str(e).splitlines()[0][:160]}")
+            finally:
+                ESTADO.terminar(ficha["id"])
+                self.huecos.release()
+                try:
+                    self._comprobar_fin(lote)
+                except Exception:
+                    log("Fallo al cerrar el lote:\n" + traceback.format_exc()[-1500:])
+
+    def _comprobar_fin(self, lote):
+        """Cuando a un lote ya no le queda nada en marcha: si quedan fichas y el modelo esta en pausa, vuelve a
+        pendiente tal cual (lo hecho, hecho) y se retoma despues sin mandar correos; si no queda nada, se cierra
+        y se mandan sus correos. Solo un hilo lo cierra."""
         with ESTADO.lock:
-            lote["estado"] = "en curso"          # siguiente_pendiente ya lo deja asi; se guarda
+            if lote["estado"] != "en curso" or any(f["estado"] == "en curso" for f in lote["fichas"]):
+                return
+            if any(f["estado"] == "pendiente" for f in lote["fichas"]):
+                if self.pausa_hasta:
+                    lote["estado"] = "pendiente"
+                    ESTADO.guardar()
+                return
+            lote["estado"] = "hecho"
             ESTADO.guardar()
-        log(f"Lote {lote['id']} ({lote['tipo']}): {len(lote['fichas'])} ficha(s)")
-        self.procesar_numeros(lote)
-        if self.pausa_hasta:
-            # el modelo ha dejado de atender a mitad: el lote vuelve a la cola tal cual (lo hecho, hecho;
-            # lo que queda, pendiente) y se retoma cuando pase la pausa, sin mandar ningun correo
-            with ESTADO.lock:
-                lote["estado"] = "pendiente"
-                ESTADO.trabajando = None
-                ESTADO.guardar()
-            return
-        with ESTADO.lock:
-            if lote["estado"] == "en curso":
-                lote["estado"] = "hecho"
-            ESTADO.trabajando = None
-            ESTADO.guardar()
+        self._terminar_lote(lote)
+
+    def _terminar_lote(self, lote):
         if lote.get("parado"):
             # parado a mano desde la pagina: ni respuesta al buzon ni reparto automatico,
             # que lo que haya salido se manda cuando se quiera con "Volver a repartir"
@@ -583,7 +667,8 @@ class Worker(threading.Thread):
             ESTADO.guardar()
         consumo.contar_item()
         try:
-            guardar_csv(campos, avisos)
+            with _CERROJO_CSV:                   # varias fichas a la vez: una linea cada una, sin mezclarse
+                guardar_csv(campos, avisos)
         except OSError as e:                     # fichas.csv abierto en Excel, disco lleno...: la ficha ya esta
             log(f"  {ficha['etiqueta']}: no se ha podido anotar en fichas.csv ({type(e).__name__}); la ficha esta en la pagina")
         log(f"  {ficha['etiqueta']}: hecha en {ficha['segundos']} s")
@@ -628,15 +713,7 @@ class Worker(threading.Thread):
             ESTADO.guardar()
         log(f"  {ficha['etiqueta']}: ERROR {mensaje}")
 
-    # ---------------- lote de numeros de envio
-    def _atender_pendientes(self):
-        while True:
-            try:
-                encargo = self.encargos.get_nowait()
-            except queue.Empty:
-                return
-            self._atender_encargo(*encargo)
-
+    # ---------------- avisos y pausas del modelo
     def avisar_sin_sesion(self, motivo):
         """Un correo a tu direccion (correo_copia) la primera vez que Claude Code pierde la sesion: trabajando
         en remoto, si no, nadie se entera hasta que faltan las fichas."""
@@ -678,48 +755,42 @@ class Worker(threading.Thread):
         ESTADO.modelo_parado = f"{self.pausa_motivo} · en pausa {cuando}"
         log(f"MODELO NO DISPONIBLE: {self.pausa_motivo}\n  La cola se queda en pausa {cuando}.")
 
-    def procesar_numeros(self, lote):
-        for ficha in lote["fichas"]:
-            if self.parar or self.pausa_hasta:
-                return
-            if ficha["estado"] != "pendiente":
-                continue
-            self._atender_pendientes()
-            if not lote.get("rehacer") and self.volcar_hecha(lote, ficha):
-                continue
-            if ESTADO.sesion_agencia == "caducada":
-                self.marcar_error(ficha, "Sesion de agencia caducada: pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa)")
-                continue
-            with ESTADO.lock:
-                ficha["estado"] = "en curso"
-                ESTADO.trabajando = f"{lote['nombre']}: {ficha['etiqueta']}"
-                ESTADO.guardar()
-            t0 = time.time()
-            try:
-                datos = self.abrir_navegador().fetch(ficha["numero"], ficha["fecha"] or None,
-                                                     creado=ficha.get("creado") or None)
-            except (NeedsLogin, AntiBot) as e:
-                self.sesion_caducada(e)
-                self.marcar_error(ficha, f"{e}. Pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa).")
-                continue
-            except NotFound as e:
-                self.marcar_error(ficha, str(e))
-                continue
-            except ValueError as e:                # numero o fecha mal escritos: no es cosa del navegador
-                self.marcar_error(ficha, str(e))
-                continue
-            except Exception as e:
-                self.marcar_error(ficha, f"Extraccion: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
-                self.cerrar_navegador()
-                continue
-            with ESTADO.lock:
-                ficha["headline"] = datos.get("headline", "")
-                ficha["fecha"] = datos.get("fecha") or ficha.get("fecha", "")   # la real: con ella se reconoce despues
-                ficha["alerta"] = datos.get("alerta", "")
-                ficha["script_paginas"] = datos.get("script_paginas")
-            if datos.get("alerta"):
-                log(f"  {ficha['etiqueta']}: {datos['alerta']}")
-            self.redactar_y_guardar(lote, ficha, datos, t0)
+    def _extraer(self, lote, ficha):
+        """Saca de la agencia una ficha (ya "en curso") y la pasa a un hilo de redaccion. Devuelve True si la
+        ha pasado (el hueco lo libera ese hilo al acabar); False si ha terminado aqui (copiada o con error)."""
+        if not lote.get("rehacer") and self.volcar_hecha(lote, ficha):
+            return False
+        if ESTADO.sesion_agencia == "caducada":
+            self.marcar_error(ficha, "Sesion de agencia caducada: pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa)")
+            return False
+        ESTADO.empezar(ficha["id"], f"{lote['nombre']}: {ficha['etiqueta']}")
+        t0 = time.time()
+        try:
+            datos = self.abrir_navegador().fetch(ficha["numero"], ficha["fecha"] or None,
+                                                 creado=ficha.get("creado") or None)
+        except (NeedsLogin, AntiBot) as e:
+            self.sesion_caducada(e)
+            self.marcar_error(ficha, f"{e}. Pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa).")
+            return False
+        except NotFound as e:
+            self.marcar_error(ficha, str(e))
+            return False
+        except ValueError as e:                # numero o fecha mal escritos: no es cosa del navegador
+            self.marcar_error(ficha, str(e))
+            return False
+        except Exception as e:
+            self.marcar_error(ficha, f"Extraccion: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
+            self.cerrar_navegador()
+            return False
+        with ESTADO.lock:
+            ficha["headline"] = datos.get("headline", "")
+            ficha["fecha"] = datos.get("fecha") or ficha.get("fecha", "")   # la real: con ella se reconoce despues
+            ficha["alerta"] = datos.get("alerta", "")
+            ficha["script_paginas"] = datos.get("script_paginas")
+        if datos.get("alerta"):
+            log(f"  {ficha['etiqueta']}: {datos['alerta']}")
+        self.redaccion.put((lote, ficha, datos, t0))
+        return True
 
 
 def enviar_correos(lote, reparto=None, formal=None):
