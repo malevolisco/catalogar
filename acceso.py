@@ -34,6 +34,9 @@ CAMPOS_CODIGO = (
 )
 BOTON_ENVIAR = re.compile(r"^\s*(sign ?in|log ?in|next|continue|submit|verify|iniciar sesi[oó]n|entrar|acceder|"
                           r"siguiente|continuar)\s*$", re.I)
+BOTON_COOKIES = re.compile(r"^\s*(accept all( cookies)?|accept( cookies)?|i accept|agree|i agree|allow all( cookies)?|"
+                           r"aceptar( todo| todas| cookies)?|acepto|permitir todas)\s*$", re.I)
+ESPERA_FORMULARIO = 20            # segundos que puede tardar en dibujarse el formulario (paginas que son aplicaciones)
 BOTON_ENTRAR = re.compile(r"\b(sign ?in|log ?in|iniciar sesi[oó]n|acceder)\b", re.I)
 
 _ultimos = {}                     # agencia -> momento del ultimo intento
@@ -62,21 +65,60 @@ def _visible(page, selectores):
     return None
 
 
+def quitar_cookies(page):
+    """El aviso de cookies tapa a veces el formulario (y el clic en "Sign in" no llega): se acepta."""
+    for rol in ("button", "link"):
+        try:
+            boton = page.get_by_role(rol, name=BOTON_COOKIES)
+            for i in range(min(boton.count(), 3)):
+                if boton.nth(i).is_visible():
+                    boton.nth(i).click(timeout=3000)
+                    page.wait_for_timeout(500)
+                    return True
+        except Exception:
+            continue
+    return False
+
+
+def esperar_formulario(page, espera=ESPERA_FORMULARIO):
+    """Espera a que se dibuje el formulario (o el boton de entrar), quitando el aviso de cookies si sale."""
+    t0 = time.time()
+    while time.time() - t0 < espera:
+        quitar_cookies(page)
+        if _visible(page, CAMPO_CLAVE + CAMPOS_USUARIO) or _boton_de_entrar(page):
+            return True
+        page.wait_for_timeout(700)
+    return False
+
+
+def _clic(page, el):
+    """Clic sin esperar 30 s si algo lo tapa: se quita el aviso de cookies y se prueba otra vez."""
+    try:
+        el.click(timeout=4000)
+        return True
+    except Exception:
+        if quitar_cookies(page):
+            try:
+                el.click(timeout=4000)
+                return True
+            except Exception:
+                pass
+    return False
+
+
 def _pulsar(page, campo):
     """El boton de enviar del formulario si se ve; si no, Intro en el campo."""
     for rol in ("button", "link"):
         try:
             boton = page.get_by_role(rol, name=BOTON_ENVIAR)
             for i in range(min(boton.count(), 4)):
-                if boton.nth(i).is_visible():
-                    boton.nth(i).click()
+                if boton.nth(i).is_visible() and _clic(page, boton.nth(i)):
                     return
         except Exception:
             continue
     try:
         sub = page.locator("input[type=submit], button[type=submit]")
-        if sub.count() and sub.first.is_visible():
-            sub.first.click()
+        if sub.count() and sub.first.is_visible() and _clic(page, sub.first):
             return
     except Exception:
         pass
@@ -100,6 +142,7 @@ def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
     """Intenta iniciar sesion en la pagina que esta abierta. sigue_en_login(): True mientras se vea el login.
     Devuelve (ok, motivo); el motivo dice por que no se ha podido, para el aviso por correo."""
     clave_puesta = False
+    esperar_formulario(page)
     for _ in range(4):                                     # portada → usuario → contraseña → (respuesta)
         if _visible(page, CAMPOS_CODIGO):
             return False, "la agencia pide un código de verificación: eso lo tiene que hacer una persona"
@@ -118,7 +161,8 @@ def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
             boton = _boton_de_entrar(page)
             if boton is None:
                 return False, "no encuentro el formulario de inicio de sesión"
-            boton.click()
+            _clic(page, boton)
+            esperar_formulario(page)
         # se espera a que la pagina conteste: o ya no es un login, o ha cambiado de paso
         t0 = time.time()
         while time.time() - t0 < espera:

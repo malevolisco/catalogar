@@ -33,6 +33,13 @@ DEBUG_DIR = BASE_DIR / "debug"
 # ---------------------------------------------------------------- Reuters Connect
 BASE = "https://www.reutersconnect.com"
 SEARCH_URL = BASE + "/all?media-types=vid&search=all%3A{numero}"
+# la pagina de entrada: url64 es la direccion (en base64) a la que vuelve despues de entrar
+REUTERS_LOGIN_URL = BASE + "/login?url64={url64}"
+
+
+def reuters_login(volver=BASE + "/index.html"):
+    import base64
+    return REUTERS_LOGIN_URL.format(url64=base64.b64encode(volver.encode()).decode())
 # Identificador observado en la barra de direcciones:
 #   newsml_RW 0624 06 09 2026 RP1 :5   -> numero, dia, mes, anio, sufijo, revision
 ID_RE = re.compile(
@@ -501,6 +508,12 @@ class Extractor:
             return False
         print(f"  Sesion de {agencia} caducada: inicio de sesion automatico...")
         self._ver_completa()                 # el formulario tiene que verse entero
+        if clave == "reuters" and "/login" not in urlparse(self._page.url).path:
+            # una portada sin formulario: a la pagina de entrada, que luego vuelve a donde se estaba
+            try:
+                self._page.goto(reuters_login(self._page.url), wait_until="domcontentloaded")
+            except Exception:
+                pass
         try:
             ok, motivo = acceso.entrar(self._page, usuario, contrasena, self._is_login)
         except Exception as e:
