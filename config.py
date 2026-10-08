@@ -41,6 +41,10 @@ DEFAULTS = {
     "openai_model": "gpt-5-mini",
     "openai_url": "",               # vacio = OpenAI; para Azure, la direccion completa del despliegue
     "openai_max_tokens": 6000,
+    "login_auto": True,             # si caduca la sesion de una agencia, entrar sola con su usuario y contraseña
+    "reuters_usuario": "", "reuters_clave": "",
+    "ap_usuario": "", "ap_clave": "",
+    "ebu_usuario": "", "ebu_clave": "",
     "colas": 3,                     # fichas que se redactan a la vez (1-4); el navegador sigue siendo uno
     "copias_locales": True,         # copia de seguridad cada noche en copias/ (salud.py)
     "copias_guardar": 7,

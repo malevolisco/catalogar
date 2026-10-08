@@ -287,12 +287,21 @@ def ficha_vacia(etiqueta, headline="", numero="", fecha="", creado=""):
 import queue
 
 
+def credenciales_agencias():
+    """Usuario y contraseña de cada agencia para entrar sola si caduca la sesion (login_auto)."""
+    if not CFG.get("login_auto", True):
+        return {}
+    return {a: (str(CFG.get(f"{a}_usuario") or "").strip(), str(CFG.get(f"{a}_clave") or ""))
+            for a in ("reuters", "ap", "ebu") if CFG.get(f"{a}_usuario") and CFG.get(f"{a}_clave")}
+
+
 def comprobar_sesion():
     """Abre el navegador, entra en las agencias (Reuters, AP y EBU) y comprueba que la sesion sirve. Devuelve None si todo bien,
     o el texto del problema. Cierra el navegador al terminar. SOLO desde el hilo del Worker."""
     ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
                    miniaturas=0, espera_login=0, solo_texto=CFG.get("agencias_solo_texto", True),
-                   reuters_xml=CFG.get("reuters_xml", True), ap_datos=CFG.get("ap_datos", True))
+                   reuters_xml=CFG.get("reuters_xml", True), ap_datos=CFG.get("ap_datos", True),
+                   credenciales=credenciales_agencias())
     try:
         ex.open()
         VISOR.conectar(ex._ctx, "comprobando la sesión")
@@ -468,7 +477,7 @@ class Worker(threading.Thread):
         self.ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"),
                             ruta=CFG.get("navegador_ruta"), miniaturas=fotogramas, espera_login=0,
                             solo_texto=CFG.get("agencias_solo_texto", True), reuters_xml=CFG.get("reuters_xml", True),
-                            ap_datos=CFG.get("ap_datos", True))
+                            ap_datos=CFG.get("ap_datos", True), credenciales=credenciales_agencias())
         self.ex.open()
         VISOR.conectar(self.ex._ctx, "trabajo")
         ESTADO.sesion_agencia = "abierta"
@@ -511,7 +520,10 @@ class Worker(threading.Thread):
                  "Para que siga ya:\n"
                  "1. Abre la pagina de Catalogator (tambien desde el movil o el trabajo).\n"
                  "2. Admin → Iniciar sesion. En la pestaña Navegador veras Reuters, AP y EBU: entra en la que lo pida.\n"
-                 "3. Pulsa «Ya he iniciado sesion». La cola sigue sola.\n")
+                 "3. Pulsa «Ya he iniciado sesion». La cola sigue sola.\n"
+                 + ("" if credenciales_agencias() else
+                    "\nSi guardas el usuario y la contraseña de cada agencia en Admin → Ajustes → Agencias, la "
+                    "proxima vez entrara sola y solo te escribira si no lo consigue.\n"))
         try:
             enviar(CFG, CFG["correo_copia"], "Catalogator: sesion de agencias caducada", texto)
             log(f"Aviso de sesion de agencias caducada mandado a {CFG['correo_copia']}")

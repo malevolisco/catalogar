@@ -56,6 +56,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   con cerrojo; guardar_csv con _CERROJO_CSV. Pruebas en tests/test_colas.py. OJO: WORKER se crea al importar (CFG
   vacio): colas y huecos se fijan en run(). Sesion de agencia caducada (NeedsLogin/AntiBot): la ficha vuelve a
   pendiente, pausa_agencia_hasta (ESPERA_AGENCIA 10 min, un login o Volver a intentarlo la levantan) y un correo.
+- Login automatico (8 oct): `acceso.py` (generico: usuario/contraseña en uno o dos pasos, boton de portada; para
+  ante codigo de verificacion; un intento por agencia cada 30 min). Extractor(credenciales=...) lo usa en
+  _comprobar_acceso antes de NeedsLogin; config reuters_/ap_/ebu_usuario y _clave (secretos), login_auto.
+  Probado solo contra paginas de imitacion (tests/test_acceso.py): falta probarlo en las agencias reales.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),

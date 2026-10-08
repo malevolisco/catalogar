@@ -320,8 +320,11 @@ class NotFound(Exception):
 class Extractor:
     _url_busqueda_vista = False      # ya se ha anotado en consola la URL de una busqueda a mano
     def __init__(self, headless=False, debug=False, canal="auto", ruta=None, miniaturas=0,
-                 espera_login=60, oculto=False, solo_texto=False, reuters_xml=True, ap_datos=True):
+                 espera_login=60, oculto=False, solo_texto=False, reuters_xml=True, ap_datos=True, credenciales=None):
         self.headless = headless
+        # {"reuters": (usuario, clave), "ap": ..., "ebu": ...}: con ellas, si la sesion caduca se entra sola (acceso.py)
+        self.credenciales = credenciales or {}
+        self.login_fallido = ""          # por que no ha podido el ultimo inicio de sesion automatico
         self.ap_datos = ap_datos
         self.reuters_xml = reuters_xml
         self.solo_texto = solo_texto
@@ -486,6 +489,26 @@ class Extractor:
         except Exception:
             pass
 
+    def _login_auto(self, agencia):
+        """Inicio de sesion automatico con el usuario y la contraseña de config.json. True si ha entrado."""
+        import acceso
+        clave = {"Reuters Connect": "reuters", "Reuters": "reuters", "AP Newsroom": "ap", "AP": "ap", "EBU": "ebu"}.get(agencia)
+        usuario, contrasena = self.credenciales.get(clave) or ("", "")
+        if not (usuario and contrasena):
+            return False
+        if not acceso.puede_intentar(clave):
+            self.login_fallido = "ya se intentó hace poco; se vuelve a probar dentro de un rato"
+            return False
+        print(f"  Sesion de {agencia} caducada: inicio de sesion automatico...")
+        self._ver_completa()                 # el formulario tiene que verse entero
+        try:
+            ok, motivo = acceso.entrar(self._page, usuario, contrasena, self._is_login)
+        except Exception as e:
+            ok, motivo = False, f"{type(e).__name__}: {str(e).splitlines()[0][:120]}"
+        self.login_fallido = "" if ok else motivo
+        print(f"  {agencia}: " + ("sesion iniciada sola." if ok else f"no se ha podido entrar solo ({motivo})."))
+        return ok
+
     def _comprobar_acceso(self, agencia, url=None):
         if self._es_antibot():
             if self._esperar_persona(agencia, "Verificacion antibot"):
@@ -496,12 +519,14 @@ class Extractor:
             self._dump(f"antibot_{agencia}")
             raise AntiBot(f"{agencia} muestra una verificacion antibot. Ejecuta python login.py, superala en la ventana y vuelve a intentarlo.")
         if self._is_login():
-            if self._esperar_persona(agencia, "Sesion caducada"):
+            if self._login_auto(agencia) or self._esperar_persona(agencia, "Sesion caducada"):
                 if url:
                     self._recargar(url)
                 if not self._is_login():
                     return
-            raise NeedsLogin(f"Sesion de {agencia} caducada: ejecuta python login.py")
+            raise NeedsLogin(f"Sesion de {agencia} caducada" + (
+                f" y el inicio de sesion automatico no ha podido: {self.login_fallido}" if self.login_fallido
+                else ": ejecuta python login.py"))
 
     @staticmethod
     def _parse_id(texto):
