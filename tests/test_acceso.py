@@ -130,3 +130,30 @@ def test_portada_de_ap_entra_sola(navegador):
     ex = extractor.Extractor()
     ex._page = page
     assert acceso.entrar(page, "yo@rtve.es", "buena", ex._is_login, espera=3) == (True, "")
+
+
+def test_portada_que_se_dibuja_tarde(navegador):
+    import extractor
+    ex = extractor.Extractor()
+    tarde = f"<div id=app></div><script>setTimeout(() => app.innerHTML = `{PORTADA_AP}`, 2500)</script>"
+    ex._page = pagina_en(navegador, "https://newsroom.ap.org/", tarde)
+    assert ex._is_login()
+
+
+def test_tras_un_fallo_que_no_es_la_contrasena_se_reintenta_pronto(monkeypatch):
+    acceso._ultimos.clear()
+    assert acceso.puede_intentar("ap")
+    assert not acceso.puede_intentar("ap")
+    acceso.permitir_pronto("ap")
+    monkeypatch.setattr(acceso.time, "time", lambda: acceso._ultimos["ap"] + acceso.INTENTO_CADA + 1)
+    assert acceso.puede_intentar("ap")
+
+
+def test_registro_paso_a_paso_sin_contrasena(navegador):
+    pasos = []
+    page = navegador.new_page()
+    page.set_content(PAGINAS["ap"])
+    en_login = lambda: page.locator("input[type=password], input[name=username]").count() > 0
+    assert acceso.entrar(page, "yo@rtve.es", "buena", en_login, espera=3, decir=pasos.append)[0]
+    assert any("usuario escrito" in p for p in pasos) and any("dentro" in p for p in pasos)
+    assert not any("buena" in p for p in pasos)

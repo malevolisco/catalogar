@@ -18,7 +18,9 @@ La contraseña nunca se escribe en el registro ni en los volcados de depuracion.
 import re
 import time
 
-INTENTO_CADA = 30 * 60            # segundos entre intentos automaticos por agencia
+INTENTO_CADA = 30 * 60            # tras una contraseña rechazada, segundos hasta volver a intentarlo
+INTENTO_PRONTO = 3 * 60           # tras otro fallo (la pagina tardo, no aparecio el formulario), mucho antes
+RECHAZADA = "la agencia no acepta el usuario o la contraseña guardados"
 ESPERA_PASO = 15                  # segundos que se espera a que la pagina responda tras cada paso
 
 CAMPOS_USUARIO = (
@@ -50,6 +52,12 @@ def puede_intentar(agencia, ahora=None):
         return False
     _ultimos[agencia] = ahora
     return True
+
+
+def permitir_pronto(agencia):
+    """El intento fallo por algo que no es la contraseña: se puede volver a probar en INTENTO_PRONTO."""
+    if agencia in _ultimos:
+        _ultimos[agencia] = time.time() - INTENTO_CADA + INTENTO_PRONTO
 
 
 def _visible(page, selectores):
@@ -138,13 +146,25 @@ def _boton_de_entrar(page):
     return None
 
 
-def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
+def _donde(page):
+    """La direccion sin lo que va detras de ? (ahi van los tokens del login): para el registro."""
+    try:
+        return page.url.split("?")[0][:100]
+    except Exception:
+        return "?"
+
+
+def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO, decir=None):
     """Intenta iniciar sesion en la pagina que esta abierta. sigue_en_login(): True mientras se vea el login.
-    Devuelve (ok, motivo); el motivo dice por que no se ha podido, para el aviso por correo."""
+    decir(texto): cada paso, para el registro (nunca la contraseña). Devuelve (ok, motivo); el motivo dice por
+    que no se ha podido, para el aviso por correo."""
+    decir = decir or (lambda t: None)
     clave_puesta = False
-    esperar_formulario(page)
+    if not esperar_formulario(page):
+        decir(f"    sin formulario a la vista tras {ESPERA_FORMULARIO} s en {_donde(page)}")
     for _ in range(4):                                     # portada → usuario → contraseña → (respuesta)
         if _visible(page, CAMPOS_CODIGO):
+            decir(f"    pide un codigo de verificacion en {_donde(page)}")
             return False, "la agencia pide un código de verificación: eso lo tiene que hacer una persona"
         campo_clave = _visible(page, CAMPO_CLAVE)
         campo_usuario = _visible(page, CAMPOS_USUARIO)
@@ -153,14 +173,18 @@ def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
                 campo_usuario.fill(usuario)
             campo_clave.fill(clave)
             clave_puesta = True
+            decir(f"    usuario y contraseña escritos en {_donde(page)}; envio")
             _pulsar(page, campo_clave)
         elif campo_usuario:
             campo_usuario.fill(usuario)
+            decir(f"    usuario escrito en {_donde(page)}; siguiente")
             _pulsar(page, campo_usuario)
         else:
             boton = _boton_de_entrar(page)
             if boton is None:
+                decir(f"    no encuentro ni campos ni boton de entrar en {_donde(page)}")
                 return False, "no encuentro el formulario de inicio de sesión"
+            decir(f"    pulso el boton de entrar de {_donde(page)}")
             _clic(page, boton)
             esperar_formulario(page)
         # se espera a que la pagina conteste: o ya no es un login, o ha cambiado de paso
@@ -169,6 +193,7 @@ def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
             page.wait_for_timeout(800)
             try:
                 if not sigue_en_login():
+                    decir(f"    dentro: {_donde(page)}")
                     return True, ""
             except Exception:
                 continue
@@ -180,8 +205,9 @@ def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO):
                 continue                                   # va cargando
         else:
             if clave_puesta:
-                return False, "la agencia no acepta el usuario o la contraseña guardados"
+                decir(f"    tras {espera} s sigue en el login: {_donde(page)}")
+                return False, RECHAZADA
     if not sigue_en_login():
         return True, ""
-    return False, ("la agencia no acepta el usuario o la contraseña guardados" if clave_puesta
-                   else "no he llegado a la pantalla de la contraseña")
+    decir(f"    sin llegar a la contraseña: {_donde(page)}")
+    return False, RECHAZADA if clave_puesta else "no he llegado a la pantalla de la contraseña"

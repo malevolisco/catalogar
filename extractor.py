@@ -454,10 +454,18 @@ class Extractor:
         # la portada: el guion de una ficha podria decir "sign in to access" sin que sea un login
         if u.path.rstrip("/").lower() not in ("", "/index.html", "/home"):
             return False
-        try:
-            return bool(SIN_SESION_RE.search(self._page.locator("body").inner_text(timeout=3000)[:5000]))
-        except Exception:
-            return False
+        # la portada se dibuja con retraso: se espera a que tenga contenido antes de decidir
+        for _ in range(10):
+            try:
+                texto = self._page.locator("body").inner_text(timeout=3000)[:5000]
+            except Exception:
+                texto = ""
+            if SIN_SESION_RE.search(texto):
+                return True
+            if len(texto) > 400:
+                return False
+            self._page.wait_for_timeout(800)
+        return False
 
     def captura(self, etiqueta):
         """Captura de la pagina en debug/capturas/ (las CAPTURAS_MAX ultimas) cuando algo falla: se descargan
@@ -547,14 +555,26 @@ class Extractor:
                 self._page.goto(reuters_login(self._page.url), wait_until="domcontentloaded")
             except Exception:
                 pass
-        try:
-            ok, motivo = acceso.entrar(self._page, usuario, contrasena, self._is_login)
-        except Exception as e:
-            ok, motivo = False, f"{type(e).__name__}: {str(e).splitlines()[0][:120]}"
+        for vuelta in (1, 2):
+            try:
+                ok, motivo = acceso.entrar(self._page, usuario, contrasena, self._is_login, decir=print)
+            except Exception as e:
+                ok, motivo = False, f"{type(e).__name__}: {str(e).splitlines()[0][:120]}"
+            if ok or motivo == acceso.RECHAZADA or "código" in motivo or vuelta == 2:
+                break
+            # la pagina no estaba lista (formulario sin dibujar, se colgo): se recarga y una vez mas
+            print(f"  {agencia}: {motivo}; recargo y lo intento otra vez")
+            self.captura(f"login_{clave}_1")
+            try:
+                self._page.reload(wait_until="domcontentloaded")
+            except Exception:
+                pass
         self.login_fallido = "" if ok else motivo
         print(f"  {agencia}: " + ("sesion iniciada sola." if ok else f"no se ha podido entrar solo ({motivo})."))
         if not ok:
             self.captura(f"login_{clave}")
+            if motivo != acceso.RECHAZADA:
+                acceso.permitir_pronto(clave)  # no era la contraseña: se puede probar de nuevo en unos minutos
         return ok
 
     def _comprobar_acceso(self, agencia, url=None):
