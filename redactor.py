@@ -18,6 +18,7 @@ import re
 import shutil
 import base64
 import subprocess
+import threading
 import unicodedata
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,15 @@ REGLAS_PATH = BASE_DIR / "reglas.md"
 REGLAS_EXTRA_PATH = BASE_DIR / "reglas_extra.md"
 EJEMPLOS_PATH = BASE_DIR / "ejemplos.md"
 WORKDIR = BASE_DIR / "claude_ws"   # carpeta vacia: Claude Code no debe leer nada del proyecto
+
+
+def carpeta_trabajo():
+    """La carpeta de Claude Code de este hilo: con varias fichas a la vez (hilos redaccion-N de servidor.py)
+    cada una lleva sus fotogramas a la suya, para que una no borre los de otra."""
+    nombre = threading.current_thread().name
+    carpeta = WORKDIR / nombre if nombre.startswith("redaccion") else WORKDIR
+    carpeta.mkdir(parents=True, exist_ok=True)
+    return carpeta
 
 CAMPOS = ("ENVIO", "NAME", "COMMENT", "RESTRICCIONES")
 
@@ -296,8 +306,16 @@ def _leer_uso():
         return {}
 
 
+_CERROJO_USO = threading.Lock()
+
+
 def registrar_uso(numeros):
     """Apunta que esas aprobadas han acompañado a un envio (para saber cuales no se usan nunca)."""
+    with _CERROJO_USO:                      # varias fichas a la vez: que no se pisen al escribir
+        _registrar_uso(numeros)
+
+
+def _registrar_uso(numeros):
     import json
     uso = _leer_uso()
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -570,7 +588,7 @@ def clasificar_fallo(texto):
 
 
 def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imagenes=False):
-    WORKDIR.mkdir(exist_ok=True)
+    carpeta = carpeta_trabajo()
     cmd = _cmd_claude(model, extra_args, con_imagenes)
     env = dict(os.environ)
     # una ANTHROPIC_API_KEY del sistema mandaria sobre la suscripcion (y cobraria): fuera
@@ -584,7 +602,7 @@ def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imag
         # errors="replace": la consola de Windows en español escribe sus mensajes en cp850, y una
         # ruta con tilde en un error no debe convertirse en un UnicodeDecodeError que tape el error real
         return subprocess.Popen(orden, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, encoding="utf-8", errors="replace", cwd=str(WORKDIR), shell=shell, env=env)
+                                text=True, encoding="utf-8", errors="replace", cwd=str(carpeta), shell=shell, env=env)
 
     try:
         proceso = lanzar(cmd, False)
@@ -611,7 +629,30 @@ def llamar_claude(prompt, model="sonnet", extra_args=None, timeout=240, con_imag
     return salida
 
 
-AVISOS_LLAMADA = []     # avisos que deja la ultima llamada al modelo (respuesta cortada...); redactar los recoge
+class _AvisosDelHilo:
+    """Lista de avisos propia de cada hilo: con varias fichas a la vez, los avisos de una llamada no se
+    mezclan con los de otra."""
+    _local = threading.local()
+
+    def _lista(self):
+        if not hasattr(self._local, "lista"):
+            self._local.lista = []
+        return self._local.lista
+
+    def append(self, x):
+        self._lista().append(x)
+
+    def clear(self):
+        self._lista().clear()
+
+    def __iter__(self):
+        return iter(list(self._lista()))
+
+    def __len__(self):
+        return len(self._lista())
+
+
+AVISOS_LLAMADA = _AvisosDelHilo()     # avisos que deja la ultima llamada al modelo (respuesta cortada...); redactar los recoge
 
 
 def llamar_api(system, user, timeout=120):
@@ -1335,8 +1376,8 @@ def adjuntar_imagenes(user, rutas):
                 "type": "base64", "media_type": medio,
                 "data": base64.b64encode(f.read_bytes()).decode("ascii")}})
         return bloques
-    WORKDIR.mkdir(exist_ok=True)
-    for viejo in list(WORKDIR.glob("*.jpg")) + list(WORKDIR.glob("*.png")):
+    carpeta = carpeta_trabajo()
+    for viejo in list(carpeta.glob("*.jpg")) + list(carpeta.glob("*.png")):
         try:
             viejo.unlink()
         except OSError:
@@ -1346,7 +1387,7 @@ def adjuntar_imagenes(user, rutas):
         f = Path(r)
         if not f.exists():
             continue
-        shutil.copyfile(f, WORKDIR / f.name)
+        shutil.copyfile(f, carpeta / f.name)
         nombres.append(f.name)
     if not nombres:
         return user

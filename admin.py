@@ -434,6 +434,9 @@ CAMPOS = [
     ("acortar_comment", "Redacción", "Acortar el COMMENT si se pasa", "si_no", "Segunda pasada automática.", None, False),
     ("presentacion", "Redacción", "Cómo se ven las fichas en la página", "opcion", "", [("mayusculas", "MAYÚSCULAS"), ("normalizado", "Texto normal")], False),
     ("miniaturas", "Redacción", "Fotogramas que se mandan al modelo", "numero", "0 = ninguno.", None, False),
+    ("colas", "Redacción", "Fichas que se redactan a la vez", "numero",
+     "De 1 a 4. Con varios encargos a la vez, avanzan todos a la par. Cada una más gasta antes el límite de uso "
+     "de Claude y más memoria de la Raspberry: 3 es un buen punto.", None, True),
     ("ejemplos_por_ficha", "Redacción", "Fichas aprobadas que acompañan a cada envío", "numero",
      "Solo las más parecidas al envío; así puedes aprobar todas las que quieras sin alargar la redacción.", None, False),
     ("aprender_correcciones", "Redacción", "Aprender de mis correcciones", "si_no",

@@ -49,6 +49,11 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   memoria, temperatura); arreglos solos (worker muerto 2 veces: exit 75; disco < 1 GB: borra miniaturas > 14 dias);
   correo a correo_copia solo al cambiar de estado. Diario "sigo vivo" a `salud_hora`; lunes, informe semanal a
   correo_copia + `informe_destinatarios` (aprobadas sin tocar = borrador igual a lo aprobado). cola/salud.json.
+- Varias a la vez (8 oct): Worker = hilo del navegador (encargos + extraccion, un solo Chromium); `colas` (3) hilos
+  redaccion-N redactan en paralelo (Semaphore de huecos). ESTADO.siguiente_ficha reparte el turno (lote con menos en
+  curso, a igualdad el mas antiguo; no repite un numero en marcha). _comprobar_fin cierra el lote una vez (o lo
+  devuelve a pendiente si hay pausa). redactor: AVISOS_LLAMADA por hilo, carpeta_trabajo() por hilo, registrar_uso
+  con cerrojo; guardar_csv con _CERROJO_CSV. Pruebas en tests/test_colas.py.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
