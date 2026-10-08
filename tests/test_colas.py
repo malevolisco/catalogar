@@ -85,3 +85,42 @@ def test_pausa_del_modelo_devuelve_el_lote_a_la_cola(worker, monkeypatch):
     estados = [f["estado"] for l in servidor.ESTADO.lotes for f in l["fichas"]]
     assert estados.count("hecha") == 1 and "en curso" not in estados
     assert all(l["estado"] == "pendiente" for l in servidor.ESTADO.lotes)
+
+
+def test_colas_se_leen_al_arrancar_no_al_crear(monkeypatch):
+    # el Worker de verdad se crea al importar servidor.py, con CFG aun vacio: las colas se fijan en run()
+    monkeypatch.setattr(servidor, "CFG", {})
+    w = servidor.Worker()
+    monkeypatch.setattr(servidor, "CFG", {"colas": 3})
+    monkeypatch.setattr(w, "_vuelta", lambda: setattr(w, "parar", True))
+    w.run()
+    assert w.colas == 3
+
+
+def test_sesion_caducada_reintenta_y_avisa_una_vez(worker, monkeypatch):
+    w, orden, cerrados = worker
+    correos = []
+    monkeypatch.setattr(servidor, "enviar", lambda cfg, a, asunto, t, **k: correos.append(asunto))
+    for clave, valor in {"correo_copia": "yo@x", "correo_usuario": "u", "correo_clave": "k"}.items():
+        monkeypatch.setitem(servidor.CFG, clave, valor)
+    monkeypatch.setattr(servidor, "ESPERA_AGENCIA", 0.6)
+
+    class Caducada:
+        def fetch(self, *a, **k):
+            raise servidor.NeedsLogin("Reuters pide iniciar sesion")
+
+    caducada = [True]
+    navegador = w.abrir_navegador
+    monkeypatch.setattr(w, "abrir_navegador", lambda: Caducada() if caducada[0] else navegador())
+    monkeypatch.setattr(w, "cerrar_navegador", lambda: None)
+    threading.Thread(target=w.run, daemon=True).start()
+    time.sleep(0.4)
+    estados = [f["estado"] for l in servidor.ESTADO.lotes for f in l["fichas"]]
+    assert "error" not in estados and w.pausa_agencia_hasta     # nada en error: todo espera
+    assert correos == ["Catalogator: sesion de agencias caducada"]
+    caducada[0] = False                                          # vuelve la sesion: sigue sola
+    t0 = time.time()
+    while len(cerrados) < 2 and time.time() - t0 < 10:
+        time.sleep(0.05)
+    w.parar = True
+    assert sorted(cerrados) == ["A", "B"] and len(correos) == 1
