@@ -97,3 +97,36 @@ def test_direccion_de_entrada_de_reuters():
     import extractor
     assert extractor.reuters_login() == ("https://www.reutersconnect.com/login?"
                                          "url64=aHR0cHM6Ly93d3cucmV1dGVyc2Nvbm5lY3QuY29tL2luZGV4Lmh0bWw=")
+
+
+PORTADA_AP = """<h2>Have an AP Newsroom account?</h2><p>For existing AP customers, please sign in now to access all
+    the content you need.</p><button>Sign in</button><p>Discover new, recent and historic content</p>"""
+FICHA_AP = """<h1>Hastert dies</h1><p>SHOTLIST: ... users must sign in to access the archive, said the spokesman.</p>"""
+
+
+def pagina_en(navegador, url, html):
+    page = navegador.new_page()
+    page.route("**/*", lambda ruta: ruta.fulfill(status=200, content_type="text/html", body=html))
+    page.goto(url)
+    return page
+
+
+def test_portada_de_ap_sin_sesion_es_un_login(navegador):
+    import extractor
+    ex = extractor.Extractor()
+    ex._page = pagina_en(navegador, "https://newsroom.ap.org/", PORTADA_AP)
+    assert ex._is_login()
+    ex._page = pagina_en(navegador, "https://newsroom.ap.org/detail/x/abc/video", FICHA_AP)
+    assert not ex._is_login()                     # en una ficha, el texto del guion no cuenta
+
+
+def test_portada_de_ap_entra_sola(navegador):
+    page = pagina_en(navegador, "https://newsroom.ap.org/", PORTADA_AP.replace(
+        "<button>Sign in</button>",
+        f"""<button onclick="document.body.innerHTML = document.getElementById('f').innerHTML">Sign in</button>
+        <template id=f><input name=username><input type=password id=c>
+        <button onclick="if (c.value=='buena') {{ {ENTRAR.replace("'", "&quot;")} }}">Continue</button></template>"""))
+    import extractor
+    ex = extractor.Extractor()
+    ex._page = page
+    assert acceso.entrar(page, "yo@rtve.es", "buena", ex._is_login, espera=3) == (True, "")

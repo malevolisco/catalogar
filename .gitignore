@@ -4,3 +4,5 @@ __pycache__/
 broma/
 # copias de seguridad automaticas (salud.py): datos y contraseñas
 copias/
+# capturas y volcados de depuracion
+debug/

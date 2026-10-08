@@ -91,6 +91,7 @@ DEFAULTS = {
     "ebu": True,                # EBU News Exchange activado
     "login_espera_minutos": 10, # cuanto se espera con la ventana de login abierta desde la pagina
     "comprobar_sesion_al_arrancar": True,
+    "comprobar_sesion_horas": 2,    # y despues, con la cola quieta, cada tantas horas (0 = nunca)
     "login_al_arrancar": True,
     "servidor_puerto": 8765,
     "servidor_clave": "",

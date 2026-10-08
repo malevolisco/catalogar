@@ -60,6 +60,11 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   ante codigo de verificacion; un intento por agencia cada 30 min). Extractor(credenciales=...) lo usa en
   _comprobar_acceso antes de NeedsLogin; config reuters_/ap_/ebu_usuario y _clave (secretos), login_auto.
   Probado solo contra paginas de imitacion (tests/test_acceso.py): falta probarlo en las agencias reales.
+  AP sin sesion no redirige: ensena la portada con "please sign in" y un boton (SIN_SESION_RE en _is_login, solo
+  en la portada). Reuters: reuters_login() = /login?url64=. Sesion comprobada al arrancar y cada
+  comprobar_sesion_horas (2) con la cola quieta (Worker._toca_comprobar); si falla y hay credenciales, pausa +
+  correo en vez de abrir la ventana de login. Capturas de los fallos en debug/capturas (30) y
+  GET /api/admin/diagnostico (zip con capturas + registro, sin config). Visor en Linux: calidad 45, 1 de cada 2.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
