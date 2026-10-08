@@ -486,6 +486,8 @@ CAMPOS = [
     ("espera_login", "Agencias", "Segundos de espera para iniciar sesión a mano", "numero", "0 = no esperar.", None, False),
     ("ebu", "Agencias", "EBU News Exchange activado", "si_no", "", None, True),
     ("comprobar_sesion_al_arrancar", "Agencias", "Comprobar la sesión al arrancar", "si_no", "", None, False),
+    ("comprobar_sesion_horas", "Agencias", "Volver a comprobarla cada (horas)", "numero",
+     "Con la cola quieta. Si ha caducado y tienes guardados usuario y contraseña, entra sola; si no, te avisa. 0 = nunca.", None, False),
 
     ("lote_max_envios", "Lotes", "Envíos máximos por lote", "numero", "Una lista más grande se trocea.", None, False),
     ("ya_hecha_dias", "Lotes", "Días en que un Reuters ya hecho se reutiliza", "numero", "", None, False),
@@ -969,6 +971,28 @@ def _zip_copia(excluir=()):
                     z.write(ruta, ruta.relative_to(BASE_DIR).as_posix(), compress_type=zipfile.ZIP_STORED)
         z.writestr("COPIA_CATALOGATOR", f"{_version()} {datetime.now():%d/%m/%Y %H:%M}\n")
     return buf.getvalue(), f"catalogator-datos-{datetime.now():%Y%m%d-%H%M}.zip"
+
+
+@router.get("/api/admin/diagnostico")
+def diagnostico():
+    """Un zip para mandar a quien te ayude: capturas de lo que ha fallado en el navegador (debug/capturas),
+    el registro reciente, la salud y la version. Sin config.json ni contraseñas."""
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted((BASE_DIR / "debug" / "capturas").glob("*.jpg")):
+            z.write(f, f"capturas/{f.name}", compress_type=zipfile.ZIP_STORED)
+        z.writestr("registro.txt", "\n".join(f"[{c}] {t}" for _, c, t in list(REGISTRO)[-1500:]))
+        try:
+            import salud
+            z.writestr("salud.json", json.dumps(salud.DATOS.get("actual") or {}, ensure_ascii=False, indent=1))
+        except Exception:
+            pass
+        z.writestr("version.txt", f"{_version()} · {datetime.now():%d/%m/%Y %H:%M}\n")
+    g("log")("Diagnostico descargado desde la pagina")
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="catalogator-diagnostico-{datetime.now():%Y%m%d-%H%M}.zip"'})
 
 
 @router.get("/api/admin/copia")

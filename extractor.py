@@ -232,7 +232,19 @@ BLOQUEO_SOLO_TEXTO = [
 ]
 
 ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-rasterizer",
-                "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512"]
+                "--disable-extensions", "--mute-audio", "--js-flags=--max-old-space-size=512",
+                # lo que Chrome hace por su cuenta en segundo plano y aqui no sirve: actualizaciones de
+                # componentes, sincronizacion, informes de fallos; y como mucho 3 procesos de pagina
+                "--disable-background-networking", "--disable-component-update", "--disable-sync",
+                "--disable-default-apps", "--disable-breakpad", "--metrics-recording-only",
+                "--renderer-process-limit=3"]
+
+# Portadas publicas que salen cuando la sesion ha caducado (no redirigen a una pagina de login): AP enseña
+# "For existing AP customers, please sign in now..." con un boton Sign in
+SIN_SESION_RE = re.compile(r"please sign in|sign in to (continue|access)|log ?in to (continue|access)|"
+                           r"for existing [\w ]{1,20}customers", re.I)
+CAPTURAS_DIR = BASE_DIR / "debug" / "capturas"
+CAPTURAS_MAX = 30
 
 
 def mostrar_ventana(ctx, page, visible=True):
@@ -436,7 +448,28 @@ class Extractor:
             return True                                  # login.microsoftonline.com, auth.okta.com...
         if re.search(r"/(login|signin|sign-in|auth|oauth2?|sso)(/|$)", u.path.lower()):
             return True
-        return self._page.locator("input[type=password]").count() > 0
+        if self._page.locator("input[type=password]").count() > 0:
+            return True
+        # la portada publica de la agencia, sin sesion (la de AP no lleva a ningun login: tiene un boton). Solo en
+        # la portada: el guion de una ficha podria decir "sign in to access" sin que sea un login
+        if u.path.rstrip("/").lower() not in ("", "/index.html", "/home"):
+            return False
+        try:
+            return bool(SIN_SESION_RE.search(self._page.locator("body").inner_text(timeout=3000)[:5000]))
+        except Exception:
+            return False
+
+    def captura(self, etiqueta):
+        """Captura de la pagina en debug/capturas/ (las CAPTURAS_MAX ultimas) cuando algo falla: se descargan
+        desde Admin (Descargar diagnostico) para ver que estaba pasando. Nunca lanza."""
+        try:
+            CAPTURAS_DIR.mkdir(parents=True, exist_ok=True)
+            nombre = f"{datetime.now():%Y%m%d-%H%M%S}_{re.sub(r'[^A-Za-z0-9_-]+', '_', etiqueta)[:60]}.jpg"
+            self._page.screenshot(path=str(CAPTURAS_DIR / nombre), type="jpeg", quality=60, timeout=8000)
+            for vieja in sorted(CAPTURAS_DIR.glob("*.jpg"))[:-CAPTURAS_MAX]:
+                vieja.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def _es_antibot(self):
         try:
@@ -520,6 +553,8 @@ class Extractor:
             ok, motivo = False, f"{type(e).__name__}: {str(e).splitlines()[0][:120]}"
         self.login_fallido = "" if ok else motivo
         print(f"  {agencia}: " + ("sesion iniciada sola." if ok else f"no se ha podido entrar solo ({motivo})."))
+        if not ok:
+            self.captura(f"login_{clave}")
         return ok
 
     def _comprobar_acceso(self, agencia, url=None):
@@ -530,6 +565,7 @@ class Extractor:
                 if not self._es_antibot() and not self._is_login():
                     return
             self._dump(f"antibot_{agencia}")
+            self.captura(f"antibot_{agencia}")
             raise AntiBot(f"{agencia} muestra una verificacion antibot. Ejecuta python login.py, superala en la ventana y vuelve a intentarlo.")
         if self._is_login():
             if self._login_auto(agencia) or self._esperar_persona(agencia, "Sesion caducada"):
@@ -537,6 +573,7 @@ class Extractor:
                     self._recargar(url)
                 if not self._is_login():
                     return
+            self.captura(f"sesion_{agencia}")
             raise NeedsLogin(f"Sesion de {agencia} caducada" + (
                 f" y el inicio de sesion automatico no ha podido: {self.login_fallido}" if self.login_fallido
                 else ": ejecuta python login.py"))

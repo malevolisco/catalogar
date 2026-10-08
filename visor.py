@@ -12,11 +12,16 @@ en bombear(). Los demas hilos (las peticiones de la pagina) solo leen la ultima 
 ordenes en una cola, siempre bajo el cerrojo.
 """
 import base64
+import sys
 import collections
 import re
 import threading
 import time
 
+# en una Raspberry (Linux) la imagen en directo va mas ligera: la mitad de cuadros y algo menos de calidad.
+# Pesa menos para el equipo y para la conexion desde fuera (Tailscale); para leer y pulsar sobra
+LIGERO = sys.platform.startswith("linux")
+CALIDAD, CADA_CUADRO = (45, 2) if LIGERO else (65, 1)
 VIEWPORT = (1400, 1000)        # el de abrir_contexto: las coordenadas que llegan van de 0 a 1 sobre esto
 
 
@@ -92,7 +97,7 @@ class Visor:
                     pass
 
             cdp.on("Page.screencastFrame", cuadro)
-            cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 65, "everyNthFrame": 1,
+            cdp.send("Page.startScreencast", {"format": "jpeg", "quality": CALIDAD, "everyNthFrame": CADA_CUADRO,
                                               "maxWidth": VIEWPORT[0], "maxHeight": VIEWPORT[1]})
             self.cdp = cdp
         except Exception:
@@ -102,7 +107,7 @@ class Visor:
 
     def _captura(self):
         try:
-            datos = self.page.screenshot(type="jpeg", quality=70, timeout=5000)
+            datos = self.page.screenshot(type="jpeg", quality=CALIDAD + 5, timeout=5000)
             with self.lock:
                 self.imagen, self.seq, self.t_imagen = datos, self.seq + 1, time.time()
                 self.nueva.notify_all()

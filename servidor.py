@@ -409,6 +409,7 @@ class Worker(threading.Thread):
         self.huecos = None
         self.redaccion = queue.Queue()
         self.pausa_agencia_hasta = 0     # sesion de agencia caducada: se reintenta sola cada ESPERA_AGENCIA
+        self.ultima_comprobacion = time.time()   # la sesion se comprueba al arrancar y cada comprobar_sesion_horas
         self.aviso_agencia_mandado = False
 
     # ---------------- encargos desde otros hilos
@@ -430,16 +431,24 @@ class Worker(threading.Thread):
             elif tipo in ("comprobar", "comprobar_arranque"):
                 self.cerrar_navegador()
                 ESTADO.sesion_agencia = "comprobando"
-                problema = comprobar_sesion()
+                problema = comprobar_sesion()       # si caduco y hay usuario y contraseña, entra sola (acceso.py)
+                self.ultima_comprobacion = time.time()
                 caja["resultado"] = problema
                 if problema:
-                    ESTADO.sesion_agencia = "caducada"
                     log(f"Sesion de agencias: {problema}")
-                    if tipo == "comprobar_arranque" and CFG.get("login_al_arrancar", True):
+                    if tipo == "comprobar_arranque" and CFG.get("login_al_arrancar", True) and not credenciales_agencias():
+                        ESTADO.sesion_agencia = "caducada"
                         self.encargos.put(("login", threading.Event(), {"resultado": None}))
+                    else:
+                        self.sesion_caducada(problema)     # la cola espera, se reintenta sola y te llega un correo
                 else:
                     ESTADO.sesion_agencia = "comprobada"
                     log("Sesion de agencias: correcta en Reuters, AP" + (" y EBU." if CFG.get("ebu", True) else "."))
+                    if self.pausa_agencia_hasta:
+                        self.pausa_agencia_hasta = 0
+                        log("Sesion de agencias: vuelve a funcionar, la cola sigue.")
+                    if self.aviso_agencia_mandado:
+                        self.aviso_agencia_mandado = False
             elif tipo == "login":
                 self.cerrar_navegador()
                 self.login_activo, self.login_terminar = True, False
@@ -575,6 +584,9 @@ class Worker(threading.Thread):
             lote = ESTADO.lote_sin_nada_que_hacer()
             if lote is not None:
                 self._comprobar_fin(lote)
+            elif self._toca_comprobar():
+                log("Sesion de agencias: comprobacion periodica.")
+                self._atender_encargo("comprobar", threading.Event(), {"resultado": None})
             else:
                 self._encargo(espera=2)              # nada que hacer: se espera a un encargo o a la cola
             return
@@ -592,6 +604,13 @@ class Worker(threading.Thread):
                 ESTADO.terminar(ficha["id"])
                 self.huecos.release()
                 self._comprobar_fin(lote)
+
+    def _toca_comprobar(self):
+        """Con la cola quieta, cada comprobar_sesion_horas (2) se mira si la sesion de las agencias sigue viva,
+        para enterarse (y entrar sola) antes de que llegue un encargo y se quede esperando."""
+        horas = float(CFG.get("comprobar_sesion_horas", 2) or 0)
+        return bool(horas) and not ESTADO.en_marcha and not self.login_activo \
+            and time.time() - self.ultima_comprobacion >= horas * 3600
 
     def _encargo(self, espera):
         """Atiende un encargo de navegador si lo hay, esperando hasta 'espera' segundos. True si atendio uno."""

@@ -124,3 +124,17 @@ def test_sesion_caducada_reintenta_y_avisa_una_vez(worker, monkeypatch):
         time.sleep(0.05)
     w.parar = True
     assert sorted(cerrados) == ["A", "B"] and len(correos) == 1
+
+
+def test_comprobacion_periodica_de_la_sesion(monkeypatch):
+    w = servidor.Worker()
+    monkeypatch.setattr(servidor, "CFG", {"comprobar_sesion_horas": 2})
+    monkeypatch.setattr(servidor.ESTADO, "en_marcha", {})
+    assert not w._toca_comprobar()                       # recien arrancado
+    w.ultima_comprobacion -= 2 * 3600 + 1
+    assert w._toca_comprobar()
+    monkeypatch.setattr(servidor.ESTADO, "en_marcha", {"a": "lote: 0001"})
+    assert not w._toca_comprobar()                       # con fichas en marcha, no
+    monkeypatch.setattr(servidor, "CFG", {"comprobar_sesion_horas": 0})
+    monkeypatch.setattr(servidor.ESTADO, "en_marcha", {})
+    assert not w._toca_comprobar()                       # 0 = nunca
