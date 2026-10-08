@@ -472,6 +472,16 @@ CAMPOS = [
      "Descarga el XML de cada ficha (botón XML): guion completo y restricciones exactas. Si falla, se lee la página como antes.", None, False),
     ("ap_datos", "Agencias", "Leer AP por sus datos", "si_no",
      "Usa los datos que la página de AP recibe por detrás: guion completo y restricción exacta. Si faltan, se lee la página como antes.", None, False),
+    ("login_auto", "Agencias", "Iniciar sesión sola si caduca", "si_no",
+     "Con el usuario y la contraseña de abajo. Un intento cada media hora como mucho, para no bloquear la cuenta; "
+     "si pide un código o no entra, te llega un correo.", None, False),
+    ("reuters_usuario", "Agencias", "Reuters: usuario", "texto", "", None, False),
+    ("reuters_clave", "Agencias", "Reuters: contraseña", "secreto",
+     "Se guarda solo en este equipo, como la del correo. Nunca se muestra en la página ni va en las copias por correo.", None, False),
+    ("ap_usuario", "Agencias", "AP: usuario", "texto", "", None, False),
+    ("ap_clave", "Agencias", "AP: contraseña", "secreto", "", None, False),
+    ("ebu_usuario", "Agencias", "EBU: usuario", "texto", "", None, False),
+    ("ebu_clave", "Agencias", "EBU: contraseña", "secreto", "", None, False),
     ("navegador", "Agencias", "Navegador", "opcion", "", [("auto", "Automático (Chrome, si no Edge)"), ("chrome", "Chrome"), ("msedge", "Edge"), ("chromium", "Chromium")], True),
     ("espera_login", "Agencias", "Segundos de espera para iniciar sesión a mano", "numero", "0 = no esperar.", None, False),
     ("ebu", "Agencias", "EBU News Exchange activado", "si_no", "", None, True),
@@ -618,6 +628,15 @@ async def guardar_ajustes(request: Request):
     except Exception:
         pass
     cambiadas = [c for c in por_clave if antes.get(c) != cruda.get(c)]
+    acceso_agencias = {"login_auto"} | {f"{a}_{c}" for a in ("reuters", "ap", "ebu") for c in ("usuario", "clave")}
+    if acceso_agencias & set(cambiadas):
+        # usuario o contraseña nuevos: el navegador se abre de nuevo con ellos y se prueba ya, sin esperar
+        import acceso
+        acceso._ultimos.clear()
+        worker = g("WORKER")
+        worker.encargar("cerrar")
+        if worker.pausa_agencia_hasta:
+            worker.pausa_agencia_hasta = time.time()
     if {"claude_token", "api_key", "openai_key", "openai_url", "redactor", "api_reserva"} & set(cambiadas):
         # puede que ya se pueda redactar: la pausa del modelo se levanta y se prueba en la siguiente ficha
         sys.modules["redactor"].CLAUDE_SIN_SESION["hasta"] = 0.0
