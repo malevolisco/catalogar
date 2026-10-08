@@ -230,6 +230,11 @@ def _comparar_y_avisar(nuevo):
     """Correo solo cuando algo pasa a ir mal o vuelve a ir bien (no cada hora con lo mismo)."""
     antes = {p["clave"]: p["ok"] for p in (DATOS.get("actual") or {}).get("piezas", [])}
     rotos = [p for p in nuevo["piezas"] if not p["ok"] and antes.get(p["clave"], True)]
+    try:                                  # la sesion caducada ya la avisa el Worker con su propio correo
+        if getattr(g("WORKER"), "aviso_agencia_mandado", False):
+            rotos = [p for p in rotos if p["clave"] != "agencias"]
+    except KeyError:
+        pass
     # las fichas con error son un hecho, no un estado: avisan al aparecer, pero no "vuelven a ir bien"
     arreglados = [p for p in nuevo["piezas"] if p["ok"] and antes.get(p["clave"]) is False and p["clave"] != "errores"]
     if not (rotos or arreglados) or not _cfg().get("salud_avisos", True):

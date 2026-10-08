@@ -374,6 +374,7 @@ def ventana_login(terminar, limite_minutos=10):
 
 # ====================================================================== worker
 _CERROJO_CSV = threading.Lock()
+ESPERA_AGENCIA = 10 * 60      # sesion de agencia caducada: cada cuanto se vuelve a probar sola
 
 
 class Worker(threading.Thread):
@@ -392,10 +393,13 @@ class Worker(threading.Thread):
         self.fallos_seguidos = 0         # redacciones fallidas una tras otra sin motivo reconocido
         self.aviso_sesion_mandado = False   # ya se ha avisado por correo de que Claude Code no tiene sesion
         # varias fichas a la vez: el navegador es uno (este hilo), pero mientras una ficha se redacta ya se
-        # extrae la siguiente, y hasta "colas" fichas se redactan a la vez en sus propios hilos
-        self.colas = max(1, min(4, int(CFG.get("colas") or 1)))
-        self.huecos = threading.Semaphore(self.colas)
+        # extrae la siguiente, y hasta "colas" fichas se redactan a la vez en sus propios hilos. Se fija en
+        # run(): el Worker se crea al importar, antes de leer config.json, y aqui CFG aun esta vacio
+        self.colas = 1
+        self.huecos = None
         self.redaccion = queue.Queue()
+        self.pausa_agencia_hasta = 0     # sesion de agencia caducada: se reintenta sola cada ESPERA_AGENCIA
+        self.aviso_agencia_mandado = False
 
     # ---------------- encargos desde otros hilos
     def encargar(self, tipo, esperar=0):
@@ -436,6 +440,9 @@ class Worker(threading.Thread):
                 finally:
                     self.login_activo = False
                     ESTADO.sesion_agencia = "sin abrir"
+                    if self.pausa_agencia_hasta:
+                        self.pausa_agencia_hasta = 0
+                        log("Sesion de agencias: login hecho, la cola sigue.")
                 caja["resultado"] = None
         except Exception as e:
             caja["resultado"] = f"{type(e).__name__}: {str(e).splitlines()[0][:160]}"
@@ -477,12 +484,44 @@ class Worker(threading.Thread):
             self.ex = None
 
     def sesion_caducada(self, motivo):
+        """La agencia pide iniciar sesion (o salta el antibot): la cola se para, se reintenta sola cada
+        ESPERA_AGENCIA y, la primera vez, te llega un correo para que inicies sesion desde la pagina."""
         ESTADO.sesion_agencia = "caducada"
-        log(f"Sesion de agencia caducada o antibot: {motivo}")
+        self.pausa_agencia_hasta = time.time() + ESPERA_AGENCIA
+        log(f"Sesion de agencia caducada o antibot: {motivo}. La cola espera y se vuelve a probar a las "
+            f"{datetime.fromtimestamp(self.pausa_agencia_hasta):%H:%M}.")
         self.cerrar_navegador()
+        self.avisar_agencia(str(motivo))
+
+    def _a_la_cola(self, ficha):
+        with ESTADO.lock:
+            ficha["estado"], ficha["error"] = "pendiente", ""
+            ESTADO.guardar()
+
+    def avisar_agencia(self, motivo):
+        """Un correo a tu direccion (correo_copia) la primera vez que caduca la sesion de una agencia."""
+        if self.aviso_agencia_mandado or not (CFG.get("correo_copia") and CFG.get("correo_usuario") and CFG.get("correo_clave")):
+            return
+        self.aviso_agencia_mandado = True
+        pendientes = ESTADO.resumen().get("pendientes", 0)
+        texto = ("Oye: la sesion de las agencias ha caducado y Catalogator no puede entrar.\n\n"
+                 f"Motivo: {motivo[:300]}\n"
+                 f"Envios esperando: {pendientes}\n\n"
+                 f"No se pierde nada: la cola esta en pausa y se vuelve a probar sola cada {ESPERA_AGENCIA // 60} minutos.\n\n"
+                 "Para que siga ya:\n"
+                 "1. Abre la pagina de Catalogator (tambien desde el movil o el trabajo).\n"
+                 "2. Admin → Iniciar sesion. En la pestaña Navegador veras Reuters, AP y EBU: entra en la que lo pida.\n"
+                 "3. Pulsa «Ya he iniciado sesion». La cola sigue sola.\n")
+        try:
+            enviar(CFG, CFG["correo_copia"], "Catalogator: sesion de agencias caducada", texto)
+            log(f"Aviso de sesion de agencias caducada mandado a {CFG['correo_copia']}")
+        except Exception as ex:
+            log(f"No se ha podido mandar el aviso de sesion de agencias ({type(ex).__name__})")
 
     # ---------------- bucle
     def run(self):
+        self.colas = max(1, min(4, int(CFG.get("colas") or 1)))
+        self.huecos = threading.Semaphore(self.colas)
         log(f"Worker en marcha ({self.colas} ficha(s) a la vez).")
         for n in range(1, self.colas + 1):
             threading.Thread(target=self._bucle_redaccion, name=f"redaccion-{n}", daemon=True).start()
@@ -507,6 +546,13 @@ class Worker(threading.Thread):
             self.pausa_hasta, self.pausa_motivo = 0, ""
             ESTADO.modelo_parado = ""
             log("Se vuelve a intentar con el modelo.")
+        if self.pausa_agencia_hasta and time.time() < self.pausa_agencia_hasta:
+            self._encargo(espera=2)                  # sesion caducada: se espera (un login la levanta antes)
+            return
+        if self.pausa_agencia_hasta:
+            self.pausa_agencia_hasta = 0
+            ESTADO.sesion_agencia = "sin abrir"      # se abre el navegador de nuevo y se prueba
+            log("Sesion de agencias: se vuelve a probar.")
         # un hueco libre: si ya hay "colas" fichas en marcha, se espera a que acabe alguna
         if not self.huecos.acquire(timeout=0.01 if VISOR.activo else 0.5):
             return
@@ -574,7 +620,7 @@ class Worker(threading.Thread):
             if lote["estado"] != "en curso" or any(f["estado"] == "en curso" for f in lote["fichas"]):
                 return
             if any(f["estado"] == "pendiente" for f in lote["fichas"]):
-                if self.pausa_hasta:
+                if self.pausa_hasta or self.pausa_agencia_hasta:
                     lote["estado"] = "pendiente"
                     ESTADO.guardar()
                 return
@@ -760,8 +806,10 @@ class Worker(threading.Thread):
         ha pasado (el hueco lo libera ese hilo al acabar); False si ha terminado aqui (copiada o con error)."""
         if not lote.get("rehacer") and self.volcar_hecha(lote, ficha):
             return False
-        if ESTADO.sesion_agencia == "caducada":
-            self.marcar_error(ficha, "Sesion de agencia caducada: pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa)")
+        if ESTADO.sesion_agencia == "caducada" or self.pausa_agencia_hasta:
+            if not self.pausa_agencia_hasta:       # la comprobo caducada otro (al arrancar, Comprobar sesion)
+                self.sesion_caducada("la comprobacion de la sesion dice que ha caducado")
+            self._a_la_cola(ficha)                 # se hara en cuanto vuelva la sesion
             return False
         ESTADO.empezar(ficha["id"], f"{lote['nombre']}: {ficha['etiqueta']}")
         t0 = time.time()
@@ -770,7 +818,7 @@ class Worker(threading.Thread):
                                                  creado=ficha.get("creado") or None)
         except (NeedsLogin, AntiBot) as e:
             self.sesion_caducada(e)
-            self.marcar_error(ficha, f"{e}. Pulsa Iniciar sesion agencias en el panel (o ejecuta login.py en casa).")
+            self._a_la_cola(ficha)                 # no es un error de la ficha: se reintenta sola
             return False
         except NotFound as e:
             self.marcar_error(ficha, str(e))
@@ -782,6 +830,9 @@ class Worker(threading.Thread):
             self.marcar_error(ficha, f"Extraccion: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
             self.cerrar_navegador()
             return False
+        if self.aviso_agencia_mandado:
+            self.aviso_agencia_mandado = False
+            log("Sesion de agencias: vuelve a funcionar.")
         with ESTADO.lock:
             ficha["headline"] = datos.get("headline", "")
             ficha["fecha"] = datos.get("fecha") or ficha.get("fecha", "")   # la real: con ella se reconoce despues
@@ -1415,6 +1466,9 @@ def reintentar(id_lote: str):
         # Volver a intentarlo tambien levanta la pausa del modelo (limite, caida, login): se prueba ya
         WORKER.pausa_hasta = time.time()
         log("Pausa del modelo levantada a mano: se vuelve a intentar.")
+    if WORKER is not None and WORKER.pausa_agencia_hasta:
+        WORKER.pausa_agencia_hasta = time.time()  # y la de la sesion de agencias: se prueba ya
+        log("Pausa por sesion de agencias levantada a mano: se vuelve a intentar.")
     return {"reintentadas": n}
 
 

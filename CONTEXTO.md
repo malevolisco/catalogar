@@ -53,7 +53,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   redaccion-N redactan en paralelo (Semaphore de huecos). ESTADO.siguiente_ficha reparte el turno (lote con menos en
   curso, a igualdad el mas antiguo; no repite un numero en marcha). _comprobar_fin cierra el lote una vez (o lo
   devuelve a pendiente si hay pausa). redactor: AVISOS_LLAMADA por hilo, carpeta_trabajo() por hilo, registrar_uso
-  con cerrojo; guardar_csv con _CERROJO_CSV. Pruebas en tests/test_colas.py.
+  con cerrojo; guardar_csv con _CERROJO_CSV. Pruebas en tests/test_colas.py. OJO: WORKER se crea al importar (CFG
+  vacio): colas y huecos se fijan en run(). Sesion de agencia caducada (NeedsLogin/AntiBot): la ficha vuelve a
+  pendiente, pausa_agencia_hasta (ESPERA_AGENCIA 10 min, un login o Volver a intentarlo la levantan) y un correo.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
