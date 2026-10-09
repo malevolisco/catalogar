@@ -138,3 +138,42 @@ def test_comprobacion_periodica_de_la_sesion(monkeypatch):
     monkeypatch.setattr(servidor, "CFG", {"comprobar_sesion_horas": 0})
     monkeypatch.setattr(servidor.ESTADO, "en_marcha", {})
     assert not w._toca_comprobar()                       # 0 = nunca
+
+
+def test_lo_ya_hecho_sale_al_instante_aunque_esten_ocupados(worker, monkeypatch):
+    w, orden, cerrados = worker
+    hecho = lote("H", ["0001"])
+    hecho["estado"] = "hecho"
+    hecho["fichas"][0].update(estado="hecha", NAME="N", COMMENT="C", RESTRICCIONES="SIN AVISO", fecha="09/10/2026")
+    lento = lote("L", ["0007", "0008"])
+    repetido = lote("R", ["0001"])
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [repetido, lento, hecho])
+    monkeypatch.setitem(servidor.CFG, "colas", 1)
+
+    def redactar(datos, **kw):
+        time.sleep(3)                                        # el unico redactor, ocupado un buen rato
+        return {"ENVIO": "", "NAME": "N", "COMMENT": "C", "RESTRICCIONES": "SIN AVISO"}, [], None
+
+    monkeypatch.setattr(servidor, "redactar", redactar)
+    w2 = servidor.Worker()
+    monkeypatch.setattr(w2, "abrir_navegador", w.abrir_navegador)
+    monkeypatch.setattr(w2, "_terminar_lote", w._terminar_lote)
+    threading.Thread(target=w2.run, daemon=True).start()
+    t0 = time.time()
+    while "R" not in cerrados and time.time() - t0 < 5:
+        time.sleep(0.05)
+    w2.parar = True
+    assert "R" in cerrados and time.time() - t0 < 2.5          # contestado sin esperar a los redactores
+    assert repetido["fichas"][0]["NAME"] == "N" and repetido["fichas"][0].get("copiada") is not None
+
+
+def test_lo_borrado_de_la_cola_se_sigue_copiando(monkeypatch, tmp_path):
+    monkeypatch.setattr(servidor, "ARCHIVO_PATH", tmp_path / "archivo.json")
+    monkeypatch.setattr(servidor.ESTADO, "archivo", [])
+    hecho = lote("H", ["4681323"])
+    hecho["fichas"][0].update(estado="hecha", NAME="N", COMMENT="C", RESTRICCIONES="SIN AVISO")
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [])
+    servidor.ESTADO.archivar(hecho)
+    _, f = servidor.ESTADO.ya_hecha("4681323")
+    assert f is not None and f["NAME"] == "N"
+    assert (tmp_path / "archivo.json").exists()

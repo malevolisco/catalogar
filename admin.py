@@ -946,7 +946,7 @@ async def visor_orden(request: Request):
 # cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
          "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "cola/consolidadas.json", "cola/ejemplos_uso.json", "escenas_modelo.npz", "escenas_clases.json",
-         "escenas_entreno.json", "cola/consumo.json", "cola/salud.json"]
+         "escenas_entreno.json", "cola/consumo.json", "cola/salud.json", "cola/archivo_hechas.json"]
 CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y lo del boton prohibido: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")
