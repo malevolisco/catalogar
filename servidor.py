@@ -271,6 +271,7 @@ class Estado:
             primero = lote["estado"] == "pendiente"
             lote["estado"] = "en curso"
             ficha["estado"] = "en curso"
+            ficha["fase"] = "agencia"            # primero el navegador la lee; luego pasa a "redaccion"
             self.guardar()
             return lote, ficha, primero
 
@@ -945,6 +946,10 @@ class Worker(threading.Thread):
             ficha["fecha"] = datos.get("fecha") or ficha.get("fecha", "")   # la real: con ella se reconoce despues
             ficha["alerta"] = datos.get("alerta", "")
             ficha["script_paginas"] = datos.get("script_paginas")
+            ficha["fase"] = "redaccion"          # el navegador queda libre para la siguiente
+            ESTADO.guardar()
+        # el navegador es uno: si leer la agencia tarda tanto como redactar, las fichas no se juntan
+        log(f"  {ficha['etiqueta']}: leida de la agencia en {time.time() - t0:.0f} s, pasa a redactarse")
         if datos.get("alerta"):
             log(f"  {ficha['etiqueta']}: {datos['alerta']}")
         ficha["t_agencia"] = round(time.time() - t0)     # lo que ha tardado la agencia (el resto es redaccion)

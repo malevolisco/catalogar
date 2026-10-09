@@ -59,6 +59,32 @@ def test_dos_encargos_a_la_par(worker):
     assert servidor.ESTADO.trabajando is None
 
 
+def test_la_pagina_distingue_agencia_y_redaccion(worker, monkeypatch):
+    """"redactando" solo cuando el navegador ya la ha soltado; mientras la lee, "agencia"."""
+    w, orden, cerrados = worker
+    vistas = []
+    ficha_de = {f["numero"]: f for l in servidor.ESTADO.lotes for f in l["fichas"]}
+
+    class Navegador:
+        def fetch(self, numero, fecha=None, creado=None):
+            vistas.append(("leyendo", ficha_de[numero]["fase"]))
+            return {"headline": "H", "fecha": "08/10/2026", "numero": numero}
+
+    def redactar(datos, **kw):
+        vistas.append(("redactando", ficha_de[datos["numero"]]["fase"]))
+        return {"ENVIO": "", "NAME": "N", "COMMENT": "C", "RESTRICCIONES": "SIN AVISO"}, [], None
+
+    monkeypatch.setattr(w, "abrir_navegador", lambda: Navegador())
+    monkeypatch.setattr(servidor, "redactar", redactar)
+    threading.Thread(target=w.run, daemon=True).start()
+    t0 = time.time()
+    while len(cerrados) < 2 and time.time() - t0 < 10:
+        time.sleep(0.05)
+    w.parar = True
+    assert len(vistas) == 12
+    assert all(fase == ("agencia" if paso == "leyendo" else "redaccion") for paso, fase in vistas)
+
+
 def test_pausa_del_modelo_devuelve_el_lote_a_la_cola(worker, monkeypatch):
     w, orden, cerrados = worker
     llamadas = []
