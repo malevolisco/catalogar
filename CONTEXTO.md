@@ -65,6 +65,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   comprobar_sesion_horas (2) con la cola quieta (Worker._toca_comprobar); si falla y hay credenciales, pausa +
   correo en vez de abrir la ventana de login. Capturas de los fallos en debug/capturas (30) y
   GET /api/admin/diagnostico (zip con capturas + registro, sin config). Visor en Linux: calidad 45, 1 de cada 2.
+- Agilidad (9 oct): hilo "copias" (Worker._bucle_copias) copia cada segundo las pendientes que ya estan hechas, sin
+  turno ni navegador ni modelo. Al borrar un lote, sus hechas van a cola/archivo_hechas.json (ESTADO.archivo,
+  5000 fichas) y ya_hecha busca tambien ahi. Registro "hecha en X s (agencia A s, redaccion R s, ...)".
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),

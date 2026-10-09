@@ -13,6 +13,7 @@ Uso:
 
 Todo lo que se sube queda en la carpeta cola/ de este PC. Nunca sale de aqui.
 """
+import os
 import sys
 import json
 import time
@@ -55,12 +56,15 @@ import admin
 import aprender
 import imagenes
 import consumo
+import redactor as _redactor
 import salud
 from visor import VISOR
 
 BASE_DIR = Path(__file__).resolve().parent
 COLA_DIR = BASE_DIR / "cola"
 ESTADO_PATH = COLA_DIR / "estado.json"
+ARCHIVO_PATH = COLA_DIR / "archivo_hechas.json"   # fichas hechas de lotes borrados: se siguen copiando al instante
+ARCHIVO_MAX = 5000
 PANEL_PATH = BASE_DIR / "panel" / "index.html"
 MAX_LOTES_EN_PANEL = 40
 FALLOS_SEGUIDOS_PAUSA = 3      # redacciones fallidas seguidas a partir de las que se pausa la cola 5 min
@@ -86,6 +90,7 @@ class Estado:
         self.en_marcha = {}               # id de ficha -> "lote: etiqueta", las que se extraen o redactan ahora
         self.sesion_agencia = "sin abrir"  # sin abrir | abierta | caducada
         self.modelo_parado = ""           # texto: por que el modelo no atiende y hasta cuando (o "")
+        self.archivo = []                 # lotes borrados, solo con sus fichas hechas (ARCHIVO_PATH)
         self.cargar()
 
     def cargar(self):
@@ -105,6 +110,10 @@ class Estado:
                     donde = "no se ha podido apartar"
                 log(f"estado.json no se ha podido leer ({type(e).__name__}: {str(e)[:80]}); {donde}, se empieza vacio")
                 self.lotes = []
+        try:
+            self.archivo = json.loads(ARCHIVO_PATH.read_text(encoding="utf-8")) if ARCHIVO_PATH.exists() else []
+        except (OSError, ValueError):
+            self.archivo = []
         # lo que se quedo "en curso" al apagar el servidor vuelve a pendiente
         for lote in self.lotes:
             if lote["estado"] == "en curso":
@@ -187,7 +196,7 @@ class Estado:
             return False
 
         with self.lock:
-            for lote in self.lotes:                           # el mas nuevo primero
+            for lote in self.lotes + self.archivo:            # el mas nuevo primero; luego lo borrado de la cola
                 if lote["id"] == salvo_lote:
                     continue
                 for f in lote["fichas"]:
@@ -203,6 +212,30 @@ class Estado:
                             continue
                     return lote, f
         return None, None
+
+    def archivar(self, lote):
+        """Al borrar un lote, sus fichas hechas pasan al archivo: si vuelve a pedirse ese envio, se copia al
+        instante en vez de volver a la agencia y al modelo. Se guardan las ARCHIVO_MAX fichas mas recientes."""
+        hechas = [f for f in lote["fichas"] if f["estado"] == "hecha" and f.get("NAME")]
+        if not hechas:
+            return
+        with self.lock:
+            self.archivo.insert(0, {"id": "archivo-" + lote["id"], "nombre": lote.get("nombre", ""),
+                                    "creado": lote.get("creado", ""), "estado": "hecho", "fichas": hechas})
+            total, recortado = 0, []
+            for l in self.archivo:
+                if total >= ARCHIVO_MAX:
+                    break
+                recortado.append(l)
+                total += len(l["fichas"])
+            self.archivo = recortado
+            texto = json.dumps(self.archivo, ensure_ascii=False)
+        try:
+            tmp = ARCHIVO_PATH.with_suffix(".tmp")
+            tmp.write_text(texto, encoding="utf-8")
+            os.replace(tmp, ARCHIVO_PATH)
+        except OSError as e:
+            log(f"No se ha podido guardar el archivo de fichas hechas ({type(e).__name__})")
 
     def empezar(self, clave, texto):
         with self.lock:
@@ -547,6 +580,7 @@ class Worker(threading.Thread):
         log(f"Worker en marcha ({self.colas} ficha(s) a la vez).")
         for n in range(1, self.colas + 1):
             threading.Thread(target=self._bucle_redaccion, name=f"redaccion-{n}", daemon=True).start()
+        threading.Thread(target=self._bucle_copias, name="copias", daemon=True).start()
         while not self.parar:
             try:
                 self._vuelta()
@@ -604,6 +638,41 @@ class Worker(threading.Thread):
                 ESTADO.terminar(ficha["id"])
                 self.huecos.release()
                 self._comprobar_fin(lote)
+
+    def _bucle_copias(self):
+        """Lo ya hecho sale al instante: cada segundo mira las fichas pendientes y, si ese envio ya esta hecho
+        (en la cola o en el archivo), lo copia sin esperar turno, ni navegador, ni modelo. Asi un encargo de
+        cosas ya catalogadas se contesta en segundos aunque los redactores esten ocupados."""
+        vistas = set()
+        while not self.parar:
+            try:
+                for lote, ficha in self._copiables(vistas):
+                    if not self.volcar_hecha(lote, ficha):
+                        with ESTADO.lock:          # (no deberia pasar) vuelve a la cola normal
+                            ficha["estado"] = "pendiente"
+                    self._comprobar_fin(lote)
+            except Exception:
+                log("Fallo al copiar fichas ya hechas:\n" + traceback.format_exc()[-1200:])
+            time.sleep(1)
+
+    def _copiables(self, vistas):
+        """Fichas pendientes con copia, ya marcadas "en curso" (y su lote) para que nadie mas las coja."""
+        salida = []
+        with ESTADO.lock:
+            for lote in ESTADO.lotes:
+                if lote["estado"] not in ("pendiente", "en curso") or lote.get("rehacer"):
+                    continue
+                for f in lote["fichas"]:
+                    if f["estado"] != "pendiente" or f["id"] in vistas:
+                        continue
+                    vistas.add(f["id"])
+                    origen, hecha = ESTADO.ya_hecha(f["numero"], f.get("fecha") or "", salvo_lote=lote["id"],
+                                                    creado=f.get("creado") or "")
+                    if hecha:
+                        lote["estado"] = "en curso"
+                        f["estado"] = "en curso"
+                        salida.append((lote, f))
+        return salida
 
     def _toca_comprobar(self):
         """Con la cola quieta, cada comprobar_sesion_horas (2) se mira si la sesion de las agencias sigue viva,
@@ -710,6 +779,7 @@ class Worker(threading.Thread):
         return True
 
     def redactar_y_guardar(self, lote, ficha, datos, t0):
+        t_redaccion = time.time()
         try:
             campos, avisos, _ = redactar(datos, model=CFG["claude_model"], extra_args=CFG["claude_extra_args"],
                                          timeout=CFG["claude_timeout"], acortar=CFG.get("acortar_comment", True))
@@ -742,6 +812,7 @@ class Worker(threading.Thread):
             ficha["borrador"] = {c: campos.get(c, "") for c in CAMPOS}         # lo del modelo, para aprender al aprobarla
             ficha["estado"] = "hecha"
             ficha["segundos"] = round(time.time() - t0)
+            ficha["t_redaccion"] = round(time.time() - t_redaccion)
             ESTADO.guardar()
         consumo.contar_item()
         try:
@@ -749,7 +820,11 @@ class Worker(threading.Thread):
                 guardar_csv(campos, avisos)
         except OSError as e:                     # fichas.csv abierto en Excel, disco lleno...: la ficha ya esta
             log(f"  {ficha['etiqueta']}: no se ha podido anotar en fichas.csv ({type(e).__name__}); la ficha esta en la pagina")
-        log(f"  {ficha['etiqueta']}: hecha en {ficha['segundos']} s")
+        en_marcha = len(ESTADO.en_marcha)
+        log(f"  {ficha['etiqueta']}: hecha en {ficha['segundos']} s (agencia {ficha.get('t_agencia', 0)} s, "
+            f"redaccion {ficha['t_redaccion']} s" + (", con segunda pasada para acortar el COMMENT"
+                                                      if getattr(_redactor.HILO, "acortado", False) else "")
+            + (f"; {en_marcha} a la vez" if en_marcha > 1 else "") + ")")
         if quiere_normal() and not ficha.get("normal"):           # no vino en la generacion: segunda pasada
             t1 = time.time()
             if self.normalizar_ficha(ficha):
@@ -872,6 +947,7 @@ class Worker(threading.Thread):
             ficha["script_paginas"] = datos.get("script_paginas")
         if datos.get("alerta"):
             log(f"  {ficha['etiqueta']}: {datos['alerta']}")
+        ficha["t_agencia"] = round(time.time() - t0)     # lo que ha tardado la agencia (el resto es redaccion)
         self.redaccion.put((lote, ficha, datos, t0))
         return True
 
@@ -1446,6 +1522,7 @@ def borrar_lote(id_lote: str):
             raise HTTPException(409, "Ese lote se esta procesando ahora")
         ESTADO.lotes.remove(lote)
         ESTADO.guardar()
+    ESTADO.archivar(lote)
     return {"ok": True}
 
 

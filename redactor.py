@@ -652,6 +652,7 @@ class _AvisosDelHilo:
         return len(self._lista())
 
 
+HILO = threading.local()              # datos de la ultima redaccion de este hilo (acortado: hubo segunda pasada)
 AVISOS_LLAMADA = _AvisosDelHilo()     # avisos que deja la ultima llamada al modelo (respuesta cortada...); redactar los recoge
 
 
@@ -1447,7 +1448,8 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
         raise RedactorError("No se han encontrado las lineas NAME/COMMENT en la respuesta:\n" + salida[:1500])
     campos["NAME"] = normalizar(campos["NAME"])
     campos["COMMENT"] = normalizar(campos["COMMENT"])
-    if acortar and len(campos["COMMENT"]) > TOPE_COMMENT:
+    HILO.acortado = bool(acortar and len(campos["COMMENT"]) > TOPE_COMMENT)
+    if HILO.acortado:
         campos["COMMENT"] = acortar_comment(campos["COMMENT"])
     campos["RESTRICCIONES"] = limpiar_restricciones(normalizar(campos["RESTRICCIONES"])) or "SIN AVISO"
     # la linea ENVIO la compone el programa: el modelo podia cambiar el numero, la fecha o el slug
