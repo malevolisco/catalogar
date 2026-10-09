@@ -1918,12 +1918,14 @@
   function pintarBarraSalud() {
     const cuenta = {};
     aprobadasDatos.forEach((e, i) => { const d = saludDatos[e.numero || "#" + (i + 1)]; if (d) cuenta[d.estado] = (cuenta[d.estado] || 0) + 1; });
-    if (!Object.keys(cuenta).length) { $("salud-barra").innerHTML = ""; return; }
+    if (!Object.keys(cuenta).length) { $("salud-barra").innerHTML = botonesPoda(); conectarPoda(); return; }
     $("salud-barra").innerHTML = `<select id="salud-filtro" style="width:auto">
         <option value="">Todas (${aprobadasDatos.length})</option>
         ${Object.entries(SALUD).filter(([k]) => cuenta[k]).map(([k, [, t]]) => `<option value="${k}" ${filtroSalud === k ? "selected" : ""}>${t} (${cuenta[k]})</option>`).join("")}
       </select>
-      ${cuenta.repetida ? `<button class="b mini riesgo" id="quitar-repetidas">Quitar las ${plural(cuenta.repetida, "repetida")}</button>` : ""}`;
+      ${cuenta.repetida ? `<button class="b mini riesgo" id="quitar-repetidas">Quitar las ${plural(cuenta.repetida, "repetida")}</button>` : ""}
+      ${botonesPoda()}`;
+    conectarPoda();
     $("salud-filtro").addEventListener("change", ev => { filtroSalud = ev.target.value; pintarAprobadas(aprobadasDatos); });
     $("quitar-repetidas")?.addEventListener("click", async () => {
       if (!confirm("¿Quitar las aprobadas repetidas? Se queda la versión más nueva de cada una.")) return;
@@ -1934,6 +1936,45 @@
       } catch (e) { avisar(e.message, true); }
     });
   }
+  // ---- poda: solo se quedan las valiosas; lo retirado se puede recuperar (redactor.podar_ejemplos)
+  function botonesPoda() {
+    return `<button class="b mini" id="podar" title="Retira las repetidas, las que chocan con el criterio de ahora y las que no se usan">Podar ahora</button>
+      <button class="b mini" id="ver-retiradas">Retiradas</button>`;
+  }
+  function conectarPoda() {
+    $("podar")?.addEventListener("click", async () => {
+      try {
+        const vista = await api("POST", "/api/ejemplos/podar", { simular: true });
+        if (!vista.retiradas.length) { avisar("Todas las aprobadas son valiosas: no hay nada que podar."); return; }
+        const lista = vista.retiradas.map(x => "· " + x.numero + ": " + x.motivo).join("\n");
+        if (!confirm(`Se retirarían ${vista.retiradas.length}:\n\n${lista}\n\nNo se borran: quedan en Retiradas y se pueden recuperar. ¿Seguir?`)) return;
+        const r = await api("POST", "/api/ejemplos/podar", {});
+        avisar("Retiradas: " + r.retiradas.map(x => x.numero).join(", "));
+        aprobadasDatos = r.ejemplos; pedirSalud();
+      } catch (e) { avisar(e.message, true); }
+    });
+    $("ver-retiradas")?.addEventListener("click", pintarRetiradas);
+  }
+  async function pintarRetiradas() {
+    let r;
+    try { r = await api("GET", "/api/ejemplos/retiradas"); } catch (e) { avisar(e.message, true); return; }
+    const caja = $("lista-aprobadas");
+    caja.innerHTML = `<p class="pista"><button class="b mini" id="volver-aprobadas">← Volver a las aprobadas</button>
+        ${r.retiradas.length ? plural(r.retiradas.length, "ficha retirada") + ". Recuperar la devuelve a las aprobadas." : "No hay ninguna retirada."}</p>`
+      + `<div class="lista">` + r.retiradas.map(x => `<div class="fila"><div style="flex:1">
+          <div class="pista" style="margin:0 0 4px">${esc(x.envio)} · retirada el ${esc(x.fecha)} · ${esc(x.motivo)}</div>
+          <div><b>${esc(x.name)}</b></div><div>${esc(x.comment)}</div></div>
+          <button class="b mini" data-recuperar="${esc(x.numero)}">Recuperar</button></div>`).join("") + `</div>`;
+    $("volver-aprobadas").addEventListener("click", () => pintarAprobadas(aprobadasDatos));
+    caja.querySelectorAll("[data-recuperar]").forEach(b => b.addEventListener("click", async () => {
+      try {
+        const res = await api("POST", "/api/ejemplos/recuperar/" + encodeURIComponent(b.dataset.recuperar));
+        avisar("Recuperada " + b.dataset.recuperar);
+        aprobadasDatos = res.ejemplos; pintarRetiradas();
+      } catch (e) { avisar(e.message, true); }
+    }));
+  }
+
   function pintarAprobadas(lista) {
     if (lista !== aprobadasDatos) { aprobadasDatos = lista; pedirSalud(); }
     pintarBarraSalud();
@@ -2494,7 +2535,7 @@
       + dato("Versión", r.version)
       + dato("En marcha desde", r.arrancado + " · " + horas);
     pedirConsumo();
-    pedirSalud();
+    pedirSaludEquipo();
   }
   // ---- salud: chequeos automaticos e informe (salud.py)
   let saludVisto = 0;
@@ -2511,13 +2552,13 @@
     $("salud-cuerpo").innerHTML = `<ul class="salud-lista">${lista}</ul>
       <p class="pista" style="margin:10px 0 0">Último chequeo: ${esc2(a.cuando.slice(11))} · ${esc2(d.diaria || "")}</p>${hist}`;
   }
-  async function pedirSalud(forzar) {
+  async function pedirSaludEquipo(forzar) {
     if (!forzar && Date.now() - saludVisto < 60000) return;
     try { pintarSalud(await api("GET", "/api/admin/salud")); saludVisto = Date.now(); } catch (e) {}
   }
   $("salud-comprobar").addEventListener("click", async () => {
     $("salud-comprobar").disabled = true;
-    try { await api("POST", "/api/admin/salud/comprobar"); await pedirSalud(true); avisar("Chequeo hecho."); }
+    try { await api("POST", "/api/admin/salud/comprobar"); await pedirSaludEquipo(true); avisar("Chequeo hecho."); }
     catch (e) { avisar(e.message, true); }
     $("salud-comprobar").disabled = false;
   });
@@ -2534,7 +2575,7 @@
   });
 
   $("copia-ahora").addEventListener("click", async () => {
-    try { const r = await api("POST", "/api/admin/copia/ahora"); avisar("Copia guardada en el equipo: " + r.nombre); pedirSalud(true); }
+    try { const r = await api("POST", "/api/admin/copia/ahora"); avisar("Copia guardada en el equipo: " + r.nombre); pedirSaludEquipo(true); }
     catch (e) { avisar(e.message, true); }
   });
 

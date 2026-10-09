@@ -392,6 +392,96 @@ def salud_ejemplos():
     return datos
 
 
+# ---------------------------------------------------------------------- poda de las aprobadas
+RETIRADAS_PATH = BASE_DIR / "cola" / "ejemplos_retirados.json"
+MIN_APROBADAS = 20         # la poda nunca deja menos (salvo las repetidas, que siempre tienen otra igual mas nueva)
+# avisos del validador que no descalifican una aprobada: son "miralo", no errores de criterio
+AVISO_LEVE_RE = re.compile(r"^(NAME de \d+ caracteres|NAME con un año|COMMENT de \d+ caracteres|COMMENT con una frase de|"
+                           r"Sustituto de cronica|El envio es solo material hablado|Palabra poco llana)")
+
+
+def protegidas():
+    """Numeros o identificadores citados en los comentarios (#) de ejemplos.md: excepciones aprobadas aposta
+    (las de la jefa, las que superan un margen a proposito). La poda no las toca."""
+    try:
+        cabecera = " ".join(l for l in EJEMPLOS_PATH.read_text(encoding="utf-8").splitlines() if l.startswith("#"))
+    except OSError:
+        return set()
+    return set(re.findall(r"\b[A-Z0-9][A-Z0-9_-]{3,}\b", cabecera))
+
+
+def _motivo_poda(d):
+    """Por que sobra una aprobada, o "" si es valiosa."""
+    if d["estado"] == "repetida":
+        return d["motivos"][0] if d["motivos"] else "Repetida"
+    if d["estado"] == "sin_uso":
+        return d["motivos"][0] if d["motivos"] else "Sin uso"
+    if d["estado"] == "revisar":
+        graves = [m for m in d["motivos"] if not AVISO_LEVE_RE.match(m)]
+        return "Choca con el criterio de ahora: " + "; ".join(graves[:2]) if graves else ""
+    return ""
+
+
+def leer_retiradas():
+    import json
+    try:
+        return json.loads(RETIRADAS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
+def _guardar_retiradas(lista):
+    import json
+    RETIRADAS_PATH.parent.mkdir(exist_ok=True)
+    tmp = RETIRADAS_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(lista[:500], ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(RETIRADAS_PATH)
+
+
+def podar_ejemplos(simular=False):
+    """Retira las aprobadas que no son verdaderamente valiosas: repetidas (hay otra igual mas nueva), las que chocan
+    con el criterio de ahora (avisos graves del validador) y las que en 30 dias no han acompañado a ningun envio.
+    No borra: pasan a cola/ejemplos_retirados.json y se recuperan con recuperar_ejemplo. Nunca toca las protegidas
+    (citadas en los comentarios de ejemplos.md) ni baja de MIN_APROBADAS. Devuelve [{numero, motivo, ...}]."""
+    ejemplos = listar_ejemplos()
+    salud = salud_ejemplos()
+    prot = protegidas()
+    orden = {"repetida": 0, "revisar": 1, "sin_uso": 2}
+    candidatas = []
+    for i, e in enumerate(ejemplos):
+        d = salud.get(e["numero"] or f"#{i + 1}")
+        if not d or not e["numero"] or e["numero"] in prot:
+            continue
+        motivo = _motivo_poda(d)
+        if motivo:
+            candidatas.append((orden.get(d["estado"], 9), e, motivo, d["estado"]))
+    candidatas.sort(key=lambda c: c[0])
+    quedan = len(ejemplos)
+    retiradas = []
+    for _, e, motivo, estado in candidatas:
+        if estado != "repetida" and quedan <= MIN_APROBADAS:
+            continue
+        retiradas.append({**e, "motivo": motivo, "estado": estado, "fecha": datetime.now().strftime("%Y-%m-%d %H:%M")})
+        quedan -= 1
+    if simular or not retiradas:
+        return retiradas
+    for r in retiradas:
+        quitar_ejemplo(r["numero"])
+    _guardar_retiradas(retiradas + [x for x in leer_retiradas() if x["numero"] not in {r["numero"] for r in retiradas}])
+    return retiradas
+
+
+def recuperar_ejemplo(numero):
+    """Devuelve una retirada a las aprobadas. True si estaba."""
+    lista = leer_retiradas()
+    r = next((x for x in lista if x["numero"] == str(numero)), None)
+    if r is None:
+        return False
+    anadir_ejemplo({"ENVIO": r["envio"], "NAME": r["name"], "COMMENT": r["comment"], "RESTRICCIONES": r["restricciones"]})
+    _guardar_retiradas([x for x in lista if x["numero"] != str(numero)])
+    return True
+
+
 def elegir_ejemplos(ficha, ejemplos=None, n=None):
     """Las fichas aprobadas mas parecidas a este envio, para que acompañen a la redaccion sin cargar todas.
     Parecido: palabras en comun (nombres, lugares, slug y titular de la agencia, que las aprobadas guardan

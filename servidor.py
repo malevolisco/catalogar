@@ -1686,6 +1686,29 @@ def quitar_repetidas():
     return {"quitadas": quitadas, "ejemplos": listar_ejemplos()}
 
 
+@app.post("/api/ejemplos/podar")
+async def podar(request: Request):
+    """Retira las aprobadas que no son valiosas (redactor.podar_ejemplos). {simular: true} solo dice cuales."""
+    datos = await _json(request)
+    retiradas = _redactor.podar_ejemplos(simular=bool(datos.get("simular")))
+    if retiradas and not datos.get("simular"):
+        log(f"Aprobadas retiradas por la poda: {', '.join(r['numero'] for r in retiradas)}")
+    return {"retiradas": retiradas, "ejemplos": listar_ejemplos()}
+
+
+@app.get("/api/ejemplos/retiradas")
+def ver_retiradas():
+    return {"retiradas": _redactor.leer_retiradas()}
+
+
+@app.post("/api/ejemplos/recuperar/{numero}")
+def recuperar(numero: str):
+    if not _redactor.recuperar_ejemplo(numero):
+        raise HTTPException(404, "No hay ninguna retirada con ese numero")
+    log(f"Aprobada {numero} recuperada de las retiradas")
+    return {"ejemplos": listar_ejemplos(), "retiradas": _redactor.leer_retiradas()}
+
+
 @app.delete("/api/ejemplos/{numero}")
 def borrar_ejemplo(numero: str):
     if not quitar_ejemplo(numero):
