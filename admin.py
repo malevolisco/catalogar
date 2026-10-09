@@ -437,6 +437,9 @@ CAMPOS = [
     ("colas", "Redacción", "Fichas que se redactan a la vez", "numero",
      "De 1 a 4. Con varios encargos a la vez, avanzan todos a la par. Cada una más gasta antes el límite de uso "
      "de Claude y más memoria de la Raspberry: 3 es un buen punto.", None, True),
+    ("poda_aprobadas", "Redacción", "Podar las aprobadas cada noche", "si_no",
+     "Retira las repetidas, las que chocan con el criterio de ahora y las que en 30 días no se han usado. "
+     "No borra: quedan en Aprobadas → Retiradas y se pueden recuperar.", None, False),
     ("ejemplos_por_ficha", "Redacción", "Fichas aprobadas que acompañan a cada envío", "numero",
      "Solo las más parecidas al envío; así puedes aprobar todas las que quieras sin alargar la redacción.", None, False),
     ("aprender_correcciones", "Redacción", "Aprender de mis correcciones", "si_no",
@@ -946,7 +949,7 @@ async def visor_orden(request: Request):
 # cifradas para ese equipo y en otro no sirven (alli se inicia sesion otra vez en la pestaña Navegador).
 COPIA = ["config.json", "ejemplos.md", "reglas_extra.md", "criterio_cambios.json", "fichas.csv", "mediacentral.json",
          "cola/estado.json", "cola/correos.jsonl", "cola/sugerencias.json", "cola/consolidadas.json", "cola/ejemplos_uso.json", "escenas_modelo.npz", "escenas_clases.json",
-         "escenas_entreno.json", "cola/consumo.json", "cola/salud.json", "cola/archivo_hechas.json"]
+         "escenas_entreno.json", "cola/consumo.json", "cola/salud.json", "cola/archivo_hechas.json", "cola/ejemplos_retirados.json"]
 CARPETAS_COPIA = ("escenas", "escenas_auto", "broma")   # imagenes de entrenar y lo del boton prohibido: viajan enteras
 # lo que depende del equipo: al cargar una copia se queda lo de este
 PROPIAS_DEL_EQUIPO = ("navegador", "navegador_ruta", "headless", "servidor_puerto")

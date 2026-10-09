@@ -436,9 +436,19 @@ def _correos_programados(cfg):
         DATOS["copia_dia"] = hoy
         _guardar()
         try:
-            hacer_copia()
+            hacer_copia()                 # primero la copia: lo que se pode queda tambien en ella
         except Exception as e:
             _log(f"No se ha podido hacer la copia de seguridad ({type(e).__name__}: {e})")
+    if cfg.get("poda_aprobadas", True) and ahora.hour >= COPIA_HORA and DATOS.get("poda_dia") != hoy:
+        DATOS["poda_dia"] = hoy
+        _guardar()
+        try:
+            retiradas = sys.modules["redactor"].podar_ejemplos()
+            if retiradas:
+                _log(f"Poda de las aprobadas: retiradas {', '.join(r['numero'] for r in retiradas)} "
+                     "(se recuperan en Aprobadas → Retiradas)")
+        except Exception as e:
+            _log(f"No se ha podido podar las aprobadas ({type(e).__name__}: {e})")
     try:
         h, m = (int(x) for x in str(cfg.get("salud_hora") or "08:00").split(":")[:2])
     except ValueError:

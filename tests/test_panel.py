@@ -17,3 +17,11 @@ def test_javascript_del_panel(tmp_path):
     fichero.write_text(js, encoding="utf-8")
     r = subprocess.run(["node", "--check", str(fichero)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[:500]
+
+
+def test_sin_funciones_repetidas():
+    # dos "function x" con el mismo nombre: la segunda pisa a la primera sin que nadie lo note
+    # (le paso a pedirSalud: las marcas de salud de las aprobadas dejaron de cargarse)
+    nombres = re.findall(r"(?:async\s+)?function\s+(\w+)\s*\(", PANEL.read_text(encoding="utf-8"))
+    repetidas = sorted({n for n in nombres if nombres.count(n) > 1})
+    assert not repetidas, f"funciones repetidas en el panel: {repetidas}"

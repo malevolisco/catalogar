@@ -46,6 +46,7 @@ DEFAULTS = {
     "ap_usuario": "", "ap_clave": "",
     "ebu_usuario": "", "ebu_clave": "",
     "colas": 3,                     # fichas que se redactan a la vez (1-4); el navegador sigue siendo uno
+    "poda_aprobadas": True,         # cada noche retira las aprobadas que no son valiosas (recuperables)
     "copias_locales": True,         # copia de seguridad cada noche en copias/ (salud.py)
     "copias_guardar": 7,
     "copia_correo_semanal": True,   # los lunes, la copia sin contraseñas al correo de correo_copia

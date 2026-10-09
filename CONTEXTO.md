@@ -68,6 +68,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - Agilidad (9 oct): hilo "copias" (Worker._bucle_copias) copia cada segundo las pendientes que ya estan hechas, sin
   turno ni navegador ni modelo. Al borrar un lote, sus hechas van a cola/archivo_hechas.json (ESTADO.archivo,
   5000 fichas) y ya_hecha busca tambien ahi. Registro "hecha en X s (agencia A s, redaccion R s, ...)".
+- Poda de aprobadas (9 oct): redactor.podar_ejemplos retira repetidas, las de "revisar" con avisos graves
+  (AVISO_LEVE_RE no cuenta) y sin_uso; nunca las citadas en los # de ejemplos.md (protegidas) ni por debajo de
+  MIN_APROBADAS (20). A cola/ejemplos_retirados.json, recuperables. Cada noche tras la copia (poda_aprobadas).
+  Arreglado: pedirSalud estaba repetida en el panel (la de Admin pisaba la de Aprobadas); prueba que lo vigila.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
