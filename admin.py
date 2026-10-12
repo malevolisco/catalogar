@@ -434,6 +434,9 @@ CAMPOS = [
     ("acortar_comment", "Redacción", "Acortar el COMMENT si se pasa", "si_no", "Segunda pasada automática.", None, False),
     ("presentacion", "Redacción", "Cómo se ven las fichas en la página", "opcion", "", [("mayusculas", "MAYÚSCULAS"), ("normalizado", "Texto normal")], False),
     ("miniaturas", "Redacción", "Fotogramas que se mandan al modelo", "numero", "0 = ninguno.", None, False),
+    ("reintentos_auto", "Lotes", "Reintentos automáticos de un fallo pasajero", "numero",
+     "Navegador cerrado o colgado, página que tarda, Claude que no contesta a tiempo: la ficha se vuelve a "
+     "intentar dentro del mismo lote. 0 = nunca.", None, False),
     ("colas", "Redacción", "Fichas que se redactan a la vez", "numero",
      "De 1 a 4. Con varios encargos a la vez, avanzan todos a la par. Cada una más gasta antes el límite de uso "
      "de Claude y más memoria de la Raspberry: 3 es un buen punto.", None, True),
