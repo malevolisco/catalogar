@@ -303,7 +303,9 @@ def pistas(situaciones):
         lineas.append(f"- Restriccion territorial que no afecta a España ({terr}): se ignora")
     for clave in ("archivo", "mudo", "ia", "bruto", "obituario", "correccion"):
         if clave in situaciones["claves"]:
-            lineas.append(f"- Situacion: {clave} ({situaciones['evidencia'].get(clave, '')})")
+            nota = (": SIN SONIDO solo si es video grabado sin audio; en capturas, fotos o publicaciones en redes no se marca"
+                    if clave == "mudo" else "")
+            lineas.append(f"- Situacion: {clave} ({situaciones['evidencia'].get(clave, '')}){nota}")
     if not lineas and situaciones["claves"] == []:
         lineas.append("- Ninguna restriccion reconocida en el texto: si no ves otra, RESTRICCIONES es SIN AVISO")
     acto = situaciones.get("acto")

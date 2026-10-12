@@ -213,6 +213,26 @@ class Estado:
                     return lote, f
         return None, None
 
+    def aprobada_previa(self, numero, slug, salvo_lote=None):
+        """La ficha aprobada mas reciente del mismo numero o del mismo slug (otra version del mismo asunto), con
+        lo que se corrigio del borrador del modelo, para que la redaccion respete esas decisiones. O None."""
+        slug = " ".join((slug or "").upper().split())
+        with self.lock:
+            for lote in self.lotes + self.archivo:
+                if lote["id"] == salvo_lote:
+                    continue
+                for f in lote["fichas"]:
+                    if f["estado"] != "hecha" or not f.get("aprobada") or not f.get("NAME"):
+                        continue
+                    suyo = f.get("slug") or ((f.get("ENVIO") or "").split("·")[2:3] or [""])[0]
+                    mismo_slug = bool(slug) and " ".join(suyo.upper().split()) == slug
+                    # Reuters reutiliza los Edit No: ahi el numero solo vale con el mismo slug; AP y EBU son unicos
+                    mismo_numero = f.get("numero") == numero and (agencia_de(numero) != "Reuters" or mismo_slug)
+                    if mismo_numero or mismo_slug:
+                        final = {c: f.get(c, "") for c in ("NAME", "COMMENT", "RESTRICCIONES")}
+                        return {**final, "cambios": _redactor.cambios_correccion(f.get("borrador"), final)}
+        return None
+
     def archivar(self, lote):
         """Al borrar un lote, sus fichas hechas pasan al archivo: si vuelve a pedirse ese envio, se copia al
         instante en vez de volver a la agencia y al modelo. Se guardan las ARCHIVO_MAX fichas mas recientes."""
@@ -940,7 +960,16 @@ class Worker(threading.Thread):
         if self.aviso_agencia_mandado:
             self.aviso_agencia_mandado = False
             log("Sesion de agencias: vuelve a funcionar.")
+        if not lote.get("rehacer") and datos.get("fecha") and not ficha.get("fecha"):
+            # sin fecha pedida, Reuters solo se copia de los ultimos dias (repite numeros); ahora la agencia ha
+            # dicho la fecha real del envio: si con ese numero y esa fecha ya hay ficha, es el mismo y se copia
+            ficha["fecha"] = datos["fecha"]
+            if self.volcar_hecha(lote, ficha):
+                return False
+        if not lote.get("rehacer"):
+            datos["aprobada_previa"] = ESTADO.aprobada_previa(ficha["numero"], datos.get("slug"), salvo_lote=lote["id"])
         with ESTADO.lock:
+            ficha["slug"] = datos.get("slug", "") or ficha.get("slug", "")
             ficha["headline"] = datos.get("headline", "")
             ficha["fecha"] = datos.get("fecha") or ficha.get("fecha", "")   # la real: con ella se reconoce despues
             ficha["alerta"] = datos.get("alerta", "")
