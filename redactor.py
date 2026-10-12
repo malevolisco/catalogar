@@ -537,6 +537,42 @@ def bloque_ejemplos(ficha):
             "detalles que el criterio ya corrige.\n\n" + "\n\n".join(bloques) + "\n\n")
 
 
+def cambios_correccion(borrador, final, maximo=6):
+    """Lo que el catalogador cambio al aprobar: ['COMMENT: quito «SIN SONIDO.»', 'NAME: cambio «X» por «Y»'].
+    Palabra a palabra, por campo; vacio si lo aprobo tal cual."""
+    import difflib
+    salida = []
+    for c in ("NAME", "COMMENT", "RESTRICCIONES"):
+        a, b = (borrador or {}).get(c, "").split(), (final or {}).get(c, "").split()
+        if a == b:
+            continue
+        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            antes, despues = " ".join(a[i1:i2]), " ".join(b[j1:j2])
+            if op == "delete":
+                salida.append(f"{c}: quitó «{antes}»")
+            elif op == "insert":
+                salida.append(f"{c}: añadió «{despues}»")
+            elif op == "replace":
+                salida.append(f"{c}: cambió «{antes}» por «{despues}»")
+    return salida[:maximo]
+
+
+def bloque_aprobada_previa(previa):
+    """Una ficha ya aprobada de este mismo envio o asunto, con lo que se corrigio: manda sobre los ejemplos."""
+    if not previa:
+        return ""
+    lineas = ["=== ESTE MISMO ENVIO (O UNA VERSION ANTERIOR) YA SE APROBO ASI ===",
+              f"NAME: {previa.get('NAME', '')}", f"COMMENT: {previa.get('COMMENT', '')}",
+              f"RESTRICCIONES: {previa.get('RESTRICCIONES', '')}"]
+    if previa.get("cambios"):
+        lineas.append("El catalogador corrigio el borrador del modelo antes de aprobarlo:")
+        lineas += [f"- {x}" for x in previa["cambios"]]
+        lineas.append("Esas correcciones son decisiones suyas: no vuelvas a escribir lo que quito ni a cambiar lo que puso.")
+    lineas.append("Partes de esa ficha. Cambia solo lo que el texto de ahora diga de forma distinta (una version nueva "
+                  "puede traer planos o datos nuevos); lo demas, igual.")
+    return "\n".join(lineas) + "\n\n"
+
+
 def construir_partes(ficha):
     """(system, user): las reglas van como system para poder cachearlas en la API; las fichas aprobadas
     parecidas, en user, porque cambian con cada envio."""
@@ -552,6 +588,7 @@ def construir_partes(ficha):
     pistas = ficha.get("pistas") or ""            # lo que situaciones.py ha detectado en el texto
     user = (
         bloque_ejemplos(ficha)
+        + bloque_aprobada_previa(ficha.get("aprobada_previa"))
         + "=== DATOS DE CODIGO ===\n" + datos
         + (("\n=== DETECTADO AUTOMATICAMENTE EN EL TEXTO (compruebalo, no lo copies a ciegas) ===\n" + pistas + "\n") if pistas else "")
         + "\n=== TEXTO DE LA FICHA ===\n" + texto

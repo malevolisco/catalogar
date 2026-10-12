@@ -144,7 +144,8 @@ def test_lo_ya_hecho_sale_al_instante_aunque_esten_ocupados(worker, monkeypatch)
     w, orden, cerrados = worker
     hecho = lote("H", ["0001"])
     hecho["estado"] = "hecho"
-    hecho["fichas"][0].update(estado="hecha", NAME="N", COMMENT="C", RESTRICCIONES="SIN AVISO", fecha="09/10/2026")
+    hoy = time.strftime("%d/%m/%Y")
+    hecho["fichas"][0].update(estado="hecha", NAME="N", COMMENT="C", RESTRICCIONES="SIN AVISO", fecha=hoy)
     lento = lote("L", ["0007", "0008"])
     repetido = lote("R", ["0001"])
     monkeypatch.setattr(servidor.ESTADO, "lotes", [repetido, lento, hecho])
@@ -177,3 +178,50 @@ def test_lo_borrado_de_la_cola_se_sigue_copiando(monkeypatch, tmp_path):
     _, f = servidor.ESTADO.ya_hecha("4681323")
     assert f is not None and f["NAME"] == "N"
     assert (tmp_path / "archivo.json").exists()
+
+
+def test_correccion_aprobada_llega_al_modelo(monkeypatch):
+    import redactor
+    aprobada = lote("H", ["8401"])
+    aprobada["fichas"][0].update(
+        estado="hecha", aprobada=True, fecha="08/10/2026",
+        ENVIO="8401 · 08/10/2026 · ISRAEL-PALESTINIANS/BRITAIN-CONSULATE-SAAR · REFILE: British consulate",
+        NAME="INTERNET ISRAEL GIDEON SAAR SOBRE CIERRE CONSULADO REINO UNIDO JERUSALEN",
+        COMMENT="INTERNET. PUBLICACION EN REDES SOCIALES DE GIDEON SAAR.", RESTRICCIONES="SIN AVISO",
+        borrador={"NAME": "INTERNET ISRAEL GIDEON SAAR SOBRE CIERRE CONSULADO REINO UNIDO JERUSALEN",
+                  "COMMENT": "INTERNET. SIN SONIDO. PUBLICACION EN REDES SOCIALES DE GIDEON SAAR.", "RESTRICCIONES": "SIN AVISO"})
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [aprobada])
+    monkeypatch.setattr(servidor.ESTADO, "archivo", [])
+    previa = servidor.ESTADO.aprobada_previa("8401", "ISRAEL-PALESTINIANS/BRITAIN-CONSULATE-SAAR")
+    assert previa and previa["cambios"] == ["COMMENT: quitó «SIN SONIDO.»"]
+    bloque = redactor.bloque_aprobada_previa(previa)
+    assert "SIN SONIDO" in bloque and "no vuelvas a escribir lo que quito" in bloque
+    # un Edit No de Reuters con otro slug es otra noticia: no cuenta
+    assert servidor.ESTADO.aprobada_previa("8401", "USA-ELECTION/OTHER") is None
+
+
+def test_reuters_sin_fecha_se_copia_si_la_agencia_confirma_la_fecha(worker, monkeypatch):
+    w, orden, cerrados = worker
+    hecha = lote("H", ["8401"])
+    hecha["estado"] = "hecho"
+    hecha["creado"] = "09/10/2026 14:38"
+    hecha["fichas"][0].update(estado="hecha", fecha="08/10/2026", NAME="N", COMMENT="C", RESTRICCIONES="SIN AVISO")
+    nuevo = lote("N", ["8401"])                                   # pedido dias despues y sin fecha
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [nuevo, hecha])
+    monkeypatch.setitem(servidor.CFG, "ya_hecha_dias", 3)
+
+    class Agencia:
+        def fetch(self, numero, fecha=None, creado=None):
+            return {"headline": "H", "fecha": "08/10/2026", "slug": "S", "numero": numero}
+
+    llamadas = []
+    monkeypatch.setattr(w, "abrir_navegador", lambda: Agencia())
+    # solo cuentan las del 8401: hilos de otras pruebas pueden seguir redactando lo suyo
+    monkeypatch.setattr(servidor, "redactar", lambda datos, **k: llamadas.append(1) if datos.get("numero") == "8401" else None)
+    threading.Thread(target=w.run, daemon=True).start()
+    t0 = time.time()
+    while "N" not in cerrados and time.time() - t0 < 5:
+        time.sleep(0.05)
+    w.parar = True
+    assert "N" in cerrados and not llamadas                       # copiada, sin gastar redaccion
+    assert nuevo["fichas"][0]["NAME"] == "N"
