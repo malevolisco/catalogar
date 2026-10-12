@@ -225,3 +225,39 @@ def test_reuters_sin_fecha_se_copia_si_la_agencia_confirma_la_fecha(worker, monk
     w.parar = True
     assert "N" in cerrados and not llamadas                       # copiada, sin gastar redaccion
     assert nuevo["fichas"][0]["NAME"] == "N"
+
+
+def test_fallo_pasajero_se_reintenta_en_el_lote(worker, monkeypatch):
+    w, orden, cerrados = worker
+    monkeypatch.setitem(servidor.CFG, "reintentos_auto", 2)
+    nuevo = lote("T", ["0901"])
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [nuevo])
+    intentos = []
+
+    class Agencia:
+        def fetch(self, numero, fecha=None, creado=None):
+            intentos.append(numero)
+            if len(intentos) == 1:
+                raise RuntimeError("Page.goto: Target page, context or browser has been closed")
+            return {"headline": "H", "fecha": "12/10/2026", "numero": numero}
+
+    monkeypatch.setattr(w, "abrir_navegador", lambda: Agencia())
+    monkeypatch.setattr(w, "cerrar_navegador", lambda: None)
+    threading.Thread(target=w.run, daemon=True).start()
+    t0 = time.time()
+    while "T" not in cerrados and time.time() - t0 < 5:
+        time.sleep(0.05)
+    w.parar = True
+    f = nuevo["fichas"][0]
+    assert f["estado"] == "hecha" and f["reintentos"] == 1 and len(intentos) == 2
+
+
+def test_fallo_que_no_es_pasajero_no_se_reintenta(monkeypatch):
+    w = servidor.Worker()
+    monkeypatch.setattr(servidor.ESTADO, "guardar", lambda: None)
+    monkeypatch.setitem(servidor.CFG, "reintentos_auto", 2)
+    f = {"id": "x", "etiqueta": "x", "estado": "en curso"}
+    assert not w._reintentar(f, "Extraccion: ValueError: numero mal escrito")
+    assert w._reintentar(f, "Extraccion: TargetClosedError: Page.goto: Target page ... has been closed")
+    assert w._reintentar(f, "Redaccion: Claude Code no respondio en 240 s")
+    assert not w._reintentar(f, "Extraccion: TimeoutError: Timeout 30000ms exceeded")   # ya van 2

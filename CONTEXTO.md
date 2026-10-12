@@ -76,6 +76,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   agencia (Reuters sin fecha fuera de ya_hecha_dias ya no se redacta otra vez). ESTADO.aprobada_previa (mismo numero
   en AP/EBU, mismo slug en Reuters) + redactor.cambios_correccion (diff borrador/aprobada) -> bloque "ESTE MISMO
   ENVIO YA SE APROBO ASI" en el prompt. Pista de mudo: SIN SONIDO no en capturas/redes. ficha["slug"] se guarda.
+- Reintentos (12 oct): Worker._reintentar devuelve la ficha a pendiente dentro del lote si el fallo casa con
+  RECUPERABLE_RE (navegador cerrado, timeout, Claude sin respuesta o a medias), hasta reintentos_auto (2);
+  "Volver a intentarlo" pone el contador a 0.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),

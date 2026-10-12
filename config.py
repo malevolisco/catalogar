@@ -45,6 +45,7 @@ DEFAULTS = {
     "reuters_usuario": "", "reuters_clave": "",
     "ap_usuario": "", "ap_clave": "",
     "ebu_usuario": "", "ebu_clave": "",
+    "reintentos_auto": 2,           # fallos pasajeros (navegador cerrado, tiempo agotado): reintentos dentro del lote
     "colas": 3,                     # fichas que se redactan a la vez (1-4); el navegador sigue siendo uno
     "poda_aprobadas": True,         # cada noche retira las aprobadas que no son valiosas (recuperables)
     "copias_locales": True,         # copia de seguridad cada noche en copias/ (salud.py)

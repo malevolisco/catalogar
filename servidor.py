@@ -14,6 +14,7 @@ Uso:
 Todo lo que se sube queda en la carpeta cola/ de este PC. Nunca sale de aqui.
 """
 import os
+import re
 import sys
 import json
 import time
@@ -437,6 +438,13 @@ def ventana_login(terminar, limite_minutos=10):
 
 # ====================================================================== worker
 _CERROJO_CSV = threading.Lock()
+# fallos pasajeros: el navegador se cerro o se colgo, la pagina tardo, Claude no contesto a tiempo o
+# devolvio algo a medias. La ficha vuelve a la cola dentro del mismo lote (reintentos_auto veces) en vez de
+# quedarse en error para "Volver a intentarlo" despues
+RECUPERABLE_RE = re.compile(
+    r"TargetClosed|has been closed|browser has disconnected|Connection closed|Execution context was destroyed|"
+    r"Navigation failed|net::ERR_|Timeout|timed out|no respondio en|No se han encontrado las lineas|"
+    r"corto la respuesta|Frame was detached|Target crashed|Page crashed", re.I)
 ESPERA_AGENCIA = 10 * 60      # sesion de agencia caducada: cada cuanto se vuelve a probar sola
 
 
@@ -814,7 +822,9 @@ class Worker(threading.Thread):
                     f"{self.fallos_seguidos} redacciones seguidas han fallado ({str(e).splitlines()[0][:160]})", 5 * 60))
                 self.fallos_seguidos = 0
                 return None, None
-            self.marcar_error(ficha, "Redaccion: " + str(e).splitlines()[0][:300])
+            motivo = "Redaccion: " + str(e).splitlines()[0][:300]
+            if not self._reintentar(ficha, motivo):
+                self.marcar_error(ficha, motivo)
             return None, None
         except Exception as e:
             self.marcar_error(ficha, f"{type(e).__name__}: {str(e).splitlines()[0][:300]}")
@@ -878,6 +888,19 @@ class Worker(threading.Thread):
                     f["normal"] = normal
                     ESTADO.guardar()
                 log(f"  {f.get('etiqueta', '')}: version normal hecha sin el modelo (revisa nombres propios)")
+
+    def _reintentar(self, ficha, motivo):
+        """Si el fallo es pasajero y quedan reintentos, la ficha vuelve a la cola de su lote. True si vuelve."""
+        maximo = int(CFG.get("reintentos_auto", 2) or 0)
+        hechos = int(ficha.get("reintentos") or 0)
+        if not RECUPERABLE_RE.search(motivo) or hechos >= maximo:
+            return False
+        with ESTADO.lock:
+            ficha["reintentos"] = hechos + 1
+            ficha["estado"], ficha["error"] = "pendiente", ""
+            ESTADO.guardar()
+        log(f"  {ficha['etiqueta']}: fallo pasajero ({motivo[:140]}); se reintenta ({hechos + 1} de {maximo})")
+        return True
 
     def marcar_error(self, ficha, mensaje):
         with ESTADO.lock:
@@ -954,8 +977,10 @@ class Worker(threading.Thread):
             self.marcar_error(ficha, str(e))
             return False
         except Exception as e:
-            self.marcar_error(ficha, f"Extraccion: {type(e).__name__}: {str(e).splitlines()[0][:200]}")
-            self.cerrar_navegador()
+            motivo = f"Extraccion: {type(e).__name__}: {str(e).splitlines()[0][:200]}"
+            self.cerrar_navegador()                # se abre de nuevo, limpio, con la siguiente ficha
+            if not self._reintentar(ficha, motivo):
+                self.marcar_error(ficha, motivo)
             return False
         if self.aviso_agencia_mandado:
             self.aviso_agencia_mandado = False
@@ -1594,6 +1619,7 @@ def reintentar(id_lote: str):
         for f in lote["fichas"]:
             if f["estado"] == "error":
                 f["estado"], f["error"] = "pendiente", ""
+                f["reintentos"] = 0                  # a mano: vuelve a tener sus reintentos automaticos
                 n += 1
         if n or any(f["estado"] == "pendiente" for f in lote["fichas"]):
             lote["estado"] = "pendiente"
