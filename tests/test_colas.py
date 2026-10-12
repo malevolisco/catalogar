@@ -212,11 +212,12 @@ def test_reuters_sin_fecha_se_copia_si_la_agencia_confirma_la_fecha(worker, monk
 
     class Agencia:
         def fetch(self, numero, fecha=None, creado=None):
-            return {"headline": "H", "fecha": "08/10/2026", "slug": "S"}
+            return {"headline": "H", "fecha": "08/10/2026", "slug": "S", "numero": numero}
 
     llamadas = []
     monkeypatch.setattr(w, "abrir_navegador", lambda: Agencia())
-    monkeypatch.setattr(servidor, "redactar", lambda *a, **k: llamadas.append(1))
+    # solo cuentan las del 8401: hilos de otras pruebas pueden seguir redactando lo suyo
+    monkeypatch.setattr(servidor, "redactar", lambda datos, **k: llamadas.append(1) if datos.get("numero") == "8401" else None)
     threading.Thread(target=w.run, daemon=True).start()
     t0 = time.time()
     while "N" not in cerrados and time.time() - t0 < 5:
