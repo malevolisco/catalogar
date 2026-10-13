@@ -169,7 +169,9 @@ def _reglas():
             "Despues de las tres lineas, y solo despues, anade estas tres con el MISMO texto de NAME, COMMENT y "
             "RESTRICCIONES pasado a escritura normal del español: mayuscula solo al inicio de frase y en nombres propios "
             "(personas, lugares, instituciones, obras), minusculas en el resto, tildes y dieresis correctas, siglas en "
-            "mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). Prohibido cambiar, añadir, quitar o reordenar palabras, cifras o "
+            "mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). En NAME_NORMAL, el pais inicial y la primera palabra tras el "
+            "con mayuscula inicial (Francia Enfrentamientos policía con manifestantes en plaza de la Bastilla). "
+            "Prohibido cambiar, añadir, quitar o reordenar palabras, cifras o "
             "signos: solo cambian mayusculas, minusculas y tildes.\n"
             "NAME_NORMAL: ...\nCOMMENT_NORMAL: ...\nRESTRICCIONES_NORMAL: ...\n"
         )
@@ -1066,12 +1068,47 @@ def fusionar_normal(original, candidato):
     return " ".join(salida), sueltas
 
 
+# paises de varias palabras: para saber donde acaba el pais inicial del NAME (los de una palabra no hace falta listarlos)
+PAISES_COMPUESTOS = (
+    "ESTADOS UNIDOS", "REINO UNIDO", "PAISES BAJOS", "COREA DEL SUR", "COREA DEL NORTE", "ARABIA SAUDI",
+    "ARABIA SAUDITA", "NUEVA ZELANDA", "COSTA RICA", "EL SALVADOR", "SRI LANKA", "REPUBLICA DOMINICANA",
+    "REPUBLICA CHECA", "EMIRATOS ARABES UNIDOS", "EMIRATOS ARABES", "BOSNIA HERZEGOVINA", "BOSNIA Y HERZEGOVINA",
+    "HONG KONG", "TIMOR ORIENTAL", "COSTA DE MARFIL", "GUINEA ECUATORIAL", "BURKINA FASO", "SIERRA LEONA",
+    "PUERTO RICO", "CIUDAD DEL VATICANO", "SANTA SEDE", "MACEDONIA DEL NORTE", "REPUBLICA DEMOCRATICA DEL CONGO",
+    "REPUBLICA CENTROAFRICANA", "SUDAN DEL SUR", "PAPUA NUEVA GUINEA", "TRINIDAD Y TOBAGO", "ISLAS FEROE",
+    "UNION EUROPEA", "CABO VERDE", "SAN MARINO", "NUEVA CALEDONIA")
+PREFIJOS_NAME = ("INTERNET",)        # van delante del pais en algunos NAME (INTERNET ISRAEL ...)
+
+
+def mayuscula_tras_pais(normal, original):
+    """En la version normal del NAME, la primera palabra tras el pais inicial con mayuscula:
+    "Francia Enfrentamientos policía con manifestantes en plaza de la Bastilla". normal y original (en
+    mayusculas) tienen las mismas palabras; el original sirve para reconocer el pais."""
+    palabras, orig = normal.split(), [unicodedata.normalize("NFD", w).encode("ascii", "ignore").decode().upper()
+                                      for w in original.split()]
+    if len(palabras) != len(orig) or len(palabras) < 2:
+        return normal
+    i = 1 if orig[0] in PREFIJOS_NAME and len(orig) > 2 else 0
+    largo = 1
+    for compuesto in sorted(PAISES_COMPUESTOS, key=len, reverse=True):
+        trozos = compuesto.split()
+        if orig[i:i + len(trozos)] == trozos:
+            largo = len(trozos)
+            break
+    j = i + largo
+    if j < len(palabras) and palabras[j][:1].islower():
+        palabras[j] = palabras[j][:1].upper() + palabras[j][1:]
+    return " ".join(palabras)
+
+
 def version_normal(campos, propuesta):
     """Los tres campos en escritura normal a partir de lo que propone el modelo (puede faltar). Devuelve
     (normal, avisos)."""
     normal, avisos = {}, []
     for c in ("NAME", "COMMENT", "RESTRICCIONES"):
         normal[c], sueltas = fusionar_normal(campos.get(c, ""), " ".join((propuesta.get(c) or "").split()))
+        if c == "NAME":
+            normal[c] = mayuscula_tras_pais(normal[c], campos.get(c, ""))
         if sueltas and propuesta.get(c):
             avisos.append(f"{c}: {sueltas} palabra(s) de la version en texto normal no venian bien del modelo y se han "
                           "pasado a minuscula sin el (revisa nombres propios)")
@@ -1088,7 +1125,8 @@ def presentar_normal(campos, timeout=120):
         "Estos tres textos son campos de una ficha de archivo audiovisual escritos en mayusculas sin tildes. "
         "Reescribelos en escritura normal del español: mayuscula solo al inicio de frase y en nombres propios "
         "(personas, lugares, instituciones, obras), minusculas en el resto, tildes y dieresis correctas, siglas "
-        "en mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). En NAME, ademas, la primera palabra con mayuscula inicial. "
+        "en mayusculas (EEUU, ONU, OTAN, UE, AP, RTVE). En NAME, ademas, el pais inicial y la primera palabra tras el "
+        "con mayuscula inicial (Francia Enfrentamientos policía con manifestantes en plaza de la Bastilla). "
         "PROHIBIDO cambiar, añadir, quitar o reordenar palabras, cifras o signos: solo cambia mayusculas, minusculas y tildes. "
         "Devuelve exactamente tres lineas con el mismo formato, NAME:, COMMENT: y RESTRICCIONES:, sin nada mas.\n\n" + entrada
     )

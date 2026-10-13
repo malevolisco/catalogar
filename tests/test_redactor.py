@@ -66,3 +66,29 @@ def test_claude_no_instalado_se_reconoce():
     assert r.NO_INSTALADO_RE.search('"claude" no se reconoce como un comando interno o externo,')
     assert r.NO_INSTALADO_RE.search("/bin/sh: 1: claude: not found")
     assert not r.NO_INSTALADO_RE.search("Error: File not found: foto.jpg")
+
+
+def test_mayuscula_tras_el_pais():
+    casos = [
+        ("FRANCIA ENFRENTAMIENTOS POLICIA CON MANIFESTANTES EN PLAZA DE LA BASTILLA",
+         "Francia enfrentamientos policía con manifestantes en plaza de la Bastilla",
+         "Francia Enfrentamientos policía con manifestantes en plaza de la Bastilla"),
+        ("REINO UNIDO PROTESTA ANTE PARLAMENTO", "Reino Unido protesta ante Parlamento",
+         "Reino Unido Protesta ante Parlamento"),
+        ("COREA DEL SUR ELECCIONES PRESIDENCIALES", "Corea del Sur elecciones presidenciales",
+         "Corea del Sur Elecciones presidenciales"),
+        ("INTERNET ISRAEL PUBLICACION GIDEON SAAR", "Internet Israel publicación Gideon Saar",
+         "Internet Israel Publicación Gideon Saar"),
+        ("ESPAÑA GOBIERNO PEDRO SANCHEZ", "España Gobierno Pedro Sánchez", "España Gobierno Pedro Sánchez"),
+    ]
+    for original, normal, esperado in casos:
+        assert r.mayuscula_tras_pais(normal, original) == esperado
+
+
+def test_version_normal_aplica_la_mayuscula():
+    campos = {"NAME": "FRANCIA ENFRENTAMIENTOS POLICIA CON MANIFESTANTES", "COMMENT": "PARIS. ENFRENTAMIENTOS.",
+              "RESTRICCIONES": "SIN AVISO"}
+    propuesta = {"NAME": "Francia enfrentamientos policía con manifestantes", "COMMENT": "París. Enfrentamientos.",
+                 "RESTRICCIONES": "Sin aviso"}
+    normal, _ = r.version_normal(campos, propuesta)
+    assert normal["NAME"] == "Francia Enfrentamientos policía con manifestantes"
