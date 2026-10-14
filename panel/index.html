@@ -1411,7 +1411,7 @@
     const div = document.createElement("div");
     const clase = { hecha:"lista", error:"fallo", "en curso":"trabajando" }[f.estado] || "";
     div.className = "ficha " + clase;
-    const marca = f.estado === "en curso" ? "redactando"
+    const marca = f.estado === "en curso" ? (f.fase === "agencia" ? "leyendo la agencia" : "redactando")
                 : f.estado === "pendiente" ? "en cola"
                 : f.copiada ? "ya hecha el " + f.copiada
                 : f.segundos ? f.segundos + " s" : "";
