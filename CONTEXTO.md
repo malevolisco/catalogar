@@ -84,9 +84,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   numero), pie de RTVE o linea que empieza por el nombre del remitente; _RUIDO_RE quita [cid:...] (el logo de
   Outlook dio un 9631 falso), enlaces, correos y telefonos. tests/test_buzon.py.
 - Reuters por identificador (16 oct): si la busqueda por numero no da candidatos, _buscar_por_id escribe en la
-  caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision en todos los dias y
-  luego :1..:12), fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 180 s. Abrir /all?id= sin
-  busqueda NO vale (Reuters lo borra). Comprobado a mano con 9631 del 13/10 (:4 da 1 resultado).
+  caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
+  fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
+  (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
