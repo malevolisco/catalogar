@@ -989,6 +989,10 @@ def diagnostico():
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted((BASE_DIR / "debug" / "capturas").glob("*.jpg")):
             z.write(f, f"capturas/{f.name}", compress_type=zipfile.ZIP_STORED)
+        # lo que se guardo de las busquedas que no encontraron nada (las 10 ultimas)
+        volcados = sorted((BASE_DIR / "debug").glob("*_resultados.*"), key=lambda f: f.stat().st_mtime)[-20:]
+        for f in volcados:
+            z.write(f, f"busquedas/{f.name}")
         z.writestr("registro.txt", "\n".join(f"[{c}] {t}" for _, c, t in list(REGISTRO)[-1500:]))
         try:
             import salud
