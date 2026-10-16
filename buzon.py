@@ -54,6 +54,17 @@ IMAP_TIMEOUT = 60           # segundos sin respuesta del servidor antes de rendi
 # Donde empieza lo que no es el mensaje: la firma, el correo citado debajo de una respuesta o de un reenvio
 _CORTE_RE = re.compile(r"^(?:-- ?|>.*|_{5,}|-{3,} ?Original Message ?-{3,}|-{3,} ?Mensaje original ?-{3,}|"
                        r"(?:De|From|Von)\s*:.*|El .{6,80} escribi[oó]:|On .{6,80} wrote:|Enviado desde mi .*)$", re.M | re.I)
+# Donde empieza la firma aunque no lleve "--": la despedida sola en su linea, o el pie corporativo
+_DESPEDIDA_RE = re.compile(r"^\s*(?:un\s+)?(?:saludos?|abrazos?|besos?)(?:\s+\w+){0,2}\s*[,.!]*\s*$|"
+                           r"^\s*(?:muchas\s+)?gracias(?:\s+de\s+antemano)?\s*[,.!]*\s*$|"
+                           r"^\s*(?:atentamente|cordialmente|best regards|kind regards|regards|thanks)\s*[,.!]*\s*$|"
+                           r"^\s*(?:radiotelevisi[oó]n espa[ñn]ola|corporaci[oó]n rtve|aviso legal|"
+                           r"mi jornada laboral|antes de imprimir|los datos personales ser[aá]n)\b.*$", re.M | re.I)
+# Lo que lleva cifras sin ser un envio: la imagen del logo de la firma que Outlook deja en el texto
+# ([cid:image001.png@01DC3F5A.9631E0B0], de ahi salio un 9631), enlaces, direcciones de correo y telefonos
+_RUIDO_RE = re.compile(r"\[?cid:[^\s\]]+\]?|\b(?:https?://|www\.)\S+|\S+@\S+\.\w+|"
+                       r"(?:\+34[\s.-]?)?\b[6789]\d(?:[\s.-]?\d){7}\b|\b(?:tel[eé]?f?o?n?o?|tlf|ext|extensi[oó]n)\.?\s*:?\s*[\d\s.-]+",
+                       re.I)
 # Años escritos en prosa ("26 de septiembre de 2026", "en 2025"): no son envios de Reuters
 _ANO_RE = re.compile(r"\b(?:de|del|en|año|ano)\s+(?:19|20)\d{2}\b", re.I)
 
@@ -123,11 +134,25 @@ def permitido(direccion, cfg):
     return d in conocidas
 
 
-def _sin_firma(cuerpo):
+def _sin_firma(cuerpo, nombre=""):
     """El cuerpo hasta la firma o el correo citado: lo de debajo (fechas, telefonos, fichas anteriores)
-    no es parte de la peticion."""
-    m = _CORTE_RE.search(cuerpo or "")
-    return cuerpo[:m.start()] if m else (cuerpo or "")
+    no es parte de la peticion. La firma empieza en un "--", en el correo citado, en una despedida sola en
+    su linea ("Un saludo", "Gracias"), en el pie de RTVE o en la linea que empieza por el nombre de quien
+    escribe ("Silvia Dominguez Mancha."). Lo que queda se limpia de imagenes, enlaces y telefonos."""
+    cuerpo = cuerpo or ""
+    cortes = [m.start() for m in (_CORTE_RE.search(cuerpo),) if m]
+    # una despedida solo corta si antes ya hay algun numero: "Saludos, me pasas el 0624" empieza ahi
+    despedida = next((m for m in _DESPEDIDA_RE.finditer(cuerpo) if re.search(r"\d", cuerpo[:m.start()])), None)
+    if despedida:
+        cortes.append(despedida.start())
+    if nombre and len(nombre.split()) >= 2:
+        firma = re.search(r"^\s*" + re.escape(nombre.split()[0]) + r"\s+" + re.escape(nombre.split()[1]) + r"\b",
+                          cuerpo, re.M | re.I)
+        if firma and firma.start() > 0:
+            cortes.append(firma.start())
+    if cortes:
+        cuerpo = cuerpo[:min(cortes)]
+    return _RUIDO_RE.sub(" ", cuerpo)
 
 
 def _trabajos(texto):
@@ -221,7 +246,7 @@ def peticion_de(msg, tope=MAX_NUMEROS):
     nombre, de = _remitente(msg)
     asunto = _texto(msg["Subject"])
     cuerpo, adjuntos = _cuerpo(msg)
-    texto = " ".join([asunto, _sin_firma(cuerpo)])
+    texto = " ".join([asunto, _sin_firma(cuerpo, nombre)])
     trabajos = _trabajos(texto)
     numeros = [n for n, _ in trabajos]
     fechas = {n: f for n, f in trabajos if f}
