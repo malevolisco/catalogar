@@ -52,17 +52,18 @@ def test_identificador_de_reuters():
 
 
 def test_plan_b_de_reuters_busca_por_identificador():
-    """Sin resultados por numero: escribe el identificador en la caja, primero sin revision y luego 1, 2, 3..."""
+    """Sin resultados por numero: escribe el identificador de cada dia en la caja, del mas reciente hacia atras."""
     from datetime import datetime
     import extractor
     ex = object.__new__(extractor.Extractor)
     escritos = []
     ex._buscar_a_mano = lambda numero, texto=None: escritos.append(texto) or True
     ex._sondear_lista = lambda numero, ms: ([{"fecha": "13/10/2026", "rev": "4"}]
-                                           if escritos[-1].endswith("RP1:4") else [])
+                                           if escritos[-1].endswith("RW963113102026RP1") else [])
     ex._is_login = lambda: False
     ex.captura = lambda nombre: None
-    cands = ex._buscar_por_id("9631", "13/10/2026")
+    cands = ex._buscar_por_id("9631", "", creado=datetime(2026, 10, 16, 9, 0))
     assert cands and cands[0]["rev"] == "4"
-    assert escritos == ["tag:reuters.com,2026:newsml_RW963113102026RP1"] + [
-        f"tag:reuters.com,2026:newsml_RW963113102026RP1:{r}" for r in (1, 2, 3, 4)]
+    assert escritos == [f"tag:reuters.com,2026:newsml_RW9631{d}102026RP1" for d in (16, 15, 14, 13)]
+    escritos.clear()
+    assert ex._buscar_por_id("9631", "13/10/2026") and len(escritos) == 1

@@ -34,12 +34,11 @@ DEBUG_DIR = BASE_DIR / "debug"
 BASE = "https://www.reutersconnect.com"
 SEARCH_URL = BASE + "/all?media-types=vid&search=all%3A{numero}"
 # el identificador de la ficha; escrito tal cual en la caja de busqueda, Reuters devuelve solo ese envio
-# (la busqueda por numero a veces no lo da: paso con el 9631 del 13/10). Con la revision (":4") seguro;
-# sin ella se prueba primero, por si vale
-#   tag:reuters.com,2026:newsml_RW963113102026RP1:4
+# (la busqueda por numero a veces no lo da: paso con el 9631 del 13/10). No hace falta la revision; con
+# otro dia da 0 resultados, asi que se prueba dia a dia
+#   tag:reuters.com,2026:newsml_RW963113102026RP1
 DIAS_POR_ID = 7              # sin fecha, se prueban el dia de la peticion (u hoy) y los 7 anteriores
-REVISIONES_POR_ID = 12       # revisiones que se prueban, de la 1 a esta
-TOPE_POR_ID = 180            # segundos como mucho para todo el plan B
+TOPE_POR_ID = 90             # segundos como mucho para todo el plan B
 
 
 def reuters_ident(numero, dia, rev=""):
@@ -952,8 +951,8 @@ class Extractor:
     def _buscar_por_id(self, numero, fecha, creado=None):
         """Plan B cuando la busqueda por numero no da nada: escribe en la caja el identificador de la ficha
         (tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1), que Reuters si encuentra. Con fecha, solo ese
-        dia; sin ella, el dia de la peticion (u hoy) y los DIAS_POR_ID anteriores. Primero sin revision en
-        todos los dias y luego de la 1 a REVISIONES_POR_ID, sin pasar de TOPE_POR_ID segundos.
+        dia; sin ella, el dia de la peticion (u hoy) y los DIAS_POR_ID anteriores, sin pasar de TOPE_POR_ID
+        segundos.
         Devuelve los candidatos de la lista (como la busqueda normal) o []."""
         import time as _time
         try:
@@ -961,13 +960,12 @@ class Extractor:
         except ValueError:
             base = None
         dias = [base] if base else [(creado or datetime.now()) - timedelta(days=k) for k in range(DIAS_POR_ID + 1)]
-        intentos = [(dia, "") for dia in dias] + [(dia, str(r)) for dia in dias for r in range(1, REVISIONES_POR_ID + 1)]
         t0 = _time.time()
-        for n, (dia, rev) in enumerate(intentos, 1):
+        for n, dia in enumerate(dias, 1):
             if _time.time() - t0 > TOPE_POR_ID:
                 print(f"  {numero}: plan B parado tras {n - 1} intentos ({TOPE_POR_ID} s)")
                 break
-            ident = reuters_ident(numero, dia, rev)
+            ident = reuters_ident(numero, dia)
             if not self._buscar_a_mano(numero, ident):
                 if self._is_login():
                     self._comprobar_acceso("Reuters Connect")
