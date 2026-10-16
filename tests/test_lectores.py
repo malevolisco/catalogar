@@ -41,3 +41,11 @@ def test_ap_json():
     d = ap_json.leer(ap_json.item_de(respuesta, "4681323"))
     assert (d["numero"], d["fecha"], d["duracion"]) == ("4681323", "06/10/2026", "00:01:30")
     assert "SHOTLIST" in d["texto"] and "No access Spain" in d["texto"]
+
+
+def test_url_de_reuters_por_identificador():
+    from datetime import datetime
+    import extractor
+    url = extractor.reuters_id_url("9631", datetime(2026, 10, 13), "4")
+    assert url == ("https://www.reutersconnect.com/all?id=tag%3Areuters.com%2C2026%3Anewsml_RW963113102026RP1%3A4"
+                   "&media-types=vid")
