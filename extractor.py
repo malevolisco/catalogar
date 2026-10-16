@@ -33,16 +33,18 @@ DEBUG_DIR = BASE_DIR / "debug"
 # ---------------------------------------------------------------- Reuters Connect
 BASE = "https://www.reutersconnect.com"
 SEARCH_URL = BASE + "/all?media-types=vid&search=all%3A{numero}"
-# la ficha abierta por su identificador (lo que deja la propia web en la barra de direcciones):
-#   /all?id=tag:reuters.com,2026:newsml_RW963113102026RP1:4&media-types=vid
-ID_URL = BASE + "/all?id={ident}&media-types=vid"
-DIAS_POR_ID = 7              # sin fecha, se prueban hoy y los 7 dias anteriores
+# el identificador de la ficha; escrito tal cual en la caja de busqueda, Reuters devuelve solo ese envio
+# (la busqueda por numero a veces no lo da: paso con el 9631 del 13/10). Con la revision (":4") seguro;
+# sin ella se prueba primero, por si vale
+#   tag:reuters.com,2026:newsml_RW963113102026RP1:4
+DIAS_POR_ID = 7              # sin fecha, se prueban el dia de la peticion (u hoy) y los 7 anteriores
+REVISIONES_POR_ID = 12       # revisiones que se prueban, de la 1 a esta
+TOPE_POR_ID = 180            # segundos como mucho para todo el plan B
 
 
-def reuters_id_url(numero, dia, rev=""):
-    """URL de la ficha de Reuters por su identificador: numero (Edit No), dia (date) y revision opcional."""
-    ident = f"tag:reuters.com,{dia:%Y}:newsml_RW{numero}{dia:%d%m%Y}RP1" + (f":{rev}" if rev else "")
-    return ID_URL.format(ident=quote(ident, safe=""))
+def reuters_ident(numero, dia, rev=""):
+    """Identificador de la ficha de Reuters: numero (Edit No), dia (date) y revision opcional."""
+    return f"tag:reuters.com,{dia:%Y}:newsml_RW{numero}{dia:%d%m%Y}RP1" + (f":{rev}" if rev else "")
 
 
 # la pagina de entrada: url64 es la direccion (en base64) a la que vuelve despues de entrar
@@ -928,18 +930,18 @@ class Extractor:
         except Exception:
             return False
 
-    def _buscar_a_mano(self, numero):
-        """Escribe el numero en la caja "Search for Video" y pulsa Enter: lo que haria una persona. Es
-        lo que funciona cuando la pagina se abre con la caja vacia y "0 items" aunque la URL lleve el
+    def _buscar_a_mano(self, numero, texto=None):
+        """Escribe el numero (o el texto) en la caja "Search for Video" y pulsa Enter: lo que haria una persona.
+        Es lo que funciona cuando la pagina se abre con la caja vacia y "0 items" aunque la URL lleve el
         numero, que es como la esta dejando ultimamente la aplicacion de Reuters."""
         try:
             caja = self._caja_busqueda()
             caja.click(timeout=5000)
             caja.fill("")
-            caja.fill(numero)
+            caja.fill(texto or numero)
             caja.press("Enter")
             self._page.wait_for_timeout(1500)
-            if not Extractor._url_busqueda_vista:
+            if not Extractor._url_busqueda_vista and not texto:
                 # se anota una vez la URL que deja la busqueda a mano, para poder actualizar SEARCH_URL
                 Extractor._url_busqueda_vista = True
                 print(f"[reuters] busqueda escrita a mano; la URL que deja Reuters es: {self._page.url}", file=sys.stderr)
@@ -947,37 +949,35 @@ class Extractor:
         except Exception:
             return False
 
-    def _abrir_por_id(self, numero, fecha, creado=None):
-        """Abre la ficha por su identificador newsml_RW{numero}{ddmmaaaa}RP1. Con fecha, solo ese dia; sin ella,
-        desde el dia en que se pidio (o hoy) hacia atras DIAS_POR_ID dias. Devuelve la fecha (dd/mm/aaaa) si
-        la encuentra, o None."""
-        page = self._page
-        base = None
+    def _buscar_por_id(self, numero, fecha, creado=None):
+        """Plan B cuando la busqueda por numero no da nada: escribe en la caja el identificador de la ficha
+        (tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1), que Reuters si encuentra. Con fecha, solo ese
+        dia; sin ella, el dia de la peticion (u hoy) y los DIAS_POR_ID anteriores. Primero sin revision en
+        todos los dias y luego de la 1 a REVISIONES_POR_ID, sin pasar de TOPE_POR_ID segundos.
+        Devuelve los candidatos de la lista (como la busqueda normal) o []."""
+        import time as _time
         try:
             base = datetime.strptime(fecha, "%d/%m/%Y") if fecha else None
         except ValueError:
             base = None
         dias = [base] if base else [(creado or datetime.now()) - timedelta(days=k) for k in range(DIAS_POR_ID + 1)]
-        for dia in dias:
-            for rev in ("", "1"):                      # sin revision suele dar la ultima; si no, la primera
-                try:
-                    page.goto(reuters_id_url(numero, dia, rev), wait_until="domcontentloaded")
-                except Exception:
-                    continue
-                for _ in range(16):                    # hasta 8 s a que la ficha pinte sus datos
-                    page.wait_for_timeout(500)
-                    try:
-                        cuerpo = page.locator("body").inner_text(timeout=2000)
-                    except Exception:
-                        cuerpo = ""
-                    if "Edit No" in cuerpo and numero in cuerpo and ("SHOWS" in cuerpo or "STORY" in cuerpo):
-                        print(f"  {numero}: la busqueda no lo daba; abierto por su identificador del {dia:%d/%m/%Y}")
-                        return f"{dia:%d/%m/%Y}"
+        intentos = [(dia, "") for dia in dias] + [(dia, str(r)) for dia in dias for r in range(1, REVISIONES_POR_ID + 1)]
+        t0 = _time.time()
+        for n, (dia, rev) in enumerate(intentos, 1):
+            if _time.time() - t0 > TOPE_POR_ID:
+                print(f"  {numero}: plan B parado tras {n - 1} intentos ({TOPE_POR_ID} s)")
+                break
+            ident = reuters_ident(numero, dia, rev)
+            if not self._buscar_a_mano(numero, ident):
                 if self._is_login():
                     self._comprobar_acceso("Reuters Connect")
-                self.captura(f"no_encontrado_{numero}_id_{dia:%d%m}{rev}")   # que se veia en cada intento
-                print(f"  {numero}: por identificador del {dia:%d/%m/%Y}{' rev ' + rev if rev else ''} no sale ({page.url[:160]})")
-        return None
+                continue
+            candidatos = self._sondear_lista(numero, 3000)     # el identificador da 1 resultado o ninguno: no hace falta esperar mas
+            if candidatos:
+                print(f"  {numero}: la busqueda por numero no lo daba; encontrado buscando {ident}")
+                return candidatos
+        self.captura(f"no_encontrado_{numero}_id")
+        return []
 
     def _fetch_reuters(self, numero, fecha, creado=None):
         import time as _time
@@ -999,17 +999,18 @@ class Extractor:
             intentos += 1
             candidatos = self._sondear_lista(numero, 15000)
         t_lista = _time.time() - t0
-        por_id = None
+        por_id = False
         if not candidatos:
             self._dump(f"{numero}_resultados", forzar=True)
             self.captura(f"no_encontrado_{numero}_busqueda")
             # la busqueda de Reuters a veces no devuelve un envio que existe (paso con el 9631 del 13/10):
-            # se abre la ficha directamente por su identificador, probando la fecha pedida o los ultimos dias
-            por_id = self._abrir_por_id(numero, fecha, creado)
-            if not por_id:
+            # se busca por su identificador, probando la fecha pedida o los ultimos dias
+            candidatos = self._buscar_por_id(numero, fecha, creado)
+            if not candidatos:
                 raise NotFound(f"NO ENCONTRADO: la busqueda de Reuters no ha dado ningun resultado para {numero} "
-                               f"en {intentos} intento(s), ni abriendo la ficha por su identificador; la pagina esta "
+                               f"en {intentos} intento(s), ni buscando su identificador; la pagina esta "
                                f"guardada en debug\\{numero}_resultados.txt")
+            por_id = True
         if self.debug:
             self._dump(f"{numero}_resultados")
             print(f"[debug] Reuters lista en {t_lista:.1f} s · {len(candidatos)} candidato(s)"
@@ -1017,12 +1018,11 @@ class Extractor:
                   + ", ".join(f"{c['fecha']} {c.get('hora') or ''} v{c['rev']}{' [enlace]' if c.get('href') else ' [sin enlace]'}"
                               for c in sorted(candidatos, key=Extractor._clave_orden, reverse=True)),
                   file=sys.stderr)
+        cand, motivo = self._elegir(candidatos, fecha, creado)
+        avisos_lista = []
         if por_id:
-            cand, motivo = {"fecha": por_id, "rev": "", "hora": ""}, ""
-            avisos_lista = [f"La busqueda de Reuters no devolvia el {numero}: abierta por su identificador (del {por_id})"]
-        else:
-            cand, motivo = self._elegir(candidatos, fecha, creado)
-            avisos_lista = []
+            avisos_lista.append(f"La busqueda de Reuters por numero no devolvia el {numero}: encontrado por su "
+                                f"identificador (del {cand['fecha']})")
         otras = sorted({c["fecha"] for c in candidatos} - {cand["fecha"]})
         if otras and not fecha:
             cuando = cand["fecha"] + (f" a las {cand['hora']}" if cand.get("hora") else "")
@@ -1035,8 +1035,7 @@ class Extractor:
                 avisos_lista.append(f"Hay mas envios con el numero {numero}: {', '.join(otras)}. "
                                     f"Cogido el mas reciente, del {cuando}")
         t1 = _time.time()
-        if not por_id:
-            self._abrir_reuters(cand, numero)
+        self._abrir_reuters(cand, numero)
         self._comprobar_acceso("Reuters Connect")
         # esperar a que la ficha tenga datos (script y Details), max 30 s
         restante = 30000
