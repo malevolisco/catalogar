@@ -975,6 +975,8 @@ class Extractor:
                         return f"{dia:%d/%m/%Y}"
                 if self._is_login():
                     self._comprobar_acceso("Reuters Connect")
+                self.captura(f"no_encontrado_{numero}_id_{dia:%d%m}{rev}")   # que se veia en cada intento
+                print(f"  {numero}: por identificador del {dia:%d/%m/%Y}{' rev ' + rev if rev else ''} no sale ({page.url[:160]})")
         return None
 
     def _fetch_reuters(self, numero, fecha, creado=None):
@@ -1000,6 +1002,7 @@ class Extractor:
         por_id = None
         if not candidatos:
             self._dump(f"{numero}_resultados", forzar=True)
+            self.captura(f"no_encontrado_{numero}_busqueda")
             # la busqueda de Reuters a veces no devuelve un envio que existe (paso con el 9631 del 13/10):
             # se abre la ficha directamente por su identificador, probando la fecha pedida o los ultimos dias
             por_id = self._abrir_por_id(numero, fecha, creado)
