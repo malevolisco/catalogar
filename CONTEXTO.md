@@ -83,6 +83,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - Buzon y firmas (16 oct): _sin_firma(cuerpo, nombre) corta tambien en despedida sola en su linea (si antes hubo un
   numero), pie de RTVE o linea que empieza por el nombre del remitente; _RUIDO_RE quita [cid:...] (el logo de
   Outlook dio un 9631 falso), enlaces, correos y telefonos. tests/test_buzon.py.
+- Reuters por identificador (16 oct): si la busqueda no da candidatos, _abrir_por_id prueba
+  /all?id=tag:reuters.com,AAAA:newsml_RW{num}{ddmmaaaa}RP1 (sin revision y con :1) en la fecha pedida o los
+  ultimos DIAS_POR_ID (7) dias. Caso 9631 del 13/10 que la busqueda no devolvia. Sin probar contra Reuters real.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),
