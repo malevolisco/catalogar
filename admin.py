@@ -513,6 +513,9 @@ CAMPOS = [
     ("copias_guardar", "Salud e informes", "Copias que se guardan", "numero", "", None, False),
     ("copia_correo_semanal", "Salud e informes", "Copia semanal a mi correo", "si_no",
      "Los lunes, sin contraseñas. Es la que te salva si se estropea la tarjeta de la Raspberry.", None, False),
+    ("nube_cerebro", "Salud e informes", "Mandar lo aprendido a Catalogator en la nube", "si_no",
+     "Cada noche, las aprobadas y los ajustes (sin contraseñas) a la propia cuenta de correo, para la versión "
+     "que funciona sin este equipo (NUBE.md).", None, False),
     ("informe_minutos_a_mano", "Salud e informes", "Minutos por ficha a mano", "numero", "Para calcular el tiempo ahorrado.", None, False),
     ("informe_minutos_revision", "Salud e informes", "Minutos de revisión por ficha", "numero", "", None, False),
 

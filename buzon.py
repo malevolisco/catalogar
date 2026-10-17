@@ -47,6 +47,10 @@ PREFIJOS_RE = re.compile(r"^(?:\s*(?:re|rv|fw|fwd|aw|tr|sv|rif|res|resp|respuest
 # Los correos que rechaza el buzon se marcan con esta etiqueta IMAP para no volver a bajarlos entera
 # en cada vuelta (siguen sin leer, a la vista en la bandeja)
 MARCA_RECHAZADO = "CatalogarRechazado"
+# Los correos a la direccion con +csv (catalogator+csv@gmail.com) son de Catalogator en la nube (nube.py):
+# aqui no se tocan, ni se marcan leidos; esta etiqueta solo evita bajarlos en cada vuelta
+SUFIJO_NUBE = "+csv"
+MARCA_NUBE = "CatalogarNube"
 FECHA_SUELTA_RE = re.compile(r"\b\d{2}/\d{2}/\d{4}\b")
 EXT_LISTA = (".csv", ".txt", ".tsv", ".xlsx")
 MAX_NUMEROS = 2000          # solo contra correos absurdos: lo normal se trocea en lotes en el servidor
@@ -111,6 +115,18 @@ def es_propio(asunto, in_reply_to="", references="", msg=None):
             return True
     limpio = PREFIJOS_RE.sub("", asunto or "").strip()
     return any(marca in limpio for marca in MARCAS) or limpio.startswith(ASUNTOS_PROPIOS)
+
+
+def direccion_nube(usuario):
+    """catalogator@gmail.com -> catalogator+csv@gmail.com"""
+    nombre, _, dominio = (usuario or "").partition("@")
+    return f"{nombre}{SUFIJO_NUBE}@{dominio}" if dominio else ""
+
+
+def es_para_nube(msg):
+    """True si el correo va a la direccion con +csv (en Para, Cc o en la entrega)."""
+    destinos = " ".join(str(msg.get(h) or "") for h in ("To", "Cc", "Delivered-To", "X-Original-To"))
+    return f"{SUFIJO_NUBE}@" in destinos.lower()
 
 
 def permitido(direccion, cfg):
@@ -283,7 +299,7 @@ def leer(cfg, marcar_leidos=True):
                                timeout=IMAP_TIMEOUT) as m:
             m.login(usuario, clave)
             m.select("INBOX")
-            ok, datos = m.search(None, "UNSEEN", "UNKEYWORD", MARCA_RECHAZADO)
+            ok, datos = m.search(None, "UNSEEN", "UNKEYWORD", MARCA_RECHAZADO, "UNKEYWORD", MARCA_NUBE)
             if ok != "OK":                                     # servidor sin etiquetas propias: como antes
                 ok, datos = m.search(None, "UNSEEN")
             if ok != "OK":
@@ -296,6 +312,12 @@ def leer(cfg, marcar_leidos=True):
                 try:
                     msg = email.message_from_bytes(bruto[0][1], policy=email.policy.default)
                     nombre, de = _remitente(msg)
+                    if es_para_nube(msg):
+                        try:
+                            m.store(num, "+FLAGS", f"({MARCA_NUBE})")   # de la nube: sin leer y sin tocar
+                        except imaplib.IMAP4.error:
+                            pass
+                        continue
                     if es_propio(_texto(msg["Subject"]), msg.get("In-Reply-To"), msg.get("References"), msg):
                         m.store(num, "+FLAGS", "\\Seen")          # respuesta a un correo nuestro: fuera, sin mas
                         continue

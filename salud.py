@@ -449,6 +449,13 @@ def _correos_programados(cfg):
                      "(se recuperan en Aprobadas → Retiradas)")
         except Exception as e:
             _log(f"No se ha podido podar las aprobadas ({type(e).__name__}: {e})")
+    if cfg.get("nube_cerebro", True) and ahora.hour >= COPIA_HORA and DATOS.get("cerebro_dia") != hoy:
+        DATOS["cerebro_dia"] = hoy        # despues de la poda: a la nube van las aprobadas que quedan
+        _guardar()
+        try:
+            mandar_cerebro()
+        except Exception as e:
+            _log(f"No se ha podido mandar lo aprendido a la nube ({type(e).__name__}: {e})")
     try:
         h, m = (int(x) for x in str(cfg.get("salud_hora") or "08:00").split(":")[:2])
     except ValueError:
@@ -490,6 +497,25 @@ def comprobar_ahora():
 def copia_ahora():
     ruta = hacer_copia()
     return {"ok": True, "nombre": ruta.name}
+
+
+def mandar_cerebro():
+    import cerebro
+    cfg = _cfg()
+    if not (cfg.get("correo_usuario") and cfg.get("correo_clave") and cfg.get("correo_servidor")):
+        return 0
+    return cerebro.mandar(cfg)
+
+
+@router.post("/api/admin/nube/cerebro")
+def cerebro_ahora():
+    try:
+        tam = mandar_cerebro()
+    except Exception as e:
+        raise HTTPException(400, f"No se ha podido mandar ({type(e).__name__}: {str(e)[:160]})")
+    if not tam:
+        raise HTTPException(400, "Falta el correo en Ajustes (servidor, usuario y contraseña de aplicación)")
+    return {"ok": True, "kb": round(tam / 1024)}
 
 
 @router.get("/api/admin/informe")

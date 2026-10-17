@@ -860,6 +860,13 @@
             <div id="copia-resultado"></div>
           </div>
           <div class="caja">
+            <h2>Catalogator en la nube</h2>
+            <p class="pista" style="margin:0 0 12px">La versión que contesta los CSV de MediaCentral sin este equipo encendido aprende de aquí: cada noche le llegan las aprobadas y los ajustes, sin contraseñas. Con este botón le llegan ahora.</p>
+            <div class="acciones-admin">
+              <button class="b" id="cerebro-ahora">Mandar a la nube ahora</button>
+            </div>
+          </div>
+          <div class="caja">
             <h2>Contraseña de Admin</h2>
             <div id="cambio-clave" class="oculto" style="display:grid; gap:8px; margin-bottom:10px">
               <input type="password" id="cc-actual" placeholder="Actual" autocomplete="current-password" aria-label="Contraseña actual">
@@ -2576,6 +2583,11 @@
 
   $("copia-ahora").addEventListener("click", async () => {
     try { const r = await api("POST", "/api/admin/copia/ahora"); avisar("Copia guardada en el equipo: " + r.nombre); pedirSaludEquipo(true); }
+    catch (e) { avisar(e.message, true); }
+  });
+
+  $("cerebro-ahora").addEventListener("click", async () => {
+    try { const r = await api("POST", "/api/admin/nube/cerebro"); avisar("Mandado a la nube (" + r.kb + " KB)."); }
     catch (e) { avisar(e.message, true); }
   });
 
