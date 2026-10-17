@@ -51,6 +51,7 @@ DEFAULTS = {
     "copias_locales": True,         # copia de seguridad cada noche en copias/ (salud.py)
     "copias_guardar": 7,
     "copia_correo_semanal": True,   # los lunes, la copia sin contraseñas al correo de correo_copia
+    "nube_cerebro": True,           # cada noche, lo aprendido (sin contraseñas) a la propia cuenta para nube.py
     "salud_cada_minutos": 60,       # chequeos de salud (salud.py)
     "salud_avisos": True,           # correo a correo_copia cuando algo deja de ir bien o se arregla
     "salud_diario": True,           # correo diario de "sigo vivo" a la hora de salud_hora

@@ -87,6 +87,19 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
   fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
+- Catalogator en la nube (17 oct, NUBE.md): .github/workflows/nube.yml corre nube.py cada 10 min en GitHub.
+  Lee por IMAP (UIDs) los correos de la ultima semana a la direccion +csv (buzon.es_para_nube) sin la marca
+  CatalogatorNubeHecho; cada fila del CSV/Excel de MediaCentral (Name + Comments) es una ficha con Comments
+  como texto de agencia (menos de 120 caracteres = sin texto, se descarta); detectar situaciones + redactar
+  (motor api u openai, 3 hilos) y contesta con correo.enviar_fichas, igual que responder_peticion. Fallo:
+  marca CatalogatorNubeFallo y reintenta; al segundo avisa y marca hecho. Lo aprendido llega por cerebro.py:
+  la Raspberry se manda cada noche (nube_cerebro, salud.py, tras la poda) "[Catalogación] Cerebro para la
+  nube" con cerebro.zip (ejemplos.md, reglas_extra.md, criterio_cambios.json, cola/ejemplos_uso.json y
+  config.json sin secretos); la nube usa el ultimo y borra los anteriores de la bandeja. Boton en Admin
+  "Mandar a la nube ahora" (/api/admin/nube/cerebro). La Raspberry marca los +csv con CatalogarNube y no los
+  toca. Secretos de GitHub: CATALOGATOR_CORREO, CATALOGATOR_CLAVE, CATALOGATOR_API_KEY (u _OPENAI_KEY); sin
+  ellos nube.py no hace nada. El registro de Actions es publico: solo cuentas, la salida de los modulos se
+  silencia. tests/test_nube.py.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
   broma; pieza "Copia de seguridad" en Salud). Vuelta atras (catalogator.py): si tras actualizar el servidor no
   arranca, restaurar_anterior() desde _anterior/ y VERSION_MALA para no reinstalarla. Pruebas: tests/ (pytest),

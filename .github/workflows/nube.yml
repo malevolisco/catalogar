@@ -1,0 +1,36 @@
+name: Catalogator en la nube
+
+# Cada 10 minutos (GitHub a veces se retrasa unos minutos): contesta los correos con CSV mandados a la
+# direccion +csv de la cuenta de Catalogator, sin ningun equipo encendido. Ver NUBE.md.
+# El registro de esta pagina es publico: nube.py solo escribe cuentas, nunca textos ni direcciones.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+# nunca dos a la vez: si una vuelta tarda (una lista larga), la siguiente espera
+concurrency:
+  group: nube
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  nube:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Librerias
+        run: pip install requests openpyxl
+      - name: Correos
+        env:
+          CATALOGATOR_CORREO: ${{ secrets.CATALOGATOR_CORREO }}
+          CATALOGATOR_CLAVE: ${{ secrets.CATALOGATOR_CLAVE }}
+          CATALOGATOR_API_KEY: ${{ secrets.CATALOGATOR_API_KEY }}
+          CATALOGATOR_OPENAI_KEY: ${{ secrets.CATALOGATOR_OPENAI_KEY }}
+        run: python nube.py
