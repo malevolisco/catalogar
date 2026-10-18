@@ -18,7 +18,9 @@ La respuesta dice cuáles son.
 ## Cómo funciona por dentro
 
 - GitHub ejecuta Catalogator cada 10 minutos, en sus servidores y gratis. No hace falta ningún equipo
-  encendido.
+  encendido: ni la Raspberry ni ningún ordenador.
+- Redacta Claude Code con **tu suscripción de Claude**, como la Raspberry. No hace falta la API ni se
+  paga por ficha.
 - Redacta con **el mismo programa** que la Raspberry: las mismas reglas, el mismo criterio, las mismas
   comprobaciones y la misma forma de elegir las fichas aprobadas parecidas.
 - Lo aprendido llega desde la Raspberry. Cada noche se manda a sí misma un correo «Cerebro para la nube»
@@ -47,10 +49,14 @@ siquiera tú una vez guardados. No los escribas en ningún otro sitio ni en ning
 |---|---|
 | `CATALOGATOR_CORREO` | La dirección de la cuenta de Catalogator (la de Admin → Correo) |
 | `CATALOGATOR_CLAVE` | Su contraseña de aplicación de Gmail (la misma de Admin → Correo) |
-| `CATALOGATOR_API_KEY` | La clave de la API de Claude (la de Admin → Redacción → Clave de la API) |
+| `CATALOGATOR_CLAUDE_TOKEN` | El token de un año de tu suscripción de Claude (el de Admin → Redacción → Token de Claude Code) |
 
-Si preferís ChatGPT, en vez de `CATALOGATOR_API_KEY` cread `CATALOGATOR_OPENAI_KEY` con la clave de
-OpenAI.
+Si en Admin no tienes ese token, se saca una vez en un ordenador con Claude Code instalado: abre la
+ventana de comandos, escribe `claude setup-token`, entra con tu cuenta de Claude y copia el código que
+empieza por `sk-ant-oat`. Dura un año.
+
+Solo si algún día preferís pagar por uso en vez de usar la suscripción: en lugar del token, se puede
+crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KEY` (ChatGPT).
 
 4. En Catalogator, **Admin → Catalogator en la nube → Mandar a la nube ahora**. Así la nube tiene ya lo
    aprendido, sin esperar a la noche.
@@ -60,7 +66,8 @@ OpenAI.
 ## Coste
 
 - GitHub: gratis.
-- Redacción: lo que cueste la API de Claude o de ChatGPT, céntimos por ficha.
+- Redacción: nada aparte de tu suscripción de Claude. Cuenta para el mismo límite de uso que la
+  Raspberry y que tu propio uso de Claude.
 
 ## Seguridad
 

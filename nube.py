@@ -14,9 +14,12 @@ reglas y las aprobadas que vienen con el programa.
 Lo que no hace: entrar en las agencias. El texto tiene que venir en la columna Comments del fichero.
 
 Lo que necesita, como secretos del repositorio en GitHub (nunca en el codigo):
-    CATALOGATOR_CORREO     la direccion de la cuenta (la misma de correo_usuario)
-    CATALOGATOR_CLAVE      su contraseña de aplicacion de Gmail
-    CATALOGATOR_API_KEY    la clave de la API de Claude (o CATALOGATOR_OPENAI_KEY para ChatGPT)
+    CATALOGATOR_CORREO        la direccion de la cuenta (la misma de correo_usuario)
+    CATALOGATOR_CLAVE         su contraseña de aplicacion de Gmail
+    CATALOGATOR_CLAUDE_TOKEN  el token de un año de la suscripcion de Claude (claude setup-token), el mismo
+                              de Admin: redacta Claude Code con la suscripcion, sin pagar por uso
+    (en su lugar, si se prefiere pagar por uso: CATALOGATOR_API_KEY de la API de Claude o
+     CATALOGATOR_OPENAI_KEY de ChatGPT)
 
 El registro de GitHub es publico: aqui solo se escriben cuentas (correos, filas, fichas), nunca textos,
 nombres ni direcciones. El detalle va en el correo de respuesta.
@@ -268,11 +271,31 @@ def configuracion():
     """La de los secretos de GitHub; None si faltan (la nube no esta puesta en marcha)."""
     usuario = os.environ.get("CATALOGATOR_CORREO", "").strip()
     clave = os.environ.get("CATALOGATOR_CLAVE", "").strip()
+    token = os.environ.get("CATALOGATOR_CLAUDE_TOKEN", "").strip()
     api = os.environ.get("CATALOGATOR_API_KEY", "").strip()
     openai = os.environ.get("CATALOGATOR_OPENAI_KEY", "").strip()
-    if not (usuario and clave and (api or openai)):
+    if not (usuario and clave and (token or api or openai)):
         return None
-    return {"correo_usuario": usuario, "correo_clave": clave, "api_key": api, "openai_key": openai}
+    return {"correo_usuario": usuario, "correo_clave": clave, "claude_token": token, "api_key": api,
+            "openai_key": openai}
+
+
+def motor(secretos):
+    """Con el token, Claude Code con la suscripcion (como la Raspberry); si no, la API de pago o ChatGPT."""
+    if secretos.get("claude_token"):
+        return "claude_code"
+    return "api" if secretos.get("api_key") else "openai"
+
+
+def instalar_claude_code():
+    """Claude Code no viene en el equipo de GitHub: se instala la primera vez que hace falta (unos segundos)."""
+    import shutil
+    import subprocess
+    if shutil.which("claude"):
+        return True
+    r = subprocess.run(["npm", "install", "-g", "--silent", "@anthropic-ai/claude-code"],
+                       capture_output=True, text=True, timeout=300)
+    return r.returncode == 0 and bool(shutil.which("claude"))
 
 
 def main():
@@ -295,10 +318,13 @@ def main():
         cfg.update(secretos)
         import redactor
         redactor.configurar(cfg)
-        # la nube no tiene Claude Code: con la clave de la API (o la de ChatGPT)
-        redactor.CFG["redactor"] = "api" if secretos["api_key"] else "openai"
+        redactor.CFG["redactor"] = motor(secretos)
         redactor.CFG["miniaturas"] = 0
-        print(f"{len(uids)} correo(s) nuevo(s); cerebro {'cargado' if aprendido else 'no encontrado: reglas de serie'}")
+        if redactor.CFG["redactor"] == "claude_code" and not instalar_claude_code():
+            print("No se ha podido instalar Claude Code: se reintenta en la vuelta siguiente")
+            return 1
+        print(f"{len(uids)} correo(s) nuevo(s); cerebro {'cargado' if aprendido else 'no encontrado: reglas de serie'}; "
+              f"redacta {'Claude con la suscripcion' if redactor.CFG['redactor'] == 'claude_code' else redactor.CFG['redactor']}")
         for uid in uids:
             atender(m, uid, cfg)
     return 0

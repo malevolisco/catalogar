@@ -97,7 +97,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   nube" con cerebro.zip (ejemplos.md, reglas_extra.md, criterio_cambios.json, cola/ejemplos_uso.json y
   config.json sin secretos); la nube usa el ultimo y borra los anteriores de la bandeja. Boton en Admin
   "Mandar a la nube ahora" (/api/admin/nube/cerebro). La Raspberry marca los +csv con CatalogarNube y no los
-  toca. Secretos de GitHub: CATALOGATOR_CORREO, CATALOGATOR_CLAVE, CATALOGATOR_API_KEY (u _OPENAI_KEY); sin
+  toca. Secretos de GitHub: CATALOGATOR_CORREO, CATALOGATOR_CLAVE y CATALOGATOR_CLAUDE_TOKEN (suscripcion:
+  Claude Code se instala con npm al hacer falta; _API_KEY u _OPENAI_KEY si se prefiere pagar por uso); sin
   ellos nube.py no hace nada. El registro de Actions es publico: solo cuentas, la salida de los modulos se
   silencia. tests/test_nube.py.
 - Robustez (7 oct): copias de seguridad (salud.py: cada noche en copias/, 7; lunes por correo sin config.json ni
