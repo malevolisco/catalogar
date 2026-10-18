@@ -122,6 +122,20 @@ def test_si_falla_se_reintenta_una_vez_y_luego_se_avisa():
 
 
 def test_sin_secretos_no_hace_nada(monkeypatch):
-    for k in ("CATALOGATOR_CORREO", "CATALOGATOR_CLAVE", "CATALOGATOR_API_KEY", "CATALOGATOR_OPENAI_KEY"):
+    for k in ("CATALOGATOR_CORREO", "CATALOGATOR_CLAVE", "CATALOGATOR_CLAUDE_TOKEN", "CATALOGATOR_API_KEY",
+              "CATALOGATOR_OPENAI_KEY"):
         monkeypatch.delenv(k, raising=False)
     assert nube.main() == 0
+
+
+def test_con_el_token_redacta_con_la_suscripcion(monkeypatch):
+    """Sin clave de pago: el token de un año de Claude Code basta, y manda sobre las claves de pago."""
+    monkeypatch.setenv("CATALOGATOR_CORREO", "c@gmail.com")
+    monkeypatch.setenv("CATALOGATOR_CLAVE", "x")
+    monkeypatch.setenv("CATALOGATOR_CLAUDE_TOKEN", "sk-ant-oat01-prueba")
+    monkeypatch.delenv("CATALOGATOR_API_KEY", raising=False)
+    monkeypatch.delenv("CATALOGATOR_OPENAI_KEY", raising=False)
+    secretos = nube.configuracion()
+    assert secretos and nube.motor(secretos) == "claude_code"
+    assert nube.motor({"api_key": "y"}) == "api" and nube.motor({"openai_key": "z"}) == "openai"
+    assert nube.motor({"claude_token": "t", "api_key": "y"}) == "claude_code"

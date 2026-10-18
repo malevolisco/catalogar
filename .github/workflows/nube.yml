@@ -22,6 +22,9 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -31,6 +34,7 @@ jobs:
         env:
           CATALOGATOR_CORREO: ${{ secrets.CATALOGATOR_CORREO }}
           CATALOGATOR_CLAVE: ${{ secrets.CATALOGATOR_CLAVE }}
+          CATALOGATOR_CLAUDE_TOKEN: ${{ secrets.CATALOGATOR_CLAUDE_TOKEN }}
           CATALOGATOR_API_KEY: ${{ secrets.CATALOGATOR_API_KEY }}
           CATALOGATOR_OPENAI_KEY: ${{ secrets.CATALOGATOR_OPENAI_KEY }}
         run: python nube.py
