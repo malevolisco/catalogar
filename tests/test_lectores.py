@@ -67,3 +67,17 @@ def test_plan_b_de_reuters_busca_por_identificador():
     assert escritos == [f"tag:reuters.com,2026:newsml_RW9631{d}102026RP1" for d in (16, 15, 14, 13)]
     escritos.clear()
     assert ex._buscar_por_id("9631", "13/10/2026") and len(escritos) == 1
+
+
+def test_la_lista_trae_el_texto_de_la_agencia_en_comments():
+    from listas import leer_lista
+    script = ("VIDEO SHOWS: PARIS, FRANCE (OCTOBER 16, 2026) (REUTERS - ACCESS ALL) 1. WIDE OF PROTESTERS BLOCKING "
+              "THE SCHOOL ENTRANCE 2. POLICE PUSHING PROTESTERS BACK STORY: Police pushed back protesters.")
+    csv = ('Name,Catalogador,Comments,Notas Internas,Created\n'
+           f'"0707 FRANCE-PROTEST: Police push back",,"{script}",,"16.10.2026 10:40:20 +02:00"\n'
+           '"4359 USA-MAMDANI: MAMDANI PRAISES LULA",,"TRATAR AGENCIAS",,"16.10.2026 10:50:00 +02:00"\n'
+           '"4360 USA-X: Y",,"' + "TEXTO EN ESPAÑOL YA CATALOGADO POR LA DOCUMENTALISTA SOBRE LA MANIFESTACION " * 3 + '",,""\n')
+    envios, _, _ = leer_lista("Search Results.csv", csv.encode("utf-8"))
+    textos = {e["numero"]: e["texto"] for e in envios}
+    assert textos["0707"] == script
+    assert textos["4359"] == "" and textos["4360"] == ""      # una nota o un texto en español: se va a la web

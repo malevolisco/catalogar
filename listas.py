@@ -47,6 +47,20 @@ CAB_TITULO = ("name", "nombre", "titulo", "title", "asunto", "envio", "descripci
 CAB_CATALOGADOR = ("catalogador", "cataloged by", "cataloger", "asignado", "usuario")
 CAB_IGNORAR = ("created", "creado", "fecha", "date", "modified", "modificado", "duracion", "duration")
 CAB_CREADO = ("created", "creado", "fecha de creacion", "creation date")
+# Comments: si trae el texto de la agencia (en ingles, el que sale en la web), se redacta de ahi sin abrir la web
+CAB_TEXTO = ("comments", "comment", "comentario", "comentarios")
+MIN_TEXTO_AGENCIA = 120          # menos es una nota ("TRATAR AGENCIAS"), no el texto de la agencia
+INGLES_RE = re.compile(r"\b(?:SHOWS|STORY|SHOTLIST|SOUNDBITE|RESTRICTIONS?|ACCESS|THE|AND|OF|WITH|FROM)\b", re.I)
+
+
+def texto_agencia(texto):
+    """El texto de la agencia que trae la columna Comments, o "" si lo que trae es otra cosa (una nota,
+    un texto en español ya catalogado). Se pide largo y en ingles: al menos tres palabras inglesas o
+    marcas de las agencias."""
+    texto = (texto or "").strip()
+    if len(texto) < MIN_TEXTO_AGENCIA or len(INGLES_RE.findall(texto)) < 3:
+        return ""
+    return texto
 
 # "26.09.2026 01:40:28 +02:00", "26/09/2026 1:40", "2026-09-26 01:40:28": fecha y hora de entrada en MediaCentral
 CREADO_RE = re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](\d{4})[ T]+(\d{1,2}):(\d{2})")
@@ -167,8 +181,9 @@ def leer_lista(nombre, datos):
     """Lee una lista de trabajo y devuelve (envios, descartes, aviso).
 
     envios:    [{"numero": "4359", "etiqueta": "USA-MAMDANI LULA-PRESSER: ...", "fila": 2,
-                 "catalogador": "I24082", "para": "javier", "creado": "21/09/2026 22:15"}, ...]
-               (para: a quien mandarle la ficha, o ""; creado: cuando entro en MediaCentral, o "")
+                 "catalogador": "I24082", "para": "javier", "creado": "21/09/2026 22:15", "texto": ""}, ...]
+               (para: a quien mandarle la ficha, o ""; creado: cuando entro en MediaCentral, o "";
+                texto: el de la agencia si lo trae Comments, y entonces no hace falta abrir la web)
     descartes: [{"fila": 3, "texto": "...", "motivo": "ya la tiene I99999"}, ...]
     aviso:     "" o una frase corta que conviene ensenar (por ejemplo, que el numero no abria la fila)
     """
@@ -183,6 +198,8 @@ def leer_lista(nombre, datos):
         raise ListaError("El fichero no tiene ninguna fila con datos")
 
     i_titulo, i_catalogador, i_creado, ignorar, hay_cabecera = _columnas(filas[0])
+    i_texto = next((i for i, c in enumerate(_sin_acentos(c) for c in filas[0]) if c in CAB_TEXTO), None) \
+        if hay_cabecera else None
     cuerpo = filas[1:] if hay_cabecera else filas
     if len(cuerpo) > MAX_FILAS:
         raise ListaError(f"La lista tiene {len(cuerpo)} filas y el tope son {MAX_FILAS}")
@@ -217,7 +234,7 @@ def leer_lista(nombre, datos):
             continue
         vistos.add(numero)
         envios.append({"numero": numero, "etiqueta": etiqueta, "fila": n, "catalogador": quien, "para": para,
-                       "creado": leer_creado(celda(i_creado))})
+                       "creado": leer_creado(celda(i_creado)), "texto": texto_agencia(celda(i_texto))})
 
     aviso = ""
     # Segunda pasada, solo si ninguna fila traia el numero delante: se busca dentro del titulo,
@@ -235,7 +252,8 @@ def leer_lista(nombre, datos):
                 continue
             vistos.add(numero)
             envios.append({"numero": numero, "etiqueta": texto[:LARGO_ETIQUETA], "fila": n, "catalogador": "", "para": "",
-                           "creado": leer_creado(fila[i_creado] if i_creado is not None and i_creado < len(fila) else "")})
+                           "creado": leer_creado(fila[i_creado] if i_creado is not None and i_creado < len(fila) else ""),
+                           "texto": texto_agencia(fila[i_texto] if i_texto is not None and i_texto < len(fila) else "")})
         if envios:
             aviso = ("En esta lista el numero no abria la fila: se ha cogido el primero que aparece en cada una. "
                      "Conviene comprobarlos antes de lanzar el lote.")

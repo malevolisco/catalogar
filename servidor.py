@@ -957,6 +957,10 @@ class Worker(threading.Thread):
         ha pasado (el hueco lo libera ese hilo al acabar); False si ha terminado aqui (copiada o con error)."""
         if not lote.get("rehacer") and self.volcar_hecha(lote, ficha):
             return False
+        if ficha.get("texto_csv"):
+            # la lista de MediaCentral ya trae el texto de la agencia: ni navegador ni sesion
+            ESTADO.empezar(ficha["id"], f"{lote['nombre']}: {ficha['etiqueta']}")
+            return self._a_redaccion(lote, ficha, datos_de_csv(ficha), time.time(), "del CSV")
         if ESTADO.sesion_agencia == "caducada" or self.pausa_agencia_hasta:
             if not self.pausa_agencia_hasta:       # la comprobo caducada otro (al arrancar, Comprobar sesion)
                 self.sesion_caducada("la comprobacion de la sesion dice que ha caducado")
@@ -986,6 +990,10 @@ class Worker(threading.Thread):
         if self.aviso_agencia_mandado:
             self.aviso_agencia_mandado = False
             log("Sesion de agencias: vuelve a funcionar.")
+        return self._a_redaccion(lote, ficha, datos, t0, "de la agencia")
+
+    def _a_redaccion(self, lote, ficha, datos, t0, origen):
+        """La ficha ya tiene su texto (de la agencia o del CSV): pasa a un hilo de redaccion."""
         if not lote.get("rehacer") and datos.get("fecha") and not ficha.get("fecha"):
             # sin fecha pedida, Reuters solo se copia de los ultimos dias (repite numeros); ahora la agencia ha
             # dicho la fecha real del envio: si con ese numero y esa fecha ya hay ficha, es el mismo y se copia
@@ -1003,12 +1011,32 @@ class Worker(threading.Thread):
             ficha["fase"] = "redaccion"          # el navegador queda libre para la siguiente
             ESTADO.guardar()
         # el navegador es uno: si leer la agencia tarda tanto como redactar, las fichas no se juntan
-        log(f"  {ficha['etiqueta']}: leida de la agencia en {time.time() - t0:.0f} s, pasa a redactarse")
+        log(f"  {ficha['etiqueta']}: leida {origen} en {time.time() - t0:.0f} s, pasa a redactarse")
         if datos.get("alerta"):
             log(f"  {ficha['etiqueta']}: {datos['alerta']}")
         ficha["t_agencia"] = round(time.time() - t0)     # lo que ha tardado la agencia (el resto es redaccion)
         self.redaccion.put((lote, ficha, datos, t0))
         return True
+
+
+def datos_de_csv(ficha):
+    """Lo que daria la agencia, sacado de la fila de la lista de MediaCentral: Name ("USA-MAMDANI LULA-PRESSER:
+    MAMDANI PRAISES ...") da el slug y el titular; Comments, el texto. La fecha es la pedida o la de entrada en
+    MediaCentral."""
+    from situaciones import detectar
+    slug, _, headline = (ficha.get("headline") or "").partition(": ")
+    if not headline:
+        slug, headline = "", slug
+    datos = {"agencia": agencia_de(ficha["numero"]).upper(), "numero": ficha["numero"],
+             "fecha": ficha.get("fecha") or (ficha.get("creado") or "").split(" ")[0],
+             "slug": slug.strip(), "headline": headline.strip(), "texto": ficha["texto_csv"],
+             "miniaturas": [], "fuente_texto": "csv",
+             "avisos": ["Texto de la agencia sacado de la columna Comments de la lista, sin abrir la web"]}
+    try:
+        detectar(datos)
+    except Exception as e:
+        datos["avisos"].append(f"No se pudieron detectar las situaciones ({type(e).__name__})")
+    return datos
 
 
 def enviar_correos(lote, reparto=None, formal=None):
@@ -1215,13 +1243,15 @@ class Buzon(threading.Thread):
                         # diciendo por que y no se encola nada, para no dejarlo esperando una respuesta
                         avisar_sin_envios(p, nota)
                         continue
-                    # el titulo que trae la lista se guarda solo para reconocer la ficha en el panel:
-                    # la fuente para redactar sigue siendo la ficha de la web de la agencia
+                    # el titulo que trae la lista se guarda para reconocer la ficha en el panel; la fuente
+                    # para redactar es la web de la agencia, salvo que Comments traiga ya su texto
                     titulos, destinos = {}, {}
-                    creados = {}
+                    creados, textos = {}, {}
                     for a in p["adjuntos"]:
                         for e in a["envios"]:
                             titulos.setdefault(e["numero"], e["etiqueta"])
+                            if e.get("texto"):
+                                textos.setdefault(e["numero"], e["texto"])
                             if e.get("para"):
                                 destinos.setdefault(e["numero"], e["para"])
                             if e.get("creado"):
@@ -1231,6 +1261,7 @@ class Buzon(threading.Thread):
                         # la fecha escrita junto al numero manda; si no, la comun del correo si la hay
                         f = ficha_vacia(n, titulos.get(n, ""), n, p["fechas"].get(n) or p["fecha"], creados.get(n, ""))
                         f["para"] = destinos.get(n, "")
+                        f["texto_csv"] = textos.get(n, "")
                         fichas.append(f)
                     nombre = f"correo de {p['nombre']}: " + ", ".join(p["numeros"][:3]) + (" ..." if len(p["numeros"]) > 3 else "")
                     lotes = crear_lotes("correo", nombre, fichas, responder_a=p["de"], asunto_origen=p["asunto"], nota=nota)
@@ -1462,6 +1493,7 @@ async def subir_lista(fichero: UploadFile = File(...), reparto: str = Form(""), 
     for e in envios:
         f = ficha_vacia(e["numero"], e["etiqueta"], e["numero"], fecha, e.get("creado", ""))
         f["para"] = e.get("para", "")
+        f["texto_csv"] = e.get("texto", "")
         fichas.append(f)
     nota = resumen_lista(envios, descartes) + ((". " + aviso) if aviso else "")
     lotes = crear_lotes("lista", nombre, fichas, nota=nota, rehacer=_es_formal(rehacer),

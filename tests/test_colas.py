@@ -287,3 +287,33 @@ def test_fallo_que_no_es_pasajero_no_se_reintenta(monkeypatch):
     assert w._reintentar(f, "Extraccion: TargetClosedError: Page.goto: Target page ... has been closed")
     assert w._reintentar(f, "Redaccion: Claude Code no respondio en 240 s")
     assert not w._reintentar(f, "Extraccion: TimeoutError: Timeout 30000ms exceeded")   # ya van 2
+
+
+def test_con_el_texto_en_la_lista_no_se_abre_la_web(worker, monkeypatch):
+    """Si la columna Comments de la lista trae el texto de la agencia, se redacta de ahi: ni navegador ni sesion."""
+    w, orden, cerrados = worker
+    texto = ("VIDEO SHOWS: PARIS, FRANCE (OCTOBER 16, 2026) (REUTERS - ACCESS ALL)\n1. WIDE OF PROTESTERS\n"
+             "STORY: Police pushed back protesters blocking a Paris high school on Thursday.")
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [lote("C", ["0707"])])
+    ficha = servidor.ESTADO.lotes[0]["fichas"][0]
+    ficha.update(texto_csv=texto, headline="FRANCE-PROTEST/BLOCKADE: Police push back protesters",
+                 creado="16/10/2026 10:40")
+    monkeypatch.setattr(servidor.ESTADO, "sesion_agencia", "caducada")      # ni con la sesion caducada espera
+    recibidos = []
+
+    def redactar(datos, **kw):
+        recibidos.append(datos)
+        return {"ENVIO": "", "NAME": "N", "COMMENT": "C", "RESTRICCIONES": "SIN AVISO"}, [], None
+
+    monkeypatch.setattr(servidor, "redactar", redactar)
+    monkeypatch.setattr(w, "abrir_navegador", lambda: (_ for _ in ()).throw(AssertionError("abrio el navegador")))
+    threading.Thread(target=w.run, daemon=True).start()
+    t0 = time.time()
+    while not cerrados and time.time() - t0 < 10:
+        time.sleep(0.05)
+    w.parar = True
+    assert cerrados == ["C"] and ficha["estado"] == "hecha"
+    d = recibidos[0]
+    assert (d["texto"], d["agencia"], d["fecha"]) == (texto, "REUTERS", "16/10/2026")
+    assert (d["slug"], d["headline"]) == ("FRANCE-PROTEST/BLOCKADE", "Police push back protesters")
+    assert any("Comments" in a for a in ficha["avisos"])

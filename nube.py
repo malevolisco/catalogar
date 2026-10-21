@@ -43,13 +43,12 @@ import cerebro                                    # noqa: E402
 from buzon import (es_propio, permitido, _texto, _remitente, asunto_respuesta, es_para_nube,   # noqa: E402
                    MARCA)
 from listas import (_filas_csv, _filas_xlsx, _sin_acentos, NUMERO_INICIAL_RE, CAB_CREADO, leer_creado,   # noqa: E402
-                    agencia_de, ListaError)
+                    agencia_de, texto_agencia, ListaError)
 
 HECHO = "CatalogatorNubeHecho"      # marca IMAP de los correos ya contestados desde la nube
 EXT = (".csv", ".tsv", ".txt", ".xlsx")
 CAB_NOMBRE = ("name", "nombre", "titulo", "title")
 CAB_COMENTARIO = ("comments", "comment", "comentario", "comentarios", "texto", "script", "shotlist", "story")
-MIN_TEXTO = 120                     # menos que esto no es el texto de una agencia ("TRATAR AGENCIAS")
 HILOS = 3
 MAX_FILAS = 300
 
@@ -88,7 +87,7 @@ def fichas_de_tabla(filas):
         if not headline:
             slug, headline = "", resto
         etiqueta = numero or nombre[:40] or f"fila {len(fichas) + len(descartes) + 2}"
-        if len(texto) < MIN_TEXTO:
+        if not texto_agencia(texto):
             descartes.append(etiqueta)
             continue
         creado = leer_creado(celda(i_creado))
