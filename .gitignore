@@ -6,3 +6,6 @@ broma/
 copias/
 # capturas y volcados de depuracion
 debug/
+
+# Fabrica (.claude/fabrica.md): trabajo de una sesion, nunca al repositorio
+.fabrica/
