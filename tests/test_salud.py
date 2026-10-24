@@ -62,3 +62,25 @@ def test_consumo_informe_sin_datos():
     consumo.DATOS["dias"] = {}
     m = consumo.informe()["media"]
     assert m["mb_item"] is None and m["euros_anio"] == 0
+
+
+def test_sin_internet_no_es_sesion_caducada(monkeypatch):
+    """Router apagado: la comprobacion no llega a las agencias. La cola espera, pero no se dice "sesion caducada"
+    ni se manda el correo de sesion caducada."""
+    import threading
+    import servidor
+    monkeypatch.setattr(servidor, "comprobar_sesion", lambda: (
+        "No se pudo comprobar (Error: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.reutersconnect.com/)"))
+    monkeypatch.setattr(servidor.ESTADO, "sesion_agencia", "sin abrir")    # se restaura al acabar
+    w = servidor.Worker()
+    avisos = []
+    monkeypatch.setattr(w, "avisar_agencia", avisos.append)
+    monkeypatch.setattr(w, "cerrar_navegador", lambda: None)
+    w._atender_encargo("comprobar", threading.Event(), {"resultado": None})
+    assert servidor.ESTADO.sesion_agencia == "sin internet"
+    assert w.pausa_agencia_hasta > 0 and not avisos
+    # una sesion caducada de verdad sigue avisando
+    monkeypatch.setattr(servidor, "comprobar_sesion", lambda: "Sesion de AP caducada: ejecuta python login.py")
+    w.pausa_agencia_hasta = 0
+    w._atender_encargo("comprobar", threading.Event(), {"resultado": None})
+    assert servidor.ESTADO.sesion_agencia == "caducada" and avisos

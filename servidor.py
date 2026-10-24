@@ -447,6 +447,9 @@ RECUPERABLE_RE = re.compile(
     r"Navigation failed|net::ERR_|Timeout|timed out|no respondio en|No se han encontrado las lineas|"
     r"corto la respuesta|Frame was detached|Target crashed|Page crashed", re.I)
 ESPERA_AGENCIA = 10 * 60      # sesion de agencia caducada: cada cuanto se vuelve a probar sola
+# sin red (router apagado, sin DNS): no es la sesion de la agencia, y no se avisa por correo de sesion caducada
+SIN_RED_RE = re.compile(r"net::ERR_(NAME_NOT_RESOLVED|INTERNET_DISCONNECTED|NETWORK_CHANGED|ADDRESS_UNREACHABLE|"
+                        r"CONNECTION_TIMED_OUT|PROXY_CONNECTION_FAILED|NETWORK_ACCESS_DENIED|NAME_RESOLUTION_FAILED)")
 
 
 class Worker(threading.Thread):
@@ -496,7 +499,9 @@ class Worker(threading.Thread):
                 problema = comprobar_sesion()       # si caduco y hay usuario y contraseña, entra sola (acceso.py)
                 self.ultima_comprobacion = time.time()
                 caja["resultado"] = problema
-                if problema:
+                if problema and SIN_RED_RE.search(problema):
+                    self.sin_internet(problema)        # router apagado o sin DNS: ni es la sesion ni se avisa
+                elif problema:
                     log(f"Sesion de agencias: {problema}")
                     if tipo == "comprobar_arranque" and CFG.get("login_al_arrancar", True) and not credenciales_agencias():
                         ESTADO.sesion_agencia = "caducada"
@@ -573,6 +578,16 @@ class Worker(threading.Thread):
             f"{datetime.fromtimestamp(self.pausa_agencia_hasta):%H:%M}.")
         self.cerrar_navegador()
         self.avisar_agencia(str(motivo))
+
+    def sin_internet(self, motivo):
+        """La comprobacion no ha llegado a las agencias porque no hay red: la cola espera y se vuelve a probar
+        como con la sesion caducada, pero sin correo (no hay nada que hacer en la agencia, y sin red tampoco
+        saldria)."""
+        ESTADO.sesion_agencia = "sin internet"
+        self.pausa_agencia_hasta = time.time() + ESPERA_AGENCIA
+        log(f"Sin conexion a internet: no se puede entrar en las agencias ({str(motivo)[:160]}). La cola espera y "
+            f"se vuelve a probar a las {datetime.fromtimestamp(self.pausa_agencia_hasta):%H:%M}.")
+        self.cerrar_navegador()
 
     def _a_la_cola(self, ficha):
         with ESTADO.lock:
