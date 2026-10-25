@@ -161,7 +161,7 @@ def chequear(arreglar=True):
 
     # agencias
     sesion = str(resumen.get("sesion_agencia") or "")
-    mala = any(p in sesion for p in ("caducada", "error", "antibot"))
+    mala = any(p in sesion for p in ("caducada", "error", "antibot", "sin internet"))
     pieza("agencias", "Agencias", not mala, sesion[:1].upper() + sesion[1:] if sesion else "Sin abrir todavía")
 
     # correo

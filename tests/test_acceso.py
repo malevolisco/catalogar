@@ -157,3 +157,25 @@ def test_registro_paso_a_paso_sin_contrasena(navegador):
     assert acceso.entrar(page, "yo@rtve.es", "buena", en_login, espera=3, decir=pasos.append)[0]
     assert any("usuario escrito" in p for p in pasos) and any("dentro" in p for p in pasos)
     assert not any("buena" in p for p in pasos)
+
+
+APLICACION_AP = "<nav>Latest · For you · Live · Planning</nav><h1>Live Now</h1>" + "<p>AP LIVE CHOICE: NEXT 12:00 (GMT)</p>" * 20
+
+
+def test_portada_de_ap_con_sesion_no_es_un_login(navegador):
+    """Con la sesion buena, AP enseña un momento la portada publica y luego dibuja lo de dentro: no es un login
+    (pasaba el 12, 17 y 21/10: se daba por caducada una sesion que servia)."""
+    import extractor
+    ex = extractor.Extractor()
+    cambia = f"<div id=app>{PORTADA_AP}</div><script>setTimeout(() => app.innerHTML = `{APLICACION_AP}`, 1000)</script>"
+    ex._page = pagina_en(navegador, "https://newsroom.ap.org/", cambia)
+    assert not ex._is_login()
+
+
+def test_entrar_cuando_ya_esta_dentro(navegador):
+    """Si la pagina deja de ser de login (ya estaba dentro), entrar no busca formulario: ha entrado, y sin esperar."""
+    import time
+    page = pagina_en(navegador, "https://newsroom.ap.org/", APLICACION_AP)
+    t0 = time.time()
+    assert acceso.entrar(page, "yo@rtve.es", "buena", lambda: False, espera=3) == (True, "")
+    assert time.time() - t0 < 5

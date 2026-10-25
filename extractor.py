@@ -256,6 +256,7 @@ ARGS_LIGEROS = ["--disable-dev-shm-usage", "--disable-gpu", "--disable-software-
 # "For existing AP customers, please sign in now..." con un boton Sign in
 SIN_SESION_RE = re.compile(r"please sign in|sign in to (continue|access)|log ?in to (continue|access)|"
                            r"for existing [\w ]{1,20}customers", re.I)
+SIN_SESION_CONFIRMA = 3            # vueltas de 0,8 s que el aviso de "sin sesion" tiene que seguir en la portada
 CAPTURAS_DIR = BASE_DIR / "debug" / "capturas"
 CAPTURAS_MAX = 30
 
@@ -467,18 +468,24 @@ class Extractor:
         # la portada: el guion de una ficha podria decir "sign in to access" sin que sea un login
         if u.path.rstrip("/").lower() not in ("", "/index.html", "/home"):
             return False
-        # la portada se dibuja con retraso: se espera a que tenga contenido antes de decidir
-        for _ in range(10):
+        # la portada se dibuja con retraso: se espera a que tenga contenido antes de decidir. AP sirve la portada
+        # publica y la aplicacion en la misma ruta y, con la sesion buena, enseña un momento la portada ("For
+        # existing AP customers... Sign in") antes de dibujar lo de dentro: solo es login si el aviso sigue ahi
+        # un rato despues (SIN_SESION_CONFIRMA)
+        visto = 0
+        for _ in range(10 + SIN_SESION_CONFIRMA):
             try:
                 texto = self._page.locator("body").inner_text(timeout=3000)[:5000]
             except Exception:
                 texto = ""
             if SIN_SESION_RE.search(texto):
-                return True
-            if len(texto) > 400:
-                return False
+                visto += 1
+                if visto > SIN_SESION_CONFIRMA:
+                    return True
+            elif len(texto) > 400:
+                return False                 # contenido sin el aviso (o el aviso se ha ido): dentro
             self._page.wait_for_timeout(800)
-        return False
+        return visto > 0
 
     def captura(self, etiqueta):
         """Captura de la pagina en debug/capturas/ (las CAPTURAS_MAX ultimas) cuando algo falla: se descargan
@@ -606,6 +613,8 @@ class Extractor:
                     self._recargar(url)
                 if not self._is_login():
                     return
+            if not self._is_login():
+                return                       # la pagina ya es la de dentro (la portada se dibujaba): habia sesion
             self.captura(f"sesion_{agencia}")
             raise NeedsLogin(f"Sesion de {agencia} caducada" + (
                 f" y el inicio de sesion automatico no ha podido: {self.login_fallido}" if self.login_fallido

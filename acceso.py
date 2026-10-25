@@ -88,13 +88,16 @@ def quitar_cookies(page):
     return False
 
 
-def esperar_formulario(page, espera=ESPERA_FORMULARIO):
-    """Espera a que se dibuje el formulario (o el boton de entrar), quitando el aviso de cookies si sale."""
+def esperar_formulario(page, espera=ESPERA_FORMULARIO, dentro=None):
+    """Espera a que se dibuje el formulario (o el boton de entrar), quitando el aviso de cookies si sale.
+    dentro(): True si la pagina ya es la de dentro (no va a salir formulario): se deja de esperar."""
     t0 = time.time()
     while time.time() - t0 < espera:
         quitar_cookies(page)
         if _visible(page, CAMPO_CLAVE + CAMPOS_USUARIO) or _boton_de_entrar(page):
             return True
+        if dentro and dentro():
+            return False
         page.wait_for_timeout(700)
     return False
 
@@ -154,15 +157,26 @@ def _donde(page):
         return "?"
 
 
+def _ya_dentro(sigue_en_login):
+    try:
+        return not sigue_en_login()
+    except Exception:
+        return False
+
+
 def entrar(page, usuario, clave, sigue_en_login, espera=ESPERA_PASO, decir=None):
     """Intenta iniciar sesion en la pagina que esta abierta. sigue_en_login(): True mientras se vea el login.
     decir(texto): cada paso, para el registro (nunca la contraseña). Devuelve (ok, motivo); el motivo dice por
     que no se ha podido, para el aviso por correo."""
     decir = decir or (lambda t: None)
     clave_puesta = False
-    if not esperar_formulario(page):
+    if not esperar_formulario(page, dentro=lambda: _ya_dentro(sigue_en_login)) and not _ya_dentro(sigue_en_login):
         decir(f"    sin formulario a la vista tras {ESPERA_FORMULARIO} s en {_donde(page)}")
     for _ in range(4):                                     # portada → usuario → contraseña → (respuesta)
+        if _ya_dentro(sigue_en_login):
+            # la portada se estaba dibujando y la sesion era buena (AP), o un paso anterior ya ha entrado
+            decir(f"    ya estaba dentro: {_donde(page)}")
+            return True, ""
         if _visible(page, CAMPOS_CODIGO):
             decir(f"    pide un codigo de verificacion en {_donde(page)}")
             return False, "la agencia pide un código de verificación: eso lo tiene que hacer una persona"
