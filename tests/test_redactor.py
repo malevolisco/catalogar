@@ -92,3 +92,27 @@ def test_version_normal_aplica_la_mayuscula():
                  "RESTRICCIONES": "Sin aviso"}
     normal, _ = r.version_normal(campos, propuesta)
     assert normal["NAME"] == "Francia Enfrentamientos policía con manifestantes"
+
+
+def test_name_sin_signos_ni_simbolos():
+    """En el titulo nunca van signos: V&A, 50%, A/B, comillas, parentesis... (Adrian, 26/10)."""
+    name, quitados = r.limpiar_name("REINO UNIDO EXPOSICION VESTUARIO FREDDIE MERCURY V&A Y DECLARACIONES COMISARIA")
+    assert "&" not in name and name == "REINO UNIDO EXPOSICION VESTUARIO FREDDIE MERCURY V Y A Y DECLARACIONES COMISARIA"
+    assert quitados == ["&"]
+    name, quitados = r.limpiar_name('EEUU SUBIDA 50% ARANCELES "TRUMP" (CHINA) A/B #ELECCIONES.')
+    assert name == "EEUU SUBIDA 50 POR CIENTO ARANCELES TRUMP CHINA A B ELECCIONES"
+    assert set(quitados) >= {"%", "/", '"', "(", ")", "#", "."}
+
+
+def test_name_limpio_no_cambia_y_conserva_guiones_y_enie():
+    for limpio in ("ESPAÑA RESUMEN PARTIDO GAUFF - BADOSA", "NORUEGA PRINCESA METTE-MARIT", "EEUU ARCHIVO 11S"):
+        assert r.limpiar_name(limpio) == (limpio, [])
+
+
+def test_redactar_limpia_el_name_y_avisa():
+    salida = ("NAME: REINO UNIDO EXPOSICION VESTUARIO FREDDIE MERCURY V&A\n"
+              "COMMENT: LONDRES. IMAGENES DE LA EXPOSICION.\nRESTRICCIONES: SIN AVISO")
+    with mock.patch.object(r, "llamar_modelo", return_value=salida), mock.patch.object(r, "registrar_uso"):
+        campos_, avisos, _ = r.redactar({"numero": "0001", "texto": "LONDON. SHOWS EXHIBITION."}, acortar=False)
+    assert "&" not in campos_["NAME"] and campos_["NAME"].endswith("V Y A")
+    assert any("quitados signos" in a for a in avisos)

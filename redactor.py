@@ -956,6 +956,26 @@ ABREVIATURA_RE = re.compile(r"\b(?:PTE|PDTE|PDTA|EXPTE|EXPDTE|VICEPTE|GRAL|SR|SR
                             r"PROF|ADMON|CTRA|AVDA|ADJ|DTOR|DTORA|DIR|PRES)\.(?=\s|,|$)")
 
 
+# en el NAME no va ningun signo ni simbolo: solo letras, cifras, espacios y el guion que permite la regla
+SIGNOS_NAME = {"&": " Y ", "%": " POR CIENTO ", "/": " ", "+": " "}
+NAME_PERMITIDO_RE = re.compile(r"[^A-ZÑ0-9 \-]")
+
+
+def limpiar_name(name):
+    """El NAME sin signos ni simbolos (V&A, 50%, A/B, "X", (Y)...), por si al modelo se le escapa alguno.
+    Devuelve (name, signos_quitados)."""
+    quitados = []
+    for signo, por in SIGNOS_NAME.items():
+        if signo in name:
+            quitados.append(signo)
+            name = name.replace(signo, por)
+    otros = sorted(set(NAME_PERMITIDO_RE.findall(name)))
+    if otros:
+        quitados += otros
+        name = NAME_PERMITIDO_RE.sub(" ", name)
+    return " ".join(name.split()), quitados
+
+
 def normalizar(texto):
     """Mayusculas y sin tildes ni dieresis, conservando la Ñ."""
     out = []
@@ -1611,7 +1631,7 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
     presentes = campos.pop("_presentes")
     if not campos["NAME"] and not campos["COMMENT"]:
         raise RedactorError("No se han encontrado las lineas NAME/COMMENT en la respuesta:\n" + salida[:1500])
-    campos["NAME"] = normalizar(campos["NAME"])
+    campos["NAME"], signos_name = limpiar_name(normalizar(campos["NAME"]))
     campos["COMMENT"] = normalizar(campos["COMMENT"])
     HILO.acortado = bool(acortar and len(campos["COMMENT"]) > TOPE_COMMENT)
     if HILO.acortado:
@@ -1620,6 +1640,8 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
     # la linea ENVIO la compone el programa: el modelo podia cambiar el numero, la fecha o el slug
     campos["ENVIO"] = linea_envio(ficha)
     avisos = validar(campos) + avisos_llamada
+    if signos_name:
+        avisos.append("NAME: quitados signos que no van en el título (" + " ".join(signos_name) + ")")
     if "RESTRICCIONES" not in presentes:
         avisos.append("RESTRICCIONES: el modelo no ha escrito la linea (respuesta cortada?); se ha puesto SIN AVISO, "
                       "comprobar las restricciones en la agencia")
