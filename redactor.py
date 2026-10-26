@@ -957,14 +957,16 @@ ABREVIATURA_RE = re.compile(r"\b(?:PTE|PDTE|PDTA|EXPTE|EXPDTE|VICEPTE|GRAL|SR|SR
 
 
 # en el NAME no va ningun signo ni simbolo: solo letras, cifras, espacios y el guion que permite la regla
+DECIMAL_RE = re.compile(r"(\d)[,.](\d)")
 SIGNOS_NAME = {"&": " Y ", "%": " POR CIENTO ", "/": " ", "+": " "}
-NAME_PERMITIDO_RE = re.compile(r"[^A-ZÑ0-9 \-]")
+NAME_PERMITIDO_RE = re.compile("[^A-ZÑ0-9 \\-\x00]")
 
 
 def limpiar_name(name):
     """El NAME sin signos ni simbolos (V&A, 50%, A/B, "X", (Y)...), por si al modelo se le escapa alguno.
     Devuelve (name, signos_quitados)."""
     quitados = []
+    name = DECIMAL_RE.sub("\\1\x00\\2", name)         # 6,5 o 6.5 (magnitudes, resultados): se protege la cifra
     for signo, por in SIGNOS_NAME.items():
         if signo in name:
             quitados.append(signo)
@@ -973,7 +975,22 @@ def limpiar_name(name):
     if otros:
         quitados += otros
         name = NAME_PERMITIDO_RE.sub(" ", name)
+    name = name.replace("\x00", ",")                      # el decimal, con su coma
     return " ".join(name.split()), quitados
+
+
+# quien distribuye el video no se dice (Adrian, 26/10): solo el origen (videoaficionado, redes) y el militar
+DISTRIBUIDOR_RE = re.compile(r"(?<!MILITAR) DISTRIBUIDO POR [^.]*")
+
+
+def quitar_distribuidor(comment):
+    """Quita "DISTRIBUIDO POR [quien]" del COMMENT, salvo MATERIAL MILITAR DISTRIBUIDO POR. Si la frase se queda
+    en "VIDEO." sola, se quita entera. Devuelve (comment, True si ha quitado algo)."""
+    nuevo = DISTRIBUIDOR_RE.sub("", comment)
+    if nuevo == comment:
+        return comment, False
+    nuevo = re.sub(r"(^|\.\s)VIDEO\.\s*", r"\1", nuevo)
+    return " ".join(nuevo.split()), True
 
 
 def normalizar(texto):
@@ -1636,12 +1653,16 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
     HILO.acortado = bool(acortar and len(campos["COMMENT"]) > TOPE_COMMENT)
     if HILO.acortado:
         campos["COMMENT"] = acortar_comment(campos["COMMENT"])
+    campos["COMMENT"], sin_distribuidor = quitar_distribuidor(campos["COMMENT"])
     campos["RESTRICCIONES"] = limpiar_restricciones(normalizar(campos["RESTRICCIONES"])) or "SIN AVISO"
     # la linea ENVIO la compone el programa: el modelo podia cambiar el numero, la fecha o el slug
     campos["ENVIO"] = linea_envio(ficha)
     avisos = validar(campos) + avisos_llamada
     if signos_name:
         avisos.append("NAME: quitados signos que no van en el título (" + " ".join(signos_name) + ")")
+    if sin_distribuidor:
+        avisos.append("Quitado DISTRIBUIDO POR del COMMENT: quien distribuye no se dice; si es de videoaficionado o "
+                      "de redes sociales, revisa que lo diga")
     if "RESTRICCIONES" not in presentes:
         avisos.append("RESTRICCIONES: el modelo no ha escrito la linea (respuesta cortada?); se ha puesto SIN AVISO, "
                       "comprobar las restricciones en la agencia")

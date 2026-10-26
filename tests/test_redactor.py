@@ -116,3 +116,19 @@ def test_redactar_limpia_el_name_y_avisa():
         campos_, avisos, _ = r.redactar({"numero": "0001", "texto": "LONDON. SHOWS EXHIBITION."}, acortar=False)
     assert "&" not in campos_["NAME"] and campos_["NAME"].endswith("V Y A")
     assert any("quitados signos" in a for a in avisos)
+
+
+def test_name_conserva_decimales_y_la_palabra_coma():
+    assert r.limpiar_name("JAPON TERREMOTO MAGNITUD 6,5") == ("JAPON TERREMOTO MAGNITUD 6,5", [])
+    assert r.limpiar_name("PACIENTE EN ESTADO DE COMA") == ("PACIENTE EN ESTADO DE COMA", [])
+
+
+def test_quien_distribuye_no_se_dice_salvo_el_ejercito():
+    """Nunca DISTRIBUIDO POR AP (ni nadie): videoaficionado o redes sociales; el militar si (Adrian, 26/10)."""
+    c = ("LOS ANGELES. VIDEO EN VERTICAL DISTRIBUIDO POR AP. ACTUACION DE CHAPPELL ROAN, CANTANTE, JUNTO A "
+         "CHRISTINA AGUILERA, CANTANTE, EN UN CONCIERTO BENEFICO.")
+    assert r.quitar_distribuidor(c) == (c.replace(" DISTRIBUIDO POR AP", ""), True)
+    assert r.quitar_distribuidor("GAZA. VIDEO DISTRIBUIDO POR REUTERS. DAÑOS EN EL HOSPITAL.") == \
+        ("GAZA. DAÑOS EN EL HOSPITAL.", True)
+    militar = "KIEV. MATERIAL MILITAR DISTRIBUIDO POR EL EJERCITO DE UCRANIA. ATAQUE CON DRONES."
+    assert r.quitar_distribuidor(militar) == (militar, False)
