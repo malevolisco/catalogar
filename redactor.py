@@ -957,7 +957,9 @@ ABREVIATURA_RE = re.compile(r"\b(?:PTE|PDTE|PDTA|EXPTE|EXPDTE|VICEPTE|GRAL|SR|SR
 
 
 # en el NAME no va ningun signo ni simbolo: solo letras, cifras, espacios y el guion que permite la regla
-DECIMAL_RE = re.compile(r"(\d)[,.](\d)")
+# una cifra con un solo separador: con tres cifras detras son miles (10.000 -> 10000); si no, decimal (6,5). Las
+# que llevan varios (fechas 26.10.2026) no se protegen: el NAME no lleva fechas y los separadores se van
+CIFRA_SEP_RE = re.compile(r"(?<![\d,.])(\d+)[,.](\d+)(?![\d]|[,.]\d)")
 SIGNOS_NAME = {"&": " Y ", "%": " POR CIENTO ", "/": " ", "+": " "}
 NAME_PERMITIDO_RE = re.compile("[^A-ZÑ0-9 \\-\x00]")
 
@@ -966,7 +968,7 @@ def limpiar_name(name):
     """El NAME sin signos ni simbolos (V&A, 50%, A/B, "X", (Y)...), por si al modelo se le escapa alguno.
     Devuelve (name, signos_quitados)."""
     quitados = []
-    name = DECIMAL_RE.sub("\\1\x00\\2", name)         # 6,5 o 6.5 (magnitudes, resultados): se protege la cifra
+    name = CIFRA_SEP_RE.sub(lambda m: m.group(1) + ("" if len(m.group(2)) == 3 else "\x00") + m.group(2), name)
     for signo, por in SIGNOS_NAME.items():
         if signo in name:
             quitados.append(signo)
@@ -979,17 +981,21 @@ def limpiar_name(name):
     return " ".join(name.split()), quitados
 
 
-# quien distribuye el video no se dice (Adrian, 26/10): solo el origen (videoaficionado, redes) y el militar
-DISTRIBUIDOR_RE = re.compile(r"(?<!MILITAR) DISTRIBUIDO POR [^.]*")
+# quien distribuye el video no se dice (Adrian, 26/10): solo el origen (videoaficionado, redes) y el militar. Solo
+# la formula de origen, una frase propia (VIDEO DISTRIBUIDO POR AP. / VIDEO EN VERTICAL DISTRIBUIDO POR AP.): un
+# DISTRIBUIDO POR dentro de otra frase (ALIMENTO DISTRIBUIDO POR LA ONU) es contenido y no se toca
+DISTRIBUIDOR_RE = re.compile(r"(^|\.\s+)(VIDEO|VIDEO EN VERTICAL|MATERIAL|MATERIAL EN VERTICAL) DISTRIBUIDO POR [^.,]*\.\s*")
 
 
 def quitar_distribuidor(comment):
-    """Quita "DISTRIBUIDO POR [quien]" del COMMENT, salvo MATERIAL MILITAR DISTRIBUIDO POR. Si la frase se queda
-    en "VIDEO." sola, se quita entera. Devuelve (comment, True si ha quitado algo)."""
-    nuevo = DISTRIBUIDOR_RE.sub("", comment)
+    """Quita la formula "VIDEO [EN VERTICAL] DISTRIBUIDO POR [quien]." del COMMENT: VIDEO EN VERTICAL se queda,
+    VIDEO solo desaparece. MATERIAL MILITAR DISTRIBUIDO POR no casa. Devuelve (comment, True si ha quitado algo)."""
+    def cambio(m):
+        resto = m.group(2).replace("VIDEO", "").replace("MATERIAL", "").strip()     # "EN VERTICAL" o ""
+        return m.group(1) + (f"VIDEO {resto}. " if resto else "")
+    nuevo = DISTRIBUIDOR_RE.sub(cambio, comment)
     if nuevo == comment:
         return comment, False
-    nuevo = re.sub(r"(^|\.\s)VIDEO\.\s*", r"\1", nuevo)
     return " ".join(nuevo.split()), True
 
 
@@ -1663,6 +1669,9 @@ def redactar(ficha, model=None, extra_args=None, timeout=None, acortar=None):
     if sin_distribuidor:
         avisos.append("Quitado DISTRIBUIDO POR del COMMENT: quien distribuye no se dice; si es de videoaficionado o "
                       "de redes sociales, revisa que lo diga")
+    elif re.search(r"\b(VIDEO|MATERIAL)\b(?! MILITAR)[^.]{0,20} DISTRIBUIDO POR", campos["COMMENT"]):
+        avisos.append("El COMMENT dice quien distribuye el video (DISTRIBUIDO POR): no se dice; pon MATERIAL DE "
+                      "VIDEOAFICIONADO o PUBLICADO EN REDES SOCIALES DE, si es el caso")
     if "RESTRICCIONES" not in presentes:
         avisos.append("RESTRICCIONES: el modelo no ha escrito la linea (respuesta cortada?); se ha puesto SIN AVISO, "
                       "comprobar las restricciones en la agencia")

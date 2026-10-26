@@ -121,6 +121,9 @@ def test_redactar_limpia_el_name_y_avisa():
 def test_name_conserva_decimales_y_la_palabra_coma():
     assert r.limpiar_name("JAPON TERREMOTO MAGNITUD 6,5") == ("JAPON TERREMOTO MAGNITUD 6,5", [])
     assert r.limpiar_name("PACIENTE EN ESTADO DE COMA") == ("PACIENTE EN ESTADO DE COMA", [])
+    assert r.limpiar_name("EEUU 10.000 MANIFESTANTES")[0] == "EEUU 10000 MANIFESTANTES"     # miles, no decimal
+    assert r.limpiar_name("EEUU 10,000 MANIFESTANTES")[0] == "EEUU 10000 MANIFESTANTES"
+    assert r.limpiar_name("EEUU DESFILE 26.10.2026")[0] == "EEUU DESFILE 26 10 2026"        # nunca 26,10,2026
 
 
 def test_quien_distribuye_no_se_dice_salvo_el_ejercito():
@@ -132,3 +135,19 @@ def test_quien_distribuye_no_se_dice_salvo_el_ejercito():
         ("GAZA. DAÑOS EN EL HOSPITAL.", True)
     militar = "KIEV. MATERIAL MILITAR DISTRIBUIDO POR EL EJERCITO DE UCRANIA. ATAQUE CON DRONES."
     assert r.quitar_distribuidor(militar) == (militar, False)
+
+
+
+def test_distribuido_por_dentro_de_otra_frase_no_se_toca():
+    """Solo la formula de origen: ALIMENTO DISTRIBUIDO POR LA ONU es contenido."""
+    for c in ("JUBA. ALIMENTO DISTRIBUIDO POR LA ONU A REFUGIADOS. FIN.",
+              "GAZA. VIDEO DISTRIBUIDO POR AP, MUESTRA DAÑOS. FIN."):
+        assert r.quitar_distribuidor(c) == (c, False)
+
+
+def test_redactar_avisa_si_queda_un_distribuidor():
+    salida = ("NAME: PALESTINA DAÑOS HOSPITAL GAZA\n"
+              "COMMENT: GAZA. VIDEO DISTRIBUIDO POR AP, MUESTRA DAÑOS EN EL HOSPITAL.\nRESTRICCIONES: SIN AVISO")
+    with mock.patch.object(r, "llamar_modelo", return_value=salida), mock.patch.object(r, "registrar_uso"):
+        _, avisos, _ = r.redactar({"numero": "0002", "texto": "GAZA. SHOWS DAMAGE."}, acortar=False)
+    assert any("DISTRIBUIDO POR" in a and "no se dice" in a for a in avisos)
