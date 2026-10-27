@@ -11,7 +11,7 @@ Redacta con el mismo codigo que la Raspberry (redactor.py, situaciones.py) y con
 aprendido: lo lee del ultimo correo "Cerebro para la nube" (cerebro.py). Sin ese correo redacta con las
 reglas y las aprobadas que vienen con el programa.
 
-Lo que no hace: entrar en las agencias. El texto tiene que venir en la columna Comments del fichero.
+Lo que no hace: entrar en las agencias. El texto tiene que venir en la columna Cont. (manda) o Comments.
 
 Lo que necesita, como secretos del repositorio en GitHub (nunca en el codigo):
     CATALOGATOR_CORREO        la direccion de la cuenta (la misma de correo_usuario)
@@ -43,7 +43,7 @@ import cerebro                                    # noqa: E402
 from buzon import (es_propio, permitido, _texto, _remitente, asunto_respuesta, es_para_nube,   # noqa: E402
                    MARCA)
 from listas import (_filas_csv, _filas_xlsx, _sin_acentos, NUMERO_INICIAL_RE, CAB_CREADO, leer_creado,   # noqa: E402
-                    agencia_de, texto_agencia, ListaError)
+                    agencia_de, texto_agencia, ListaError, CAB_CONT)
 
 HECHO = "CatalogatorNubeHecho"      # marca IMAP de los correos ya contestados desde la nube
 EXT = (".csv", ".tsv", ".txt", ".xlsx")
@@ -64,18 +64,20 @@ def _columna(normal, nombres):
 def fichas_de_tabla(filas):
     """Las filas de la tabla como fichas para redactar: (fichas, descartes). Cada ficha lleva numero, fecha,
     slug y headline sacados de Name (4359 USA-MAMDANI LULA-PRESSER: MAMDANI PRAISES ...) y como texto de la
-    agencia lo que traiga Comments. descartes: etiquetas de las filas sin texto suficiente."""
+    agencia lo que traiga Cont. o, si no, Comments. descartes: etiquetas de las filas sin texto suficiente."""
     if not filas:
         return [], []
     normal = [_sin_acentos(c or "") for c in filas[0]]
     i_nombre, i_texto = _columna(normal, CAB_NOMBRE), _columna(normal, CAB_COMENTARIO)
     i_creado = _columna(normal, CAB_CREADO)
-    if i_nombre is None or i_texto is None:
+    i_cont = next((i for i, c in enumerate(normal) if c in CAB_CONT), None)       # exacta: «Cont.» manda
+    if i_nombre is None or (i_texto is None and i_cont is None):
         raise ListaError("El fichero no tiene las columnas Name y Comments")
     fichas, descartes = [], []
     for fila in filas[1:MAX_FILAS + 1]:
         celda = lambda i: (fila[i] if i is not None and i < len(fila) else "") or ""
-        nombre, texto = celda(i_nombre).strip(), celda(i_texto).strip()
+        nombre = celda(i_nombre).strip()
+        texto = texto_agencia(celda(i_cont)) or celda(i_texto).strip()
         if not nombre and not texto:
             continue
         m = NUMERO_INICIAL_RE.match(nombre)

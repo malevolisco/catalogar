@@ -5,15 +5,16 @@ MediaCentral y te contesta con las fichas, igual que Catalogator.
 
 ## Cómo se usa
 
-1. En MediaCentral, exporta la búsqueda como CSV o Excel. Tiene que traer las columnas **Name** y
-   **Comments**, y en Comments el texto de la agencia en inglés (el plano a plano, la historia y las
-   restricciones).
+1. En MediaCentral, exporta la búsqueda como CSV o Excel. Tiene que traer la columna **Name** y el texto
+   de la agencia en inglés (el plano a plano, la historia y las restricciones) en **Cont.** o en
+   **Comments**. Si vienen las dos, manda Cont.
 2. Manda el fichero adjunto a la dirección de Catalogator con **+csv** delante de la arroba.
    Si la cuenta es `catalogator@gmail.com`, a **`catalogator+csv@gmail.com`**.
 3. En unos 5 minutos llega la respuesta, con el mismo formato de siempre (con el timbre puesto; sin él, GitHub
    puede tardar horas, ver «El timbre»).
 
-Las filas cuyo Comments no trae el texto de la agencia (por ejemplo «TRATAR AGENCIAS») no se redactan.
+Las filas que no traen el texto de la agencia ni en Cont. ni en Comments (por ejemplo «TRATAR AGENCIAS») no
+se redactan.
 La respuesta dice cuáles son.
 
 ## Cómo funciona por dentro
@@ -33,7 +34,7 @@ La respuesta dice cuáles son.
 
 ## Lo que no hace
 
-- No entra en Reuters, AP ni EBU: el texto tiene que venir en el CSV.
+- No entra en Reuters, AP ni EBU: el texto tiene que venir en el CSV (Cont. o Comments).
 - No tiene panel: no se aprueban fichas desde aquí. Se siguen aprobando en Catalogator.
 - No reutiliza fichas ya hechas ni manda cada ficha a su catalogador: todo vuelve a quien mandó el
   correo.
@@ -69,17 +70,19 @@ crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KE
 
 GitHub promete lanzar la nube cada 10 minutos, pero con los repositorios gratuitos la retrasa: en la práctica,
 cada 2 a 6 horas. El timbre lo arregla: es un programita de Google (Apps Script) que vive en la cuenta de Gmail de
-Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, avisa a
-GitHub y la nube arranca en ese momento. No lee el contenido de los correos: solo mira si los hay.
+Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, cambia el
+texto del issue «Timbre de la nube» del repositorio (el 64) y eso arranca la nube en ese momento. No lee el
+contenido de los correos: solo mira si los hay. Ese issue no hay que tocarlo ni cerrarlo.
 
 Se instala una vez (unos 10 minutos):
 
-**A. La llave de GitHub** (solo sirve para arrancar las tareas de este repositorio)
+**A. La llave de GitHub** (solo sirve para escribir en los issues de este repositorio)
 1. En GitHub, arriba a la derecha, tu foto → **Settings** → abajo del todo, **Developer settings** →
    **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
 2. **Token name**: Catalogator timbre. **Expiration**: 1 año (o lo que prefieras; cuando caduque, se crea otra).
 3. **Repository access**: **Only select repositories** → elige **malevolisco/catalogar**.
-4. **Permissions** → **Repository permissions** → **Actions**: **Read and write**. Nada más.
+4. **Permissions** → **Repository permissions** → **Issues**: **Read and write**. Nada más (GitHub añade solo
+   «Metadata: Read-only», que es obligatorio).
 5. **Generate token** y copia la llave (empieza por `github_pat_`). Solo se enseña una vez.
 
 **B. El programita, en la cuenta de Gmail de Catalogator**
@@ -96,13 +99,13 @@ Se instala una vez (unos 10 minutos):
 7. Abajo debe salir «Timbre instalado». Desde ahí, solo.
 
 Para comprobarlo: mándate un CSV a la dirección con +csv; en un par de minutos, en GitHub → **Actions** sale una
-vuelta nueva de «Catalogator en la nube». Si no, en script.google.com → **Ejecuciones** se ve qué ha dicho.
+vuelta nueva de «Catalogator en la nube», y unos minutos después llega la respuesta. Si no, en script.google.com →
+**Ejecuciones** se ve qué ha dicho.
 
-GitHub no deja limitar la llave a una sola tarea: con ella también se puede pedir que se publique una versión.
-Por eso esa tarea solo publica lo que ya está en `main` (lo aprobado) y no admite otra cosa que un número de
-versión; lo peor que podría hacer alguien con la llave es volver a publicar lo mismo o lanzar la nube. Aun así,
-vive solo en las Propiedades del script de la cuenta de Catalogator. Si alguna vez crees que se ha visto, bórrala
-en GitHub (**Fine-grained tokens** → **Delete**) y crea otra.
+La llave solo puede escribir en los issues: no puede lanzar tareas de GitHub, ni publicar versiones, ni tocar el
+código. Lo peor que podría hacer alguien que la consiguiera es escribir o borrar issues, o lanzar la nube más veces
+de la cuenta. Aun así, vive solo en las Propiedades del script de la cuenta de Catalogator. Si alguna vez crees que
+se ha visto, bórrala en GitHub (**Fine-grained tokens** → **Delete**) y crea otra.
 
 ## Coste
 

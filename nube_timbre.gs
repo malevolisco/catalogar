@@ -3,14 +3,18 @@
  *
  * GitHub, por sí solo, lanza la nube con horas de retraso. Este programita vive en la cuenta de Gmail de
  * Catalogator (script.google.com) y lo ejecuta Google cada minuto: si ha llegado un correo a la dirección
- * con +csv, avisa a GitHub para que arranque la nube en ese momento. No lee ni guarda el contenido de los
- * correos: solo mira si los hay. Quién se contesta y cómo lo decide la nube (nube.py).
+ * con +csv, cambia el texto del issue del timbre y eso arranca la nube en ese momento (nube.yml, «issues»).
+ * No lee ni guarda el contenido de los correos: solo mira si los hay. Quién se contesta y cómo lo decide la
+ * nube (nube.py).
+ *
+ * La llave solo puede tocar issues: nunca lanzar tareas de GitHub, que con ellas se podría publicar una
+ * versión (y el PC y la Raspberry la instalan solos).
  *
  * La llave de GitHub va en Configuración del proyecto -> Propiedades del script -> GITHUB_TOKEN, nunca aquí.
  * Instalación: pegar este código, guardar la llave y ejecutar una vez la función instalar().
  */
 const REPOSITORIO = 'malevolisco/catalogar';
-const FLUJO = 'nube.yml';
+const ISSUE = 64;                // «Timbre de la nube (no cerrar ni borrar)»: nube.yml solo atiende a este
 const PRIMERA_VEZ_HORAS = 2;     // la primera vez, mira los correos de las últimas 2 horas
 
 function timbre() {
@@ -36,19 +40,21 @@ function timbre() {
   if (ultimo <= desde) {
     return;
   }
-  const respuesta = UrlFetchApp.fetch(
-    'https://api.github.com/repos/' + REPOSITORIO + '/actions/workflows/' + FLUJO + '/dispatches', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        Authorization: 'Bearer ' + llave,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      payload: JSON.stringify({ref: 'main'}),
-      muteHttpExceptions: true,
-    });
-  if (respuesta.getResponseCode() === 204) {
+  const texto = 'Este issue es el timbre de Catalogator en la nube (NUBE.md, «El timbre»). Lo cambia solo ' +
+    'el programita de Gmail cuando llega un CSV, y eso arranca la nube. No hace falta tocarlo.\n\n' +
+    'Último aviso: ' + new Date(ultimo * 1000).toISOString();
+  const respuesta = UrlFetchApp.fetch('https://api.github.com/repos/' + REPOSITORIO + '/issues/' + ISSUE, {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: {
+      Authorization: 'Bearer ' + llave,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    payload: JSON.stringify({body: texto}),
+    muteHttpExceptions: true,
+  });
+  if (respuesta.getResponseCode() === 200) {
     props.setProperty('ULTIMO_AVISO', String(ultimo));
     console.log('Nube avisada');
   } else {

@@ -81,3 +81,19 @@ def test_la_lista_trae_el_texto_de_la_agencia_en_comments():
     textos = {e["numero"]: e["texto"] for e in envios}
     assert textos["0707"] == script
     assert textos["4359"] == "" and textos["4360"] == ""      # una nota o un texto en español: se va a la web
+
+
+def test_cont_manda_sobre_comments_y_sin_texto_se_va_a_la_web():
+    from listas import leer_lista
+    cont = ("VIDEO SHOWS: PARIS, FRANCE (OCTOBER 16, 2026) (REUTERS - ACCESS ALL) 1. WIDE OF PROTESTERS BLOCKING "
+            "THE SCHOOL ENTRANCE 2. POLICE PUSHING PROTESTERS BACK STORY: Police pushed back protesters.")
+    otro = cont.replace("PARIS", "LYON")
+    csv = ('Name,Catalogador,Comments,Cont.,Created\n'
+           f'"0707 FRANCE-PROTEST: Police push back",,"{otro}","{cont}","16.10.2026 10:40:20 +02:00"\n'
+           f'"0708 FRANCE-X: Y",,"{otro}","TRATAR AGENCIAS",""\n'
+           '"0709 FRANCE-Z: W",,"TRATAR AGENCIAS","",""\n')
+    envios, _, _ = leer_lista("Search Results.csv", csv.encode("utf-8"))
+    por = {e["numero"]: (e["texto"], e["columna"]) for e in envios}
+    assert por["0707"] == (cont, "Cont.")                    # Cont. manda
+    assert por["0708"] == (otro, "Comments")                 # Cont. sin texto de agencia: el de Comments
+    assert por["0709"] == ("", "")                           # ninguno: a la web de la agencia, como siempre

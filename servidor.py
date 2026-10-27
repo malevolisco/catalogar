@@ -1036,8 +1036,8 @@ class Worker(threading.Thread):
 
 def datos_de_csv(ficha):
     """Lo que daria la agencia, sacado de la fila de la lista de MediaCentral: Name ("USA-MAMDANI LULA-PRESSER:
-    MAMDANI PRAISES ...") da el slug y el titular; Comments, el texto. La fecha es la pedida o la de entrada en
-    MediaCentral."""
+    MAMDANI PRAISES ...") da el slug y el titular; Cont. o Comments, el texto. La fecha es la pedida o la de
+    entrada en MediaCentral."""
     from situaciones import detectar
     slug, _, headline = (ficha.get("headline") or "").partition(": ")
     if not headline:
@@ -1046,7 +1046,8 @@ def datos_de_csv(ficha):
              "fecha": ficha.get("fecha") or (ficha.get("creado") or "").split(" ")[0],
              "slug": slug.strip(), "headline": headline.strip(), "texto": ficha["texto_csv"],
              "miniaturas": [], "fuente_texto": "csv",
-             "avisos": ["Texto de la agencia sacado de la columna Comments de la lista, sin abrir la web"]}
+             "avisos": [f"Texto de la agencia sacado de la columna {ficha.get('texto_csv_col') or 'Comments'} "
+                        "de la lista, sin abrir la web"]}
     try:
         detectar(datos)
     except Exception as e:
@@ -1259,14 +1260,15 @@ class Buzon(threading.Thread):
                         avisar_sin_envios(p, nota)
                         continue
                     # el titulo que trae la lista se guarda para reconocer la ficha en el panel; la fuente
-                    # para redactar es la web de la agencia, salvo que Comments traiga ya su texto
+                    # para redactar es la web de la agencia, salvo que Cont. o Comments traigan ya su texto
                     titulos, destinos = {}, {}
-                    creados, textos = {}, {}
+                    creados, textos, columnas = {}, {}, {}
                     for a in p["adjuntos"]:
                         for e in a["envios"]:
                             titulos.setdefault(e["numero"], e["etiqueta"])
-                            if e.get("texto"):
-                                textos.setdefault(e["numero"], e["texto"])
+                            if e.get("texto") and e["numero"] not in textos:
+                                textos[e["numero"]] = e["texto"]
+                                columnas[e["numero"]] = e.get("columna", "")
                             if e.get("para"):
                                 destinos.setdefault(e["numero"], e["para"])
                             if e.get("creado"):
@@ -1277,6 +1279,7 @@ class Buzon(threading.Thread):
                         f = ficha_vacia(n, titulos.get(n, ""), n, p["fechas"].get(n) or p["fecha"], creados.get(n, ""))
                         f["para"] = destinos.get(n, "")
                         f["texto_csv"] = textos.get(n, "")
+                        f["texto_csv_col"] = columnas.get(n, "")
                         fichas.append(f)
                     nombre = f"correo de {p['nombre']}: " + ", ".join(p["numeros"][:3]) + (" ..." if len(p["numeros"]) > 3 else "")
                     lotes = crear_lotes("correo", nombre, fichas, responder_a=p["de"], asunto_origen=p["asunto"], nota=nota)
@@ -1509,6 +1512,7 @@ async def subir_lista(fichero: UploadFile = File(...), reparto: str = Form(""), 
         f = ficha_vacia(e["numero"], e["etiqueta"], e["numero"], fecha, e.get("creado", ""))
         f["para"] = e.get("para", "")
         f["texto_csv"] = e.get("texto", "")
+        f["texto_csv_col"] = e.get("columna", "")
         fichas.append(f)
     nota = resumen_lista(envios, descartes) + ((". " + aviso) if aviso else "")
     lotes = crear_lotes("lista", nombre, fichas, nota=nota, rehacer=_es_formal(rehacer),

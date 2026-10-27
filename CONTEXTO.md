@@ -87,12 +87,18 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
   fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
+- Columna Cont. (27 oct): en las listas de MediaCentral (listas.leer_lista, Raspberry) y en la nube
+  (nube.fichas_de_tabla), si la columna «Cont.» trae el texto de la agencia (texto_agencia) manda sobre Comments
+  y no se abre la web; si no, Comments; si tampoco, la web como siempre. El envio lleva "columna" y la ficha
+  texto_csv_col, para el aviso «sacado de la columna X». Correos sin cambios.
 - Catalogator en la nube (17 oct, NUBE.md): .github/workflows/nube.yml corre nube.py en GitHub (el cron de
   10 min es solo respaldo: GitHub lo retrasa 2-6 h). Lo arranca el timbre (27 oct, nube_timbre.gs): Apps Script
   en la cuenta de Gmail de Catalogator, cada minuto busca correos a +csv posteriores a ULTIMO_AVISO (hora del
-  ultimo correo avisado) y llama a workflow_dispatch de nube.yml con GITHUB_TOKEN (fine-grained, Actions
-  read/write, en Propiedades del script). Por esa llave, release.yml a mano solo corre en main y valida la
-  version (nunca ${{ }} dentro de run). tests/test_nube.py.
+  ultimo correo avisado) y cambia el texto del issue 64 con GITHUB_TOKEN (fine-grained, solo Issues read/write,
+  en Propiedades del script); nube.yml arranca con issues: edited solo si es el 64 y lo cambia el dueño. NUNCA
+  una llave con permiso de Actions: workflow_dispatch corre el release.yml de la ref que se pida, y las etiquetas
+  viejas tienen la version metida en bash (publicaria lo que quisiera; PC y Raspberry lo instalan). release.yml
+  a mano solo corre en main y valida la version (nunca ${{ }} dentro de run). tests/test_nube.py.
   Lee por IMAP (UIDs) los correos de la ultima semana a la direccion +csv (buzon.es_para_nube) sin la marca
   CatalogatorNubeHecho; cada fila del CSV/Excel de MediaCentral (Name + Comments) es una ficha con Comments
   como texto de agencia (menos de 120 caracteres = sin texto, se descarta); detectar situaciones + redactar
