@@ -49,12 +49,14 @@ CAB_IGNORAR = ("created", "creado", "fecha", "date", "modified", "modificado", "
 CAB_CREADO = ("created", "creado", "fecha de creacion", "creation date")
 # Comments: si trae el texto de la agencia (en ingles, el que sale en la web), se redacta de ahi sin abrir la web
 CAB_TEXTO = ("comments", "comment", "comentario", "comentarios")
+# Cont. (el campo de contenido de MediaCentral): si trae el texto de la agencia, manda sobre Comments
+CAB_CONT = ("cont.", "cont")
 MIN_TEXTO_AGENCIA = 120          # menos es una nota ("TRATAR AGENCIAS"), no el texto de la agencia
 INGLES_RE = re.compile(r"\b(?:SHOWS|STORY|SHOTLIST|SOUNDBITE|RESTRICTIONS?|ACCESS|THE|AND|OF|WITH|FROM)\b", re.I)
 
 
 def texto_agencia(texto):
-    """El texto de la agencia que trae la columna Comments, o "" si lo que trae es otra cosa (una nota,
+    """El texto de la agencia que trae la columna Cont. o Comments, o "" si lo que trae es otra cosa (una nota,
     un texto en español ya catalogado). Se pide largo y en ingles: al menos tres palabras inglesas o
     marcas de las agencias."""
     texto = (texto or "").strip()
@@ -183,7 +185,8 @@ def leer_lista(nombre, datos):
     envios:    [{"numero": "4359", "etiqueta": "USA-MAMDANI LULA-PRESSER: ...", "fila": 2,
                  "catalogador": "I24082", "para": "javier", "creado": "21/09/2026 22:15", "texto": ""}, ...]
                (para: a quien mandarle la ficha, o ""; creado: cuando entro en MediaCentral, o "";
-                texto: el de la agencia si lo trae Comments, y entonces no hace falta abrir la web)
+                texto: el de la agencia si lo trae Cont. (primero) o Comments, y entonces no hace falta abrir la
+                web; columna: de cual de las dos ha salido)
     descartes: [{"fila": 3, "texto": "...", "motivo": "ya la tiene I99999"}, ...]
     aviso:     "" o una frase corta que conviene ensenar (por ejemplo, que el numero no abria la fila)
     """
@@ -200,6 +203,16 @@ def leer_lista(nombre, datos):
     i_titulo, i_catalogador, i_creado, ignorar, hay_cabecera = _columnas(filas[0])
     i_texto = next((i for i, c in enumerate(_sin_acentos(c) for c in filas[0]) if c in CAB_TEXTO), None) \
         if hay_cabecera else None
+    i_cont = next((i for i, c in enumerate(_sin_acentos(c) for c in filas[0]) if c in CAB_CONT), None) \
+        if hay_cabecera else None
+
+    def texto_de(fila):
+        """(texto de la agencia, columna): Cont. si lo trae; si no, Comments; si no, ("", "")."""
+        for i, columna in ((i_cont, "Cont."), (i_texto, "Comments")):
+            texto = texto_agencia(fila[i] if i is not None and i < len(fila) else "")
+            if texto:
+                return texto, columna
+        return "", ""
     cuerpo = filas[1:] if hay_cabecera else filas
     if len(cuerpo) > MAX_FILAS:
         raise ListaError(f"La lista tiene {len(cuerpo)} filas y el tope son {MAX_FILAS}")
@@ -233,8 +246,9 @@ def leer_lista(nombre, datos):
             descartes.append({"fila": n, "texto": etiqueta, "motivo": f"{numero} repetido"})
             continue
         vistos.add(numero)
+        texto, columna = texto_de(fila)
         envios.append({"numero": numero, "etiqueta": etiqueta, "fila": n, "catalogador": quien, "para": para,
-                       "creado": leer_creado(celda(i_creado)), "texto": texto_agencia(celda(i_texto))})
+                       "creado": leer_creado(celda(i_creado)), "texto": texto, "columna": columna})
 
     aviso = ""
     # Segunda pasada, solo si ninguna fila traia el numero delante: se busca dentro del titulo,
@@ -251,9 +265,10 @@ def leer_lista(nombre, datos):
                 descartes.append({"fila": n, "texto": texto[:LARGO_ETIQUETA], "motivo": f"{numero} repetido"})
                 continue
             vistos.add(numero)
+            agencia, columna = texto_de(fila)
             envios.append({"numero": numero, "etiqueta": texto[:LARGO_ETIQUETA], "fila": n, "catalogador": "", "para": "",
                            "creado": leer_creado(fila[i_creado] if i_creado is not None and i_creado < len(fila) else ""),
-                           "texto": texto_agencia(fila[i_texto] if i_texto is not None and i_texto < len(fila) else "")})
+                           "texto": agencia, "columna": columna})
         if envios:
             aviso = ("En esta lista el numero no abria la fila: se ha cogido el primero que aparece en cada una. "
                      "Conviene comprobarlos antes de lanzar el lote.")

@@ -37,6 +37,18 @@ def test_filas_del_csv_de_mediacentral():
     assert f["texto"].startswith("VIDEO SHOWS")
 
 
+def test_en_la_nube_cont_manda_y_basta_con_cont():
+    from listas import _filas_csv
+    cont = SCRIPT.replace("PARIS", "LYON")
+    csv = ('Name,Comments,Cont.\n'
+           f'"0707 FRANCE-PROTEST: Police push back","{SCRIPT}","{cont}"\n'
+           f'"0708 FRANCE-X: Y","{SCRIPT}",""\n')
+    fichas, descartes = nube.fichas_de_tabla(_filas_csv(csv.encode("utf-8")))
+    assert [f["texto"] for f in fichas] == [cont, SCRIPT] and descartes == []
+    fichas, _ = nube.fichas_de_tabla(_filas_csv(f'Name,Cont.\n"0707 FRANCE-PROTEST: P","{cont}"\n'.encode("utf-8")))
+    assert fichas[0]["texto"] == cont
+
+
 def test_cerebro_sin_secretos_y_sin_rutas_raras(tmp_path):
     cfg = {"correo_usuario": "c@gmail.com", "correo_clave": "x", "api_key": "y", "openai_key": "z",
            "reuters_clave": "r", "claude_token": "t", "ejemplos_por_ficha": 8, "correo_dominios": ["rtve.es"]}
@@ -139,3 +151,33 @@ def test_con_el_token_redacta_con_la_suscripcion(monkeypatch):
     assert secretos and nube.motor(secretos) == "claude_code"
     assert nube.motor({"api_key": "y"}) == "api" and nube.motor({"openai_key": "z"}) == "openai"
     assert nube.motor({"claude_token": "t", "api_key": "y"}) == "claude_code"
+
+
+def test_el_timbre_apunta_a_la_nube():
+    """El timbre de Gmail (nube_timbre.gs) cambia el issue que arranca nube.yml: si se renombra algo, avisa."""
+    import re
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parent.parent
+    timbre = (raiz / "nube_timbre.gs").read_text(encoding="utf-8")
+    flujo = (raiz / ".github" / "workflows" / "nube.yml").read_text(encoding="utf-8")
+    assert "const REPOSITORIO = 'malevolisco/catalogar'" in timbre
+    issue = re.search(r"const ISSUE = (\d+);", timbre).group(1)
+    assert "issues:\n    types: [edited]" in flujo and "workflow_dispatch" in flujo
+    assert (f"github.event.issue.number == {issue} && github.event.sender.login == github.repository_owner"
+            in flujo)
+    assert "/dispatches" not in timbre and "/actions/" not in timbre      # la llave nunca lanza tareas
+    assert "GITHUB_TOKEN" in timbre and "github_pat_" not in timbre        # la llave nunca en el codigo
+    assert f"'{buzon.SUFIJO_NUBE}'" in timbre                              # la misma direccion que la Raspberry deja
+
+
+def test_publicar_a_mano_solo_desde_main_y_sin_ordenes_en_la_version():
+    """Publicar a mano: solo desde main y con la version como variable, nunca dentro de una orden."""
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parent.parent
+    flujo = (raiz / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "if: github.event_name == 'push' || github.ref == 'refs/heads/main'" in flujo
+    for linea in flujo.splitlines():
+        if "${{" in linea and ("inputs." in linea or "outputs.version" in linea):
+            # dentro de una orden, una version con comillas o ; ejecutaria lo que trajera
+            assert linea.strip().startswith(("VERSION", "tag_name:", "name:")), linea
+    assert '=~ ^v[0-9]{4}' in flujo

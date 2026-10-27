@@ -5,20 +5,23 @@ MediaCentral y te contesta con las fichas, igual que Catalogator.
 
 ## Cómo se usa
 
-1. En MediaCentral, exporta la búsqueda como CSV o Excel. Tiene que traer las columnas **Name** y
-   **Comments**, y en Comments el texto de la agencia en inglés (el plano a plano, la historia y las
-   restricciones).
+1. En MediaCentral, exporta la búsqueda como CSV o Excel. Tiene que traer la columna **Name** y el texto
+   de la agencia en inglés (el plano a plano, la historia y las restricciones) en **Cont.** o en
+   **Comments**. Si vienen las dos, manda Cont.
 2. Manda el fichero adjunto a la dirección de Catalogator con **+csv** delante de la arroba.
    Si la cuenta es `catalogator@gmail.com`, a **`catalogator+csv@gmail.com`**.
-3. En unos 10 o 20 minutos llega la respuesta, con el mismo formato de siempre.
+3. En unos 5 minutos llega la respuesta, con el mismo formato de siempre (con el timbre puesto; sin él, GitHub
+   puede tardar horas, ver «El timbre»).
 
-Las filas cuyo Comments no trae el texto de la agencia (por ejemplo «TRATAR AGENCIAS») no se redactan.
+Las filas que no traen el texto de la agencia ni en Cont. ni en Comments (por ejemplo «TRATAR AGENCIAS») no
+se redactan.
 La respuesta dice cuáles son.
 
 ## Cómo funciona por dentro
 
-- GitHub ejecuta Catalogator cada 10 minutos, en sus servidores y gratis. No hace falta ningún equipo
-  encendido: ni la Raspberry ni ningún ordenador.
+- GitHub ejecuta Catalogator en sus servidores, gratis. No hace falta ningún equipo encendido: ni la Raspberry
+  ni ningún ordenador. Lo arranca el timbre en cuanto llega un correo; además GitHub tiene una vuelta
+  programada de respaldo, que en la práctica pasa cada pocas horas.
 - Redacta Claude Code con **tu suscripción de Claude**, como la Raspberry. No hace falta la API ni se
   paga por ficha.
 - Redacta con **el mismo programa** que la Raspberry: las mismas reglas, el mismo criterio, las mismas
@@ -31,7 +34,7 @@ La respuesta dice cuáles son.
 
 ## Lo que no hace
 
-- No entra en Reuters, AP ni EBU: el texto tiene que venir en el CSV.
+- No entra en Reuters, AP ni EBU: el texto tiene que venir en el CSV (Cont. o Comments).
 - No tiene panel: no se aprueban fichas desde aquí. Se siguen aprobando en Catalogator.
 - No reutiliza fichas ya hechas ni manda cada ficha a su catalogador: todo vuelve a quien mandó el
   correo.
@@ -60,8 +63,49 @@ crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KE
 
 4. En Catalogator, **Admin → Catalogator en la nube → Mandar a la nube ahora**. Así la nube tiene ya lo
    aprendido, sin esperar a la noche.
-5. Para probarlo sin esperar a los 10 minutos: en GitHub, pestaña **Actions → Catalogator en la nube →
+5. Pon el timbre (abajo). Para probar sin él: en GitHub, pestaña **Actions → Catalogator en la nube →
    Run workflow**.
+
+## El timbre (para que conteste en minutos)
+
+GitHub promete lanzar la nube cada 10 minutos, pero con los repositorios gratuitos la retrasa: en la práctica,
+cada 2 a 6 horas. El timbre lo arregla: es un programita de Google (Apps Script) que vive en la cuenta de Gmail de
+Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, cambia el
+texto del issue «Timbre de la nube» del repositorio (el 64) y eso arranca la nube en ese momento. No lee el
+contenido de los correos: solo mira si los hay. Ese issue no hay que tocarlo ni cerrarlo.
+
+Se instala una vez (unos 10 minutos):
+
+**A. La llave de GitHub** (solo sirve para escribir en los issues de este repositorio)
+1. En GitHub, arriba a la derecha, tu foto → **Settings** → abajo del todo, **Developer settings** →
+   **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+2. **Token name**: Catalogator timbre. **Expiration**: 1 año (o lo que prefieras; cuando caduque, se crea otra).
+3. **Repository access**: **Only select repositories** → elige **malevolisco/catalogar**.
+4. **Permissions** → **Repository permissions** → **Issues**: **Read and write**. Nada más (GitHub añade solo
+   «Metadata: Read-only», que es obligatorio).
+5. **Generate token** y copia la llave (empieza por `github_pat_`). Solo se enseña una vez.
+
+**B. El programita, en la cuenta de Gmail de Catalogator**
+1. Entra en **script.google.com** con la cuenta de Catalogator (no con la tuya personal).
+2. **Nuevo proyecto**. Arriba, cámbiale el nombre a **Catalogator timbre**.
+3. Borra lo que trae y pega entero el contenido de `nube_timbre.gs` (está en el repositorio). Guarda (el disquete).
+4. A la izquierda, la rueda (**Configuración del proyecto**) → abajo, **Propiedades del script** → **Añadir
+   propiedad**: nombre `GITHUB_TOKEN`, valor la llave del paso A. **Guardar**.
+5. Vuelve al código (los corchetes `< >` de la izquierda). Arriba, en el desplegable de funciones, elige
+   **instalar** y pulsa **Ejecutar**.
+6. Google pide permiso: **Revisar permisos** → la cuenta de Catalogator → si sale «Google no ha verificado esta
+   aplicación», **Configuración avanzada** → **Ir a Catalogator timbre** → **Permitir**. Es tu propio programa:
+   pide leer el correo (para ver si hay CSV) y conectarse fuera (para avisar a GitHub).
+7. Abajo debe salir «Timbre instalado». Desde ahí, solo.
+
+Para comprobarlo: mándate un CSV a la dirección con +csv; en un par de minutos, en GitHub → **Actions** sale una
+vuelta nueva de «Catalogator en la nube», y unos minutos después llega la respuesta. Si no, en script.google.com →
+**Ejecuciones** se ve qué ha dicho.
+
+La llave solo puede escribir en los issues: no puede lanzar tareas de GitHub, ni publicar versiones, ni tocar el
+código. Lo peor que podría hacer alguien que la consiguiera es escribir o borrar issues, o lanzar la nube más veces
+de la cuenta. Aun así, vive solo en las Propiedades del script de la cuenta de Catalogator. Si alguna vez crees que
+se ha visto, bórrala en GitHub (**Fine-grained tokens** → **Delete**) y crea otra.
 
 ## Coste
 
@@ -71,7 +115,8 @@ crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KE
 
 ## Seguridad
 
-- Las contraseñas solo están en los secretos de GitHub, cifradas. El correo «Cerebro para la nube» no
+- Las contraseñas solo están en los secretos de GitHub, cifradas; la llave del timbre, en las Propiedades del
+  script de la cuenta de Catalogator. El correo «Cerebro para la nube» no
   lleva ninguna.
 - El registro de GitHub de cada vuelta es público, porque el repositorio lo es. Solo dice cuántos
   correos y cuántas fichas, nunca textos, nombres ni direcciones.

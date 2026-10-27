@@ -1,12 +1,15 @@
 name: Catalogator en la nube
 
-# Cada 10 minutos (GitHub a veces se retrasa unos minutos): contesta los correos con CSV mandados a la
-# direccion +csv de la cuenta de Catalogator, sin ningun equipo encendido. Ver NUBE.md.
+# Contesta los correos con CSV mandados a la direccion +csv de la cuenta de Catalogator, sin ningun equipo
+# encendido. Ver NUBE.md. Lo arranca el timbre (nube_timbre.gs): al llegar un CSV, el dueño del repositorio
+# cambia el texto del issue 64. La vuelta cada 10 minutos es solo respaldo (GitHub la retrasa horas).
 # El registro de esta pagina es publico: nube.py solo escribe cuentas, nunca textos ni direcciones.
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+  issues:
+    types: [edited]
 
 # nunca dos a la vez: si una vuelta tarda (una lista larga), la siguiente espera
 concurrency:
@@ -18,6 +21,8 @@ permissions:
 
 jobs:
   nube:
+    # de los issues, solo el del timbre y cambiado por el dueño (cualquiera puede abrir issues: no arrancan nada)
+    if: github.event_name != 'issues' || (github.event.issue.number == 64 && github.event.sender.login == github.repository_owner)
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

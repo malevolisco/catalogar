@@ -317,3 +317,11 @@ def test_con_el_texto_en_la_lista_no_se_abre_la_web(worker, monkeypatch):
     assert (d["texto"], d["agencia"], d["fecha"]) == (texto, "REUTERS", "16/10/2026")
     assert (d["slug"], d["headline"]) == ("FRANCE-PROTEST/BLOCKADE", "Police push back protesters")
     assert any("Comments" in a for a in ficha["avisos"])
+
+
+def test_el_aviso_dice_de_que_columna_salio_el_texto():
+    ficha = {"numero": "0707", "headline": "FRANCE-PROTEST: Police push back", "creado": "16/10/2026 10:40",
+             "texto_csv": "VIDEO SHOWS: PARIS. STORY: Police pushed back protesters.", "texto_csv_col": "Cont."}
+    assert any("columna Cont." in a for a in servidor.datos_de_csv(ficha)["avisos"])
+    ficha.pop("texto_csv_col")                     # fichas de antes del cambio: Comments, como siempre
+    assert any("columna Comments" in a for a in servidor.datos_de_csv(ficha)["avisos"])

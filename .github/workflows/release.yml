@@ -17,6 +17,8 @@ permissions:
 
 jobs:
   publicar:
+    # a mano, solo desde main (lo ya aprobado): nunca desde otra rama
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -26,9 +28,15 @@ jobs:
       - name: Version
         id: v
         shell: bash
+        # la version pedida a mano entra como variable, nunca dentro de la orden, y solo con forma vAAAA.MM.DD[.N]
+        env:
+          VERSION_PEDIDA: ${{ github.event.inputs.version }}
         run: |
           V="${GITHUB_REF_NAME}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then V="${{ github.event.inputs.version }}"; fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then V="$VERSION_PEDIDA"; fi
+          if ! [[ "$V" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$ ]]; then
+            echo "Version no valida: tiene que ser vAAAA.MM.DD o vAAAA.MM.DD.N"; exit 1
+          fi
           echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "EXE_VERSION = \"$V\"" > catalogator_version.py
       - name: Librerias
@@ -40,7 +48,9 @@ jobs:
           pip install pytest
           python -m pytest tests -q
       - name: Zip de la app
-        run: python empaquetar.py ${{ steps.v.outputs.version }}
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: python empaquetar.py "$VERSION"
       - name: Compilar Catalogator.exe
         run: pyinstaller --noconfirm catalogator.spec
       - name: Comprobar que arranca
