@@ -139,3 +139,15 @@ def test_con_el_token_redacta_con_la_suscripcion(monkeypatch):
     assert secretos and nube.motor(secretos) == "claude_code"
     assert nube.motor({"api_key": "y"}) == "api" and nube.motor({"openai_key": "z"}) == "openai"
     assert nube.motor({"claude_token": "t", "api_key": "y"}) == "claude_code"
+
+
+def test_el_timbre_apunta_a_la_nube():
+    """El timbre de Gmail (nube_timbre.gs) arranca nube.yml de este repositorio: si se renombra algo, avisa."""
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parent.parent
+    timbre = (raiz / "nube_timbre.gs").read_text(encoding="utf-8")
+    flujo = (raiz / ".github" / "workflows" / "nube.yml").read_text(encoding="utf-8")
+    assert "const FLUJO = 'nube.yml'" in timbre and "const REPOSITORIO = 'malevolisco/catalogar'" in timbre
+    assert "workflow_dispatch" in flujo
+    assert "GITHUB_TOKEN" in timbre and "github_pat_" not in timbre        # la llave nunca en el codigo
+    assert f"'{buzon.SUFIJO_NUBE}'" in timbre                              # la misma direccion que la Raspberry deja
