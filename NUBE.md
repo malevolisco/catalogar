@@ -98,9 +98,11 @@ Se instala una vez (unos 10 minutos):
 Para comprobarlo: mándate un CSV a la dirección con +csv; en un par de minutos, en GitHub → **Actions** sale una
 vuelta nueva de «Catalogator en la nube». Si no, en script.google.com → **Ejecuciones** se ve qué ha dicho.
 
-La llave puede arrancar cualquier tarea del repositorio (GitHub no deja limitarla a una sola), por eso vive solo
-en las Propiedades del script de la cuenta de Catalogator. Si alguna vez crees que se ha visto, bórrala en GitHub
-(**Fine-grained tokens** → **Delete**) y crea otra.
+GitHub no deja limitar la llave a una sola tarea: con ella también se puede pedir que se publique una versión.
+Por eso esa tarea solo publica lo que ya está en `main` (lo aprobado) y no admite otra cosa que un número de
+versión; lo peor que podría hacer alguien con la llave es volver a publicar lo mismo o lanzar la nube. Aun así,
+vive solo en las Propiedades del script de la cuenta de Catalogator. Si alguna vez crees que se ha visto, bórrala
+en GitHub (**Fine-grained tokens** → **Delete**) y crea otra.
 
 ## Coste
 

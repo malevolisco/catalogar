@@ -151,3 +151,16 @@ def test_el_timbre_apunta_a_la_nube():
     assert "workflow_dispatch" in flujo
     assert "GITHUB_TOKEN" in timbre and "github_pat_" not in timbre        # la llave nunca en el codigo
     assert f"'{buzon.SUFIJO_NUBE}'" in timbre                              # la misma direccion que la Raspberry deja
+
+
+def test_publicar_a_mano_solo_desde_main_y_sin_ordenes_en_la_version():
+    """La llave del timbre puede lanzar release.yml a mano: solo desde main y con la version como variable."""
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parent.parent
+    flujo = (raiz / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "if: github.event_name == 'push' || github.ref == 'refs/heads/main'" in flujo
+    for linea in flujo.splitlines():
+        if "${{" in linea and ("inputs." in linea or "outputs.version" in linea):
+            # dentro de una orden, una version con comillas o ; ejecutaria lo que trajera
+            assert linea.strip().startswith(("VERSION", "tag_name:", "name:")), linea
+    assert '=~ ^v[0-9]{4}' in flujo

@@ -24,11 +24,16 @@ function timbre() {
   const arroba = yo.indexOf('@');
   const direccion = yo.slice(0, arroba) + '+csv' + yo.slice(arroba);
   const ahora = Math.floor(Date.now() / 1000);
+  // ULTIMO_AVISO es la hora (en segundos) del correo más reciente por el que ya se avisó
   const desde = Number(props.getProperty('ULTIMO_AVISO') || (ahora - PRIMERA_VEZ_HORAS * 3600));
-  // Gmail entiende after: con segundos; se mira un minuto de más por si un correo llegó justo en el borde
+  // Gmail entiende after: con segundos; se busca un minuto de más por si un correo llegó justo en el borde,
+  // y luego se descartan los que ya se avisaron comparando su hora (así un correo no avisa dos veces)
   const consulta = '(deliveredto:' + direccion + ' OR to:' + direccion + ') after:' + (desde - 60);
-  const hilos = GmailApp.search(consulta, 0, 1);
-  if (!hilos.length) {
+  let ultimo = 0;
+  GmailApp.search(consulta, 0, 20).forEach(function (hilo) {
+    ultimo = Math.max(ultimo, Math.floor(hilo.getLastMessageDate().getTime() / 1000));
+  });
+  if (ultimo <= desde) {
     return;
   }
   const respuesta = UrlFetchApp.fetch(
@@ -44,7 +49,7 @@ function timbre() {
       muteHttpExceptions: true,
     });
   if (respuesta.getResponseCode() === 204) {
-    props.setProperty('ULTIMO_AVISO', String(ahora));
+    props.setProperty('ULTIMO_AVISO', String(ultimo));
     console.log('Nube avisada');
   } else {
     // no se guarda la hora: al minuto siguiente se vuelve a intentar

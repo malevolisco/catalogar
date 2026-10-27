@@ -87,7 +87,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
   fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
-- Catalogator en la nube (17 oct, NUBE.md): .github/workflows/nube.yml corre nube.py cada 10 min en GitHub.
+- Catalogator en la nube (17 oct, NUBE.md): .github/workflows/nube.yml corre nube.py en GitHub (el cron de
+  10 min es solo respaldo: GitHub lo retrasa 2-6 h). Lo arranca el timbre (27 oct, nube_timbre.gs): Apps Script
+  en la cuenta de Gmail de Catalogator, cada minuto busca correos a +csv posteriores a ULTIMO_AVISO (hora del
+  ultimo correo avisado) y llama a workflow_dispatch de nube.yml con GITHUB_TOKEN (fine-grained, Actions
+  read/write, en Propiedades del script). Por esa llave, release.yml a mano solo corre en main y valida la
+  version (nunca ${{ }} dentro de run). tests/test_nube.py.
   Lee por IMAP (UIDs) los correos de la ultima semana a la direccion +csv (buzon.es_para_nube) sin la marca
   CatalogatorNubeHecho; cada fila del CSV/Excel de MediaCentral (Name + Comments) es una ficha con Comments
   como texto de agencia (menos de 120 caracteres = sin texto, se descarta); detectar situaciones + redactar
