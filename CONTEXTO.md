@@ -87,6 +87,13 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
   fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
+- Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
+  UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (15 min) y
+  RESPALDO_HORAS (24 h) por INTERNALDATE. atender(respaldo=True): si es peticion de alguien permitido con alguna
+  fila con texto (Cont./Comments), marca \Seen + CatalogatorNubeRespaldo ANTES de redactar (la Raspberry busca
+  UNSEEN: no contesta dos veces) y contesta igual que un +csv; si no, NoRespaldo y sin leer para la Raspberry.
+  El timbre suena tambien por correos con adjunto sin leer a los 15 min (ULTIMO_RESPALDO). Mismos correos;
+  solo el aviso de fallo tras dos intentos dice "mas tarde" en vez de "sin el +csv".
 - Columna Cont. (27 oct): en las listas de MediaCentral (listas.leer_lista, Raspberry) y en la nube
   (nube.fichas_de_tabla), si la columna «Cont.» trae el texto de la agencia (texto_agencia) manda sobre Comments
   y no se abre la web; si no, Comments; si tampoco, la web como siempre. El envio lleva "columna" y la ficha

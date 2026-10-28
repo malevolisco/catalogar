@@ -3,6 +3,7 @@
 viaja sin contraseñas; la Raspberry deja en paz los correos a la direccion +csv."""
 import email
 import email.policy
+import imaplib
 import io
 import json
 import zipfile
@@ -131,6 +132,93 @@ def test_si_falla_se_reintenta_una_vez_y_luego_se_avisa():
         nube.atender(m, b"7", cfg)
     assert nube.HECHO in m.marcas
     assert "No se ha podido" in enviar.call_args.args[2]
+
+
+
+def test_respaldo_coge_el_correo_de_la_raspberry_y_lo_marca_leido_antes_de_redactar():
+    """Un correo a la direccion normal que la Raspberry no ha leido: se contesta igual que un +csv, y se marca
+    leido antes de redactar para que la Raspberry, si vuelve, no lo conteste otra vez."""
+    m = ImapFalso(_correo("catalogator@gmail.com"))
+    cfg = {"correo_usuario": "catalogator@gmail.com", "correo_dominios": ["rtve.es"]}
+    marcas_al_redactar = []
+
+    def redactar_todas(fichas):
+        marcas_al_redactar.append(set(m.marcas))
+        return [], []
+
+    with mock.patch("nube.redactar_todas", side_effect=redactar_todas), mock.patch("correo.enviar") as enviar:
+        nube.atender(m, b"7", cfg, respaldo=True)
+    assert {"\\Seen", nube.RESPALDO} <= marcas_al_redactar[0]
+    assert {nube.HECHO, "\\Seen", nube.RESPALDO} <= m.marcas
+    assert enviar.call_args.args[1] == "ana.perez@rtve.es"
+
+
+def test_respaldo_sin_nada_que_hacer_se_deja_sin_leer_para_la_raspberry():
+    cfg = {"correo_usuario": "catalogator@gmail.com", "correo_dominios": ["rtve.es"]}
+    solo_numeros = ImapFalso(_correo("catalogator@gmail.com", adjunto=False))
+    with mock.patch("nube.redactar_todas") as redactar, mock.patch("correo.enviar") as enviar:
+        nube.atender(solo_numeros, b"7", cfg, respaldo=True)
+        de_fuera = _correo("catalogator@gmail.com")
+        de_fuera.replace_header("From", "alguien@otro.com")
+        nube.atender(ImapFalso(de_fuera), b"7", cfg, respaldo=True)
+    assert solo_numeros.marcas == {nube.NO_RESPALDO}          # sin leer, para la Raspberry
+    assert not redactar.called and not enviar.called
+
+
+def test_respaldo_si_falla_dos_veces_no_habla_del_csv():
+    m = ImapFalso(_correo("catalogator@gmail.com"))
+    cfg = {"correo_usuario": "catalogator@gmail.com", "correo_dominios": ["rtve.es"]}
+    with mock.patch("nube.redactar_todas", side_effect=RuntimeError("roto")), mock.patch("correo.enviar") as enviar:
+        nube.atender(m, b"7", cfg, respaldo=True)
+        assert {"\\Seen", nube.RESPALDO, nube.FALLO} <= m.marcas and not enviar.called
+        nube.atender(m, b"7", cfg, respaldo=True)            # segunda vuelta: ya es suyo, no se vuelve a mirar
+    cuerpo = enviar.call_args.args[3]
+    assert "+csv" not in cuerpo and "más tarde" in cuerpo and nube.HECHO in m.marcas
+
+
+class BuzonFalso:
+    """Lo justo de imaplib para nube.pendientes: correos con destino, hora de llegada y marcas."""
+
+    def __init__(self, correos):
+        self.correos = correos          # {uid: (para, llegada, marcas)}
+
+    def uid(self, orden, *args):
+        if orden == "SEARCH":
+            criterios, salida = list(args[1:]), []
+            for uid, (_, _, marcas) in self.correos.items():
+                ok = True
+                for i, c in enumerate(criterios):
+                    if c == "UNSEEN":
+                        ok &= "\\Seen" not in marcas
+                    elif c == "KEYWORD":
+                        ok &= criterios[i + 1] in marcas
+                    elif c == "UNKEYWORD":
+                        ok &= criterios[i + 1] not in marcas
+                if ok:
+                    salida.append(uid)
+            return "OK", [b" ".join(salida)]
+        para, llegada, _ = self.correos[args[0]]
+        if args[1] == "(INTERNALDATE)":
+            fecha = imaplib.Time2Internaldate(llegada).encode()
+            return "OK", [args[0] + b" (UID " + args[0] + b" INTERNALDATE " + fecha + b")"]
+        return "OK", [(b"1 (BODY[] {1}", f"To: {para}\r\n\r\n".encode())]
+
+
+def test_pendientes_coge_los_csv_y_de_respaldo_solo_lo_que_la_raspberry_no_ha_leido_a_tiempo():
+    ahora = 1_800_000_000
+    normal, csv = "catalogator@gmail.com", "catalogator+csv@gmail.com"
+    m = BuzonFalso({
+        b"1": (csv, ahora - 60, set()),                                   # +csv: siempre
+        b"2": (normal, ahora - 20 * 60, set()),                           # sin leer a los 20 min: respaldo
+        b"3": (normal, ahora - 5 * 60, set()),                            # 5 min: aun le toca a la Raspberry
+        b"4": (normal, ahora - 20 * 60, {"\\Seen"}),                     # leido: la Raspberry esta
+        b"5": (normal, ahora - 30 * 3600, set()),                         # mas de un dia: olvidado
+        b"6": (normal, ahora - 20 * 60, {buzon.MARCA_RECHAZADO}),         # remitente rechazado
+        b"7": (normal, ahora - 20 * 60, {nube.NO_RESPALDO}),              # ya mirado: nada que hacer
+        b"8": (normal, ahora - 3 * 3600, {"\\Seen", nube.RESPALDO}),     # cogido y fallo una vez: se reintenta
+        b"9": (normal, ahora - 20 * 60, {"\\Seen", nube.HECHO}),         # ya contestado
+    })
+    assert sorted(nube.pendientes(m, ahora)) == [(b"1", False), (b"2", True), (b"8", True)]
 
 
 def test_sin_secretos_no_hace_nada(monkeypatch):
