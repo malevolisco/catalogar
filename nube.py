@@ -284,15 +284,22 @@ def atender(m, uid, cfg, respaldo=False):
     asunto = _texto(msg["Subject"])
     _, de = _remitente(msg)
     if respaldo and uid not in _buscar(m, "KEYWORD", RESPALDO):
-        propio = es_propio(asunto, msg.get("In-Reply-To"), msg.get("References"), msg)
-        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            try:
-                con_texto = bool(fichas_del_correo(msg)[0])
-            except Exception:
-                con_texto = False
-        if propio or not permitido(de, cfg) or not con_texto:
+        # el adjunto solo se abre si es una peticion de alguien permitido
+        con_texto = False
+        if not es_propio(asunto, msg.get("In-Reply-To"), msg.get("References"), msg) and permitido(de, cfg):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    con_texto = bool(fichas_del_correo(msg)[0])
+                except Exception:
+                    con_texto = False
+        if not con_texto:
             print("  respaldo: nada que la nube sepa hacer, se deja para la Raspberry")
             m.uid("STORE", uid, "+FLAGS", f"({NO_RESPALDO})")
+            return
+        # desde que se miro la bandeja pueden haber pasado minutos: si la Raspberry ha vuelto y ya lo ha
+        # leido, es suyo (si no, saldrian dos respuestas)
+        if uid not in _buscar(m, "UNSEEN", "UNKEYWORD", HECHO):
+            print("  respaldo: la Raspberry lo ha leido entretanto, se deja")
             return
         m.uid("STORE", uid, "+FLAGS", f"(\\Seen {RESPALDO})")
         print("  respaldo: la Raspberry no lo ha leido")

@@ -51,7 +51,8 @@ function timbre() {
       hilo.getMessages().forEach(function (correo) {
         const hora = segundos(correo.getDate());
         const destinos = (correo.getTo() + ',' + correo.getCc()).toLowerCase();
-        if (correo.isUnread() && hora > desdeRespaldo && ahora - hora >= ESPERA_RASPBERRY &&
+        // un minuto de más: aquí se mira la fecha del correo y en la nube la de llegada, que va unos segundos después
+        if (correo.isUnread() && hora > desdeRespaldo && ahora - hora >= ESPERA_RASPBERRY + 60 &&
             destinos.indexOf('+csv@') < 0) {
           ultimoRespaldo = Math.max(ultimoRespaldo, hora);
         }

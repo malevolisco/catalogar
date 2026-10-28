@@ -99,7 +99,15 @@ class ImapFalso:
         if orden == "FETCH":
             return "OK", [(b"1 (BODY[] {1}", self.bruto)]
         if orden == "SEARCH":
-            return "OK", [b"7" if args[-1] in self.marcas else b""]
+            criterios, ok = list(args[1:]), True
+            for i, c in enumerate(criterios):
+                if c == "UNSEEN":
+                    ok &= "\\Seen" not in self.marcas
+                elif c == "KEYWORD":
+                    ok &= criterios[i + 1] in self.marcas
+                elif c == "UNKEYWORD":
+                    ok &= criterios[i + 1] not in self.marcas
+            return "OK", [b"7" if ok else b""]
         if orden == "STORE":
             self.marcas.update(args[-1].strip("()").split())
             return "OK", [b""]
@@ -164,6 +172,25 @@ def test_respaldo_sin_nada_que_hacer_se_deja_sin_leer_para_la_raspberry():
     assert solo_numeros.marcas == {nube.NO_RESPALDO}          # sin leer, para la Raspberry
     assert not redactar.called and not enviar.called
 
+
+
+def test_respaldo_si_la_raspberry_lo_lee_entretanto_no_se_contesta_dos_veces():
+    m = ImapFalso(_correo("catalogator@gmail.com"))
+    m.marcas.add("\\Seen")                       # la Raspberry ha vuelto y lo ha leido despues de pendientes()
+    cfg = {"correo_usuario": "catalogator@gmail.com", "correo_dominios": ["rtve.es"]}
+    with mock.patch("nube.redactar_todas") as redactar, mock.patch("correo.enviar") as enviar:
+        nube.atender(m, b"7", cfg, respaldo=True)
+    assert m.marcas == {"\\Seen"} and not redactar.called and not enviar.called
+
+
+def test_respaldo_no_abre_el_adjunto_de_quien_no_puede_pedir():
+    de_fuera = _correo("catalogator@gmail.com")
+    de_fuera.replace_header("From", "alguien@otro.com")
+    m = ImapFalso(de_fuera)
+    cfg = {"correo_usuario": "catalogator@gmail.com", "correo_dominios": ["rtve.es"]}
+    with mock.patch("nube.fichas_del_correo") as leer:
+        nube.atender(m, b"7", cfg, respaldo=True)
+    assert not leer.called and m.marcas == {nube.NO_RESPALDO}
 
 def test_respaldo_si_falla_dos_veces_no_habla_del_csv():
     m = ImapFalso(_correo("catalogator@gmail.com"))
