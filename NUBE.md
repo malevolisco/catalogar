@@ -17,6 +17,16 @@ Las filas que no traen el texto de la agencia ni en Cont. ni en Comments (por ej
 se redactan.
 La respuesta dice cuáles son.
 
+## Si Catalogator no funciona (respaldo)
+
+No hace falta cambiar nada: se sigue mandando a la **dirección normal**. Si la Raspberry está apagada o no
+funciona y a los **15 minutos** el correo sigue sin leer, la nube lo contesta en su lugar, con el mismo formato.
+
+- Solo si el correo trae un CSV o Excel con el texto de la agencia (Cont. o Comments): la nube no entra en
+  Reuters, AP ni EBU. Un correo con solo números se queda sin leer y lo contesta la Raspberry cuando vuelva.
+- Antes de redactar, la nube lo marca como leído: si la Raspberry vuelve en ese rato, no lo contesta otra vez.
+- Lo que lleva más de un día sin leer no se contesta (son correos olvidados, no peticiones de hoy).
+
 ## Cómo funciona por dentro
 
 - GitHub ejecuta Catalogator en sus servidores, gratis. No hace falta ningún equipo encendido: ni la Raspberry
@@ -30,7 +40,8 @@ La respuesta dice cuáles son.
   con las fichas aprobadas y los ajustes, **sin ninguna contraseña**. La nube lee el último. Si la
   Raspberry está apagada unos días, la nube sigue funcionando con lo último que recibió.
 - Los correos a la dirección con +csv solo los contesta la nube. La Raspberry los deja sin tocar, así
-  que no se contestan dos veces.
+  que no se contestan dos veces. Los de la dirección normal, la Raspberry; la nube solo si siguen sin leer a
+  los 15 minutos (ver «Si Catalogator no funciona»).
 
 ## Lo que no hace
 
@@ -70,9 +81,13 @@ crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KE
 
 GitHub promete lanzar la nube cada 10 minutos, pero con los repositorios gratuitos la retrasa: en la práctica,
 cada 2 a 6 horas. El timbre lo arregla: es un programita de Google (Apps Script) que vive en la cuenta de Gmail de
-Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, cambia el
-texto del issue «Timbre de la nube» del repositorio (el 64) y eso arranca la nube en ese momento. No lee el
-contenido de los correos: solo mira si los hay. Ese issue no hay que tocarlo ni cerrarlo.
+Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, o si un
+correo con adjunto a la dirección normal sigue sin leer a los 15 minutos, cambia el texto del issue «Timbre de la
+nube» del repositorio (el 64) y eso arranca la nube en ese momento. No lee el contenido de los correos: solo mira
+si los hay, si están leídos, su hora y a quién van. Ese issue no hay que tocarlo ni cerrarlo.
+
+Si ya tenías el timbre puesto y se actualiza `nube_timbre.gs`, vuelve a pegar el código entero, guarda y ejecuta
+otra vez **instalar** (la llave no hay que tocarla).
 
 Se instala una vez (unos 10 minutos):
 

@@ -2,10 +2,15 @@
 """
 nube.py - Catalogator por correo sin ningun equipo encendido.
 
-Lo arranca GitHub cada 10 minutos (.github/workflows/nube.yml). Mira la bandeja de la cuenta de
-Catalogator y, por cada correo nuevo mandado a la direccion con +csv (catalogator+csv@gmail.com) con un
-CSV o un Excel de MediaCentral adjunto, redacta cada fila con su Comments como texto de la agencia y
-contesta igual que contesta Catalogator (correo.enviar_fichas).
+Lo arranca el timbre (nube_timbre.gs) o, de respaldo, GitHub cada pocas horas (.github/workflows/nube.yml).
+Mira la bandeja de la cuenta de Catalogator y, por cada correo nuevo mandado a la direccion con +csv
+(catalogator+csv@gmail.com) con un CSV o un Excel de MediaCentral adjunto, redacta cada fila con su Cont. o
+Comments como texto de la agencia y contesta igual que contesta Catalogator (correo.enviar_fichas).
+
+Respaldo de la Raspberry: un correo a la direccion normal que sigue sin leer a los 15 minutos (la Raspberry
+no esta o no funciona) se contesta igual, si trae un CSV con texto de agencia. Antes de redactar se marca
+leido, para que la Raspberry no lo conteste otra vez si vuelve. Si no hay nada que la nube sepa hacer (solo
+numeros, sin texto), se deja sin leer para la Raspberry.
 
 Redacta con el mismo codigo que la Raspberry (redactor.py, situaciones.py) y con lo que la Raspberry ha
 aprendido: lo lee del ultimo correo "Cerebro para la nube" (cerebro.py). Sin ese correo redacta con las
@@ -41,7 +46,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 import cerebro                                    # noqa: E402
 from buzon import (es_propio, permitido, _texto, _remitente, asunto_respuesta, es_para_nube,   # noqa: E402
-                   MARCA)
+                   MARCA, MARCA_RECHAZADO)
 from listas import (_filas_csv, _filas_xlsx, _sin_acentos, NUMERO_INICIAL_RE, CAB_CREADO, leer_creado,   # noqa: E402
                     agencia_de, texto_agencia, ListaError, CAB_CONT)
 
@@ -186,6 +191,12 @@ def responder(cfg, destino, asunto_origen, hechas, fallidas, descartes, problema
 # ---------------------------------------------------------------------- buzon (por UID: no cambian al borrar)
 DIAS_ATRAS = 7                      # correos de la ultima semana; lo anterior ya se ha contestado o caducado
 FALLO = "CatalogatorNubeFallo"      # primer intento fallido: al segundo se contesta que no se ha podido
+# respaldo de la Raspberry: correos a la direccion normal que nadie ha leido
+ESPERA_RASPBERRY = 15 * 60          # sin leer tras 15 min: la Raspberry no esta (mira el correo cada pocos minutos)
+RESPALDO_HORAS = 24                 # lo que lleva mas de un dia sin leer no se contesta (correos olvidados)
+RESPALDO = "CatalogatorNubeRespaldo"        # cogido por la nube (ya leido: la Raspberry no lo toca)
+NO_RESPALDO = "CatalogatorNubeNoRespaldo"   # mirado: nada que la nube sepa hacer, se queda para la Raspberry
+CABECERAS = "(BODY.PEEK[HEADER.FIELDS (TO CC DELIVERED-TO X-ORIGINAL-TO)])"
 
 
 def _buscar(m, *criterios):
@@ -200,15 +211,43 @@ def _bajar(m, uid, que="(BODY.PEEK[])"):
     return email.message_from_bytes(bruto[0][1], policy=email.policy.default)
 
 
-def pendientes(m):
-    """UIDs de los correos de la ultima semana mandados a la direccion +csv y aun sin contestar. Se mira la
-    cabecera de cada uno (la busqueda de Gmail no se lleva bien con el + de las direcciones)."""
-    desde = time.strftime("%d-%b-%Y", time.gmtime(time.time() - DIAS_ATRAS * 86400))
-    salida = []
+def _llegada(m, uid):
+    """Cuando llego el correo al buzon (segundos), o None."""
+    ok, datos = m.uid("FETCH", uid, "(INTERNALDATE)")
+    if ok != "OK" or not datos or not datos[0]:
+        return None
+    fecha = imaplib.Internaldate2tuple(datos[0] if isinstance(datos[0], bytes) else datos[0][0])
+    return time.mktime(fecha) if fecha else None
+
+
+def pendientes(m, ahora=None):
+    """[(uid, respaldo)] de los correos aun sin contestar: los de la ultima semana mandados a la direccion +csv
+    (respaldo False) y los de la direccion normal que la Raspberry no ha leido en ESPERA_RASPBERRY (respaldo
+    True; tambien los que ya cogio la nube y fallaron una vez). Se mira la cabecera de cada uno (la busqueda de
+    Gmail no se lleva bien con el + de las direcciones)."""
+    ahora = ahora or time.time()
+    desde = time.strftime("%d-%b-%Y", time.gmtime(ahora - DIAS_ATRAS * 86400))
+    salida, vistos = [], set()
     for uid in _buscar(m, "SINCE", desde, "UNKEYWORD", HECHO):
-        cab = _bajar(m, uid, "(BODY.PEEK[HEADER.FIELDS (TO CC DELIVERED-TO X-ORIGINAL-TO)])")
+        cab = _bajar(m, uid, CABECERAS)
         if cab is not None and es_para_nube(cab):
-            salida.append(uid)
+            salida.append((uid, False))
+            vistos.add(uid)
+    for uid in _buscar(m, "KEYWORD", RESPALDO, "UNKEYWORD", HECHO):
+        if uid not in vistos:
+            salida.append((uid, True))
+            vistos.add(uid)
+    ayer = time.strftime("%d-%b-%Y", time.gmtime(ahora - RESPALDO_HORAS * 3600))
+    for uid in _buscar(m, "SINCE", ayer, "UNSEEN", "UNKEYWORD", HECHO, "UNKEYWORD", MARCA_RECHAZADO,
+                       "UNKEYWORD", NO_RESPALDO):
+        if uid in vistos:
+            continue
+        llegada = _llegada(m, uid)
+        if llegada is None or not ESPERA_RASPBERRY <= ahora - llegada <= RESPALDO_HORAS * 3600:
+            continue
+        cab = _bajar(m, uid, CABECERAS)
+        if cab is not None and not es_para_nube(cab):
+            salida.append((uid, True))
     return salida
 
 
@@ -231,15 +270,39 @@ def cargar_cerebro(m):
     return {}
 
 
-def atender(m, uid, cfg):
+def atender(m, uid, cfg, respaldo=False):
     """Un correo: redacta sus filas y contesta. Si falla, se reintenta en la vuelta siguiente; si falla
-    otra vez, se le dice al remitente y no se vuelve a intentar."""
+    otra vez, se le dice al remitente y no se vuelve a intentar.
+
+    respaldo: el correo era para la Raspberry y no lo ha leido. Solo se coge si es una peticion de alguien
+    permitido con alguna fila con texto de agencia; entonces se marca leido antes de redactar (la Raspberry
+    ya no lo toca). Si no, se marca NO_RESPALDO y se deja sin leer para ella."""
     from correo import enviar
     msg = _bajar(m, uid)
     if msg is None:
         return
     asunto = _texto(msg["Subject"])
     _, de = _remitente(msg)
+    if respaldo and uid not in _buscar(m, "KEYWORD", RESPALDO):
+        # el adjunto solo se abre si es una peticion de alguien permitido
+        con_texto = False
+        if not es_propio(asunto, msg.get("In-Reply-To"), msg.get("References"), msg) and permitido(de, cfg):
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    con_texto = bool(fichas_del_correo(msg)[0])
+                except Exception:
+                    con_texto = False
+        if not con_texto:
+            print("  respaldo: nada que la nube sepa hacer, se deja para la Raspberry")
+            m.uid("STORE", uid, "+FLAGS", f"({NO_RESPALDO})")
+            return
+        # desde que se miro la bandeja pueden haber pasado minutos: si la Raspberry ha vuelto y ya lo ha
+        # leido, es suyo (si no, saldrian dos respuestas)
+        if uid not in _buscar(m, "UNSEEN", "UNKEYWORD", HECHO):
+            print("  respaldo: la Raspberry lo ha leido entretanto, se deja")
+            return
+        m.uid("STORE", uid, "+FLAGS", f"(\\Seen {RESPALDO})")
+        print("  respaldo: la Raspberry no lo ha leido")
     if es_propio(asunto, msg.get("In-Reply-To"), msg.get("References"), msg):
         print("  correo propio o automatico: se salta")
     elif not permitido(de, cfg):
@@ -261,8 +324,9 @@ def atender(m, uid, cfg):
                 return                                      # se reintenta en la vuelta siguiente
             try:
                 enviar(cfg, de, f"{MARCA} No se ha podido catalogar · {asunto}",
-                       "No he podido catalogar la lista de este correo (dos intentos). "
-                       "Vuelve a mandarla o pidela a Catalogator sin el +csv.\n")
+                       "No he podido catalogar la lista de este correo (dos intentos). " +
+                       ("Vuelve a mandarla más tarde.\n" if respaldo else
+                        "Vuelve a mandarla o pidela a Catalogator sin el +csv.\n"))
             except Exception:
                 pass
     m.uid("STORE", uid, "+FLAGS", f"(\\Seen {HECHO})")
@@ -326,8 +390,8 @@ def main():
             return 1
         print(f"{len(uids)} correo(s) nuevo(s); cerebro {'cargado' if aprendido else 'no encontrado: reglas de serie'}; "
               f"redacta {'Claude con la suscripcion' if redactor.CFG['redactor'] == 'claude_code' else redactor.CFG['redactor']}")
-        for uid in uids:
-            atender(m, uid, cfg)
+        for uid, respaldo in uids:
+            atender(m, uid, cfg, respaldo)
     return 0
 
 
