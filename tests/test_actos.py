@@ -25,17 +25,27 @@ def test_formato_de_ap_y_de_ebu():
     assert actos.acto_por_texto(ebu)[0] == "testimonios"
 
 
-def test_alguien_con_cargo_son_declaraciones_aunque_hablen_vecinos():
+def test_alguien_con_cargo_es_pista_floja_de_declaraciones_aunque_hablen_vecinos():
     f = _ficha(["SOUNDBITE (English) U.S. SECRETARY OF STATE MARCO RUBIO, SAYING:",
                 "SOUNDBITE (English) RESIDENT JOHN SMITH, SAYING:"])
-    clase, evidencia = actos.acto_por_texto(f)
+    clase, evidencia = actos.quien_habla(f)
     assert clase == "declaraciones" and "RUBIO" in evidencia
+    assert actos.acto_por_texto(f) == (None, "")            # no fija el acto: la imagen puede decir intervencion
+    situaciones.detectar(f)
+    assert f["acto"] is None and f["hablado"]["clase"] == "declaraciones"
+    assert "DECLARACIONES" in f["pistas"] and "no solo su nombre" in f["pistas"]
 
 
 def test_cargo_con_palabra_de_ciudadano_no_es_testimonio():
     f = _ficha(["SOUNDBITE (English) UN RESIDENT COORDINATOR, JANE DOE, SAYING:",
                 "SOUNDBITE (English) LAWYER FOR THE VICTIMS, PAUL LIM, SAYING:"])
-    assert actos.acto_por_texto(f)[0] == "declaraciones"
+    assert actos.quien_habla(f)[0] == "declaraciones"
+
+
+def test_solo_el_nombre_no_dice_quien_es():
+    assert actos.quien_habla(_ficha(["SOUNDBITE (Arabic) MOHAMMED ALI, SAYING:"])) == (None, "")
+    con_vecino = _ficha(["SOUNDBITE (Arabic) MOHAMMED ALI, SAYING:", "SOUNDBITE (Arabic) RESIDENT UM AHMED, SAYING:"])
+    assert actos.acto_por_texto(con_vecino)[0] == "testimonios"
 
 
 def test_cuatro_ciudadanos_opinando_son_encuesta_y_vox_pop_tambien():
@@ -66,6 +76,9 @@ def test_aviso_si_el_comment_no_dice_que_es_lo_hablado():
     assert any("TESTIMONIOS delante de quien habla" in a for a in actos.comparar(ficha, solo_nombres))
     bien = {"NAME": "GAZA BOMBARDEOS KHAN YUNIS", "COMMENT": "JAN YUNIS. DAÑOS. INCLUYE TESTIMONIOS DE VECINOS."}
     assert actos.comparar(ficha, bien) == []
+    floja = {"acto": None, "hablado": {"clase": "declaraciones", "evidencia": "MINISTER"}}
+    assert any("no solo su nombre" in a for a in actos.comparar(floja, {"NAME": "X", "COMMENT": "LUGAR. JOHN DOE, MINISTRO."}))
+    assert actos.comparar(floja, {"NAME": "X", "COMMENT": "LUGAR. INTERVENCION DE JOHN DOE, MINISTRO, EN LA CUMBRE."}) == []
     recursos = {"acto": {"clase": "recursos", "evidencia": "ningun SOUNDBITE"}}
     assert actos.comparar(recursos, {"NAME": "X", "COMMENT": "LUGAR. RECURSOS DE X."}) == []
 

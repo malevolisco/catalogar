@@ -7,9 +7,10 @@ Tres fuentes, de la mas fiable a la menos:
   1. El texto de la agencia (acto_por_texto): el shotlist suele decirlo con todas las letras
      (NEWS CONFERENCE, INTERVIEW, SPEAKING TO REPORTERS, ADDRESSING PARLIAMENT, VOX POP...). Se mira solo
      el titular, las datelines y las lineas de plano, no el STORY, que habla de otros dias y otros actos.
-     Si no lo dice, se mira quien habla en cada SOUNDBITE: ciudadanos que cuentan lo vivido (RESIDENT,
-     WITNESS, SURVIVOR...) son TESTIMONIOS; cuatro o mas opinando (VOTER, SHOPPER...), ENCUESTA; alguien
-     con cargo, DECLARACIONES.
+     Si no lo dice, se mira quien habla en cada SOUNDBITE (quien_habla): ciudadanos que cuentan lo vivido
+     (RESIDENT, WITNESS, SURVIVOR...) son TESTIMONIOS; cuatro o mas opinando (VOTER, SHOPPER...), ENCUESTA.
+     Alguien con cargo apunta a DECLARACIONES, pero es una pista floja (puede ser una intervencion o una
+     entrevista que el texto no nombra): no fija el acto, va aparte como ficha["hablado"].
   2. Los fotogramas, con el clasificador de escenas.py entrenado con tus fichas aprobadas: solo
      desempata cuando el texto no dice nada, y solo en las clases en que ha demostrado acertar.
   3. Lo que ha escrito el modelo (clase_de_ficha), que se compara con las otras dos: si no cuadran,
@@ -108,14 +109,15 @@ def _quien_habla(guion):
     return salida
 
 
-def _por_quien_habla(guion):
-    """(clase, evidencia) segun quien habla en los SOUNDBITE, o (None, "")."""
-    quienes = [q for q in _quien_habla(guion) if q]
+def quien_habla(ficha):
+    """(clase, evidencia) segun quien habla en los SOUNDBITE del shotlist: "testimonios", "encuesta",
+    "declaraciones" (alguien con cargo: pista floja) o (None, ""). Una linea con solo el nombre no dice nada."""
+    quienes = [q for q in _quien_habla(extraer_script(ficha.get("texto") or "")) if q]
     if not quienes:
         return None, ""
-    vivido = [q for q in quienes if VIVIDO_RE.search(q) and not CARGO_RE.search(q)]
-    opinion = [q for q in quienes if OPINION_RE.search(q) and not CARGO_RE.search(q) and q not in vivido]
-    con_cargo = [q for q in quienes if q not in vivido and q not in opinion]
+    con_cargo = [q for q in quienes if CARGO_RE.search(q)]
+    vivido = [q for q in quienes if VIVIDO_RE.search(q) and q not in con_cargo]
+    opinion = [q for q in quienes if OPINION_RE.search(q) and q not in con_cargo and q not in vivido]
     if con_cargo:
         return "declaraciones", f"habla alguien con cargo: {con_cargo[0][:80]}"
     if len(opinion) >= MIN_ENCUESTA and not vivido:
@@ -146,11 +148,12 @@ def acto_por_texto(ficha):
         m = re.search(patron, texto)
         if m:
             return clase, m.group(0).strip()
-    guion = extraer_script(ficha.get("texto") or "")
-    if not hay_voz and LINEA_PLANO_RE.search(guion):
+    if not hay_voz and LINEA_PLANO_RE.search(extraer_script(ficha.get("texto") or "")):
         return "recursos", "ningun SOUNDBITE en el shotlist"
     if hay_voz:
-        return _por_quien_habla(guion)
+        clase, evidencia = quien_habla(ficha)
+        if clase in ("testimonios", "encuesta"):
+            return clase, evidencia
     return None, ""
 
 
@@ -192,10 +195,14 @@ def comparar(ficha, campos, imagen=None):
         (por_texto in ("testimonios", "encuesta") and escrito == "recursos")
     if por_texto and escrito and por_texto != escrito and not compatibles:
         avisos.append(f"El shotlist dice {DESCRIPTOR_TEXTO[por_texto]} (\"{evidencia}\") y la ficha dice {DESCRIPTOR[escrito]}")
+    comment = (campos.get("COMMENT") or "").upper()
     expresion = EXPRESION_COMMENT.get(por_texto)
-    if expresion and expresion not in (campos.get("COMMENT") or "").upper():
+    if expresion and expresion not in comment:
         avisos.append(f"El shotlist dice {DESCRIPTOR_TEXTO[por_texto]} y el COMMENT no lo pone: va {expresion} delante "
                       "de quien habla, no solo su nombre")
+    elif not por_texto and ficha.get("hablado") and not any(e in comment for e in EXPRESION_COMMENT.values()):
+        avisos.append("En el shotlist habla alguien con cargo y el COMMENT no dice que es (DECLARACIONES DE, "
+                      "ENTREVISTA A, INTERVENCION DE...): va delante de quien habla, no solo su nombre")
     if imagen and imagen[2] and escrito and imagen[0] in DESCRIPTOR and imagen[0] != escrito and imagen[0] != por_texto:
         avisos.append(f"Por la imagen parece {DESCRIPTOR.get(imagen[0], imagen[0])} (confianza {imagen[1]:.2f}) "
                       f"y la ficha dice {DESCRIPTOR[escrito]}: revisar")
