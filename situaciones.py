@@ -27,7 +27,7 @@ literal.
 import re
 import sys
 
-from actos import DESCRIPTOR, acto_por_texto
+from actos import DESCRIPTOR_TEXTO, EXPRESION_COMMENT, acto_por_texto
 from paginas_word import extraer_script
 
 # ---------------------------------------------------------------- trozos del texto donde mirar
@@ -310,7 +310,11 @@ def pistas(situaciones):
         lineas.append("- Ninguna restriccion reconocida en el texto: si no ves otra, RESTRICCIONES es SIN AVISO")
     acto = situaciones.get("acto")
     if acto:
-        lineas.append(f"- Tipo de acto segun el shotlist: {DESCRIPTOR[acto['clase']]} (\"{acto['evidencia']}\")")
+        linea = f"- Tipo de acto segun el shotlist: {DESCRIPTOR_TEXTO[acto['clase']]} (\"{acto['evidencia']}\")"
+        if acto["clase"] in EXPRESION_COMMENT:
+            linea += (f". Va en el NAME y en el COMMENT, delante de quien habla ({EXPRESION_COMMENT[acto['clase']]}), "
+                      "no solo su nombre")
+        lineas.append(linea)
     return "\n".join(lineas)
 
 
