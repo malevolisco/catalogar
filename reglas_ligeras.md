@@ -62,7 +62,7 @@ SUIZA ONU DECLARACIONES OACDH SOBRE DESPLAZAMIENTO FORZOSO PALESTINOS CISJORDANI
 
 === COMMENT ===
 
-LUGAR. [INCLUYE ROTULOS.] [formato del material.] hecho principal con su motivo. declaraciones. INCLUYE (secundario). Sin frase final de contexto. De 100 a 350 caracteres, hasta 450 si el hecho o las personas lo exigen. Frases cortas, una idea por frase, ninguna de más de 30 palabras.
+LUGAR. [INCLUYE ROTULOS.] [formato del material.] hecho principal con su motivo. recursos. declaraciones. INCLUYE (secundario). Sin frase final de contexto. De 100 a 350 caracteres, hasta 450 si el hecho o las personas lo exigen. Frases cortas, una idea por frase, ninguna de más de 30 palabras.
 
 - LUGAR: la ciudad y punto; entre paréntesis la región o el país si no se reconoce sola (MYLA (KIEV), ALCAÑIZ (ARAGON)). Varios lugares: VARIOS. Si la dateline solo da el país, el país. Sedes de la ONU: NUEVA YORK. SEDE DE NACIONES UNIDAS. No repitas el lugar en la primera frase.
 - INCLUYE ROTULOS. tras el LUGAR si el vídeo lleva texto sobreimpreso: siempre en material emitido por una cadena (AIRED ON, TV FOOTAGE, BROADCAST, CCTV, CGTN, cadenas nacionales) o si el texto dice GRAPHICS, CAPTIONS, ON-SCREEN TEXT, BURNT-IN, LOWER THIRD, CHYRON, SUBTITLES. Es la única INCLUYE que va al principio.
@@ -84,13 +84,14 @@ Aperturas, tras el LUGAR, según el material:
 - VISTAS AEREAS DE ... / RECORRIDO POR ... / PRESENTACION DE ... EN ...
 - RESUMEN DE PARTIDOS DE (RONDA). GANADOR - PERDEDOR (resultado). Un partido por frase, ganador primero, sin rankings ni nacionalidades. Motor: RESUMEN DE LA CARRERA ... GANADOR X, EQUIPO.
 - Solo declaraciones (un SOUNDBITE sin planos): DECLARACIONES DE X, CARGO, SOBRE (lo que dice). Sin INCLUYE ni contexto.
+- Recursos primero: en una redacción lo que más se pide son recursos, así que en el COMMENT lo que se ve va antes que lo hablado (declaraciones, entrevistas, testimonios), aunque el NAME empiece por lo hablado. Un reportaje sobre Pompeya con entrevistas: POMPEYA. RECURSOS DEL YACIMIENTO Y DE LAS EXCAVACIONES. DECLARACIONES DE ..., no DECLARACIONES ... INCLUYE RECURSOS. Excepción: lo hablado y nada más, o casi (declaraciones, rueda de prensa, comparecencia, entrevista, testimonio), con como mucho planos de apoyo (sala, llegada): ahí lo hablado encabeza y esos planos van al final por INCLUYE.
 
 Cierres: INCLUYE RECURSOS DE, INCLUYE TESTIMONIOS DE, INCLUYE DECLARACIONES DE X, CARGO, SOBRE, INCLUYE VISTAS AEREAS DE, INCLUYE PLANOS DE, INCLUYE RESUMENES DE.
 
 Vocabulario de archivo: RECURSOS (planos sin declaraciones), MUDO (sin sonido de voz), SECUELAS (aftermath), TESTIMONIOS (ciudadanos), VISTAS AEREAS, SALUDO (handshake, foto de familia), RESUMEN (highlights), EXTRACTO (parte de un acto).
 
 Ejemplos:
-MYLA (KIEV). SECUELAS Y TRABAJOS DE RECONSTRUCCION TRAS EL ATAQUE AEREO DEL EJERCITO DE RUSIA A UN ALMACEN DE MUNICIONES. INCLUYE TESTIMONIOS DE VECINOS AFECTADOS Y RECURSOS DE TRAMITES DE INDEMNIZACION.
+MYLA (KIEV). SECUELAS Y TRABAJOS DE RECONSTRUCCION TRAS EL ATAQUE AEREO DEL EJERCITO DE RUSIA A UN ALMACEN DE MUNICIONES. RECURSOS DE TRAMITES DE INDEMNIZACION. INCLUYE TESTIMONIOS DE VECINOS AFECTADOS.
 QUEZON CITY. SALIDA DEL JUZGADO DE LA REGION DE SARA DUTERTE, VICEPRESIDENTA DE FILIPINAS, TRAS PAGAR UNA FIANZA DE 360000 PESOS POR TRES CARGOS DE AMENAZAS GRAVES DE MATAR AL PRESIDENTE FERDINAND MARCOS JR, A SU ESPOSA Y AL ENTONCES PRESIDENTE DE LA CAMARA DE REPRESENTANTES DURANTE UNA RUEDA DE PRENSA EN 2024. DECLARACIONES DE DUTERTE MOSTRANDO LA ORDEN JUDICIAL Y DE SU ABOGADO, PAUL LAWRENCE LIM, SOBRE EL PROCESO.
 NUUK. DECLARACIONES DE URSULA VON DER LEYEN, PRESIDENTA DE LA COMISION EUROPEA; JENS-FREDERIK NIELSEN, PRIMER MINISTRO DE GROENLANDIA; Y METTE FREDERIKSEN, PRIMERA MINISTRA DE DINAMARCA, SOBRE EL ANUNCIO DE UN PAQUETE DE APOYO DE LA UNION EUROPEA PARA REFORZAR LOS LAZOS CON GROENLANDIA. DECLARACIONES REALIZADAS DURANTE VISITA OFICIAL DE VON DER LEYEN A GROENLANDIA.
 GAZA. FUNERAL COLECTIVO POR MAS DE 110 PALESTINOS CUYOS CUERPOS FUERON ENCONTRADOS BAJO LOS ESCOMBROS DE CASAS DESTRUIDAS EN EL BARRIO DE ZEITUN TRAS BOMBARDEOS DE ISRAEL. DECLARACIONES DE MUSTAFA QUZGHAT Y RAGHIB SWIRKI, FAMILIARES DE VICTIMAS.
