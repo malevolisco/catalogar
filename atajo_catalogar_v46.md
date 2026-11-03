@@ -81,7 +81,7 @@ A) Hecho con planos (lo habitual: un suceso, un acto, una llegada, una redada, u
    Todo lo que se ve va antes que lo que se dice (ver «Recursos primero»): las vistas aéreas o los planos del lugar no se quedan para el INCLUYE de detrás de las declaraciones.
    El dopesheet o STORY da la ocasión en una frase; sus antecedentes (fechas anteriores, cifras del caso, lo que pasará mañana) no entran.
    Ej.: QUEZON CITY. SALIDA DEL JUZGADO DE LA REGION DE SARA DUTERTE, VICEPRESIDENTA DE FILIPINAS, TRAS PAGAR UNA FIANZA DE 360000 PESOS POR TRES CARGOS DE AMENAZAS GRAVES DE MATAR AL PRESIDENTE FERDINAND MARCOS JR. DECLARACIONES DE DUTERTE MOSTRANDO LA ORDEN JUDICIAL, Y DE SU ABOGADO, PAUL LAWRENCE LIM, SOBRE EL PROCESO.
-   Ej.: MYLA (KIEV). DAÑOS Y TRABAJOS DE RECONSTRUCCION TRAS EL ATAQUE AEREO DEL EJERCITO DE RUSIA A UN ALMACEN DE MUNICIONES. RECURSOS DE TRAMITES DE INDEMNIZACION. INCLUYE TESTIMONIOS DE VECINOS AFECTADOS.
+   Ej.: MYLA (KIEV). DAÑOS Y TRABAJOS DE RECONSTRUCCION TRAS EL ATAQUE AEREO DEL EJERCITO DE RUSIA A UN ALMACEN DE MUNICIONES. TRAMITES DE INDEMNIZACION. INCLUYE TESTIMONIOS DE VECINOS AFECTADOS.
 
 B) Material hablado (hay SOUNDBITE y el material es lo que se dice)
    Primero decide cuál de estos cinco es. No son intercambiables y en el NAME va el que toque, nunca uno genérico ni uno más corto:
