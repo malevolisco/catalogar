@@ -31,7 +31,7 @@ def test_se_leen_las_lineas_del_modelo_y_lo_demas_se_descarta():
                  "Esto no es un localizador\n"
                  "3 | KIEV | UCRANIA | 12/10/2026 | DECLARACIONES DE VITALI KLITSCHKO, ALCALDE DE KIEV, SOBRE EL ATAQUE |\n"
                  "5|VARSOVIA|POLONIA|13/10/2026|LLEGADA DE REFUGIADOS A LA ESTACION|ROTULAR CORTESIA DE ''TVP''\n"
-                 "6|VARSOVIA|POLONIA|13/10/2026|CENTRO DE ACOGIDA|\n")
+                 "6|VARSOVIA|POLONIA|13/10/2026|CENTRO DE ACOGIDA|SIN AVISO\n")      # SIN AVISO no es restriccion
     datos = {"texto": SHOTLIST, "agencia": "REUTERS", "numero": "0707", "fecha": "12/10/2026", "headline": "H"}
     with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
         locs = redactor.localizadores(datos)

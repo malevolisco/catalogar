@@ -1306,7 +1306,7 @@ SHOWS que lo precede); si no la hay, los del envio. LUGAR y PAIS en español y c
 CHINA, UCRANIA). FECHA en DD/MM/AAAA.
 Y su RESTRICCION, si ese plano tiene una propia: la que pone su dateline o su linea (MUST COURTESY, NO ACCESS, NO USE...),
 dicha con las formulas de la tabla de abajo. ACCESS ALL y lo que la tabla manda ignorar no son restricciones. Si no
-tiene, vacia.
+tiene, el campo va vacio: aqui nunca SIN AVISO (eso es solo para la ficha).
 En mayusculas, sin tildes (con Ñ), estilo nominal, personas con NOMBRE APELLIDO, CARGO en español. Nada que no este en
 el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, con estos seis campos (el ultimo
 puede ir vacio):
@@ -1357,6 +1357,8 @@ def localizadores(datos, timeout=None):
         plano, lugar, pais, fecha, texto, restriccion = (normalizar(x).strip(" .") for x in m.groups())
         if not texto:
             continue
+        if restriccion.startswith("SIN AVISO"):
+            restriccion = ""                     # la formula de la ficha para "ninguna": aqui no se escribe
         if pais and pais_antes is not None and pais != pais_antes and pais not in lugar:
             lugar = f"{lugar} ({pais})" if lugar else pais          # cambia de pais: se dice a cual
         if pais:
