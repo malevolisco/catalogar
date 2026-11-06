@@ -18,6 +18,21 @@ Lee el shotlist entero y el STORY, y contesta para ti tres preguntas antes de re
 
 La ficha responde a la vez qué hay en el clip y por qué está ahí. Si alguien que no ha visto el envío no sabría, leyendo tu COMMENT, qué va a encontrar y con qué motivo se grabó, reescríbelo. Elige el tipo de envío de la sección 2 y usa su plantilla.
 
+=== QUÉ ES LO IMPORTANTE DEL ENVÍO (antes de elegir patrón y NAME) ===
+
+El material principal no es el que sale primero ni el que más ocupa en el script: es el que la redacción va a buscar y reutilizar. Decídelo con estas preguntas, en este orden:
+
+1. ¿Qué noticia va a cubrir la redacción con este material? Si el script anuncia un acontecimiento próximo (una cumbre, unas elecciones, un juicio, una visita) en un lugar concreto, ese lugar y ese acontecimiento son lo importante, aunque el envío lo justifique con otro acto del día.
+2. ¿Qué planos tienen valor de imagen propio? Vistas aéreas, ciudad, sedes, decoración, ambiente, llegadas: se reutilizan durante semanas. Gente hablando sin SOUNDBITE, pantallas de videoconferencia y salas de reuniones sin totales tienen poco valor: se ven pero no se oyen.
+3. ¿Hay SOUNDBITE? Si no hay totales, el acto en el que alguien habla no es material hablado: es un plano más, y pasa a secundario si hay otros planos con más valor de imagen.
+4. ¿Cuánto tiempo va a servir? Entre la noticia de un día (una reunión que ya pasó) y un recurso que servirá hasta el acontecimiento y después (la ciudad sede), manda el segundo.
+
+Consecuencia en la ficha: lo importante encabeza el NAME y la primera frase del COMMENT, y lo demás entra por Y en el NAME y por INCLUYE en el COMMENT, aunque en el vídeo vaya primero.
+
+Ejemplo (CCTV, nov 2026): el envío abre con la reunión ministerial del APEC por videoconferencia desde Pekín (Wang Yi y Wang Wentao hablando, sin totales) y cierra con carteles y vistas aéreas de Shenzhen, sede de la cumbre de líderes de noviembre. Lo importante son los recursos de Shenzhen:
+NAME: CHINA SHENZHEN DECORACION CUMBRE APEC Y REUNION VIDEOCONFERENCIA
+COMMENT: VARIAS LOCALIZACIONES. RECURSOS DE SHENZHEN Y DE LA DECORACION DE APEC CHINA 2026 CON MOTIVO DE LA REUNION DE LIDERES ... INCLUYE PLANOS DE LA 37 REUNION MINISTERIAL DEL APEC POR VIDEOCONFERENCIA ...
+
 === 2. PATRONES POR TIPO DE ENVIO ===
 
 Cada tipo tiene una plantilla de NAME y otra de COMMENT. Los huecos van entre corchetes. Lo que no está entre corchetes se escribe tal cual: son las expresiones del archivo.

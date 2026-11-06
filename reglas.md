@@ -19,6 +19,15 @@ Lee el shotlist entero y el STORY o STORYLINE, y contesta para ti estas tres pre
 
 La ficha tiene que responder a la vez qué hay en el clip y por qué está ahí. Comprobación final: si alguien que no ha visto el envío no sabría, leyendo tu COMMENT, qué va a encontrar en el vídeo y con qué motivo se grabó, reescríbelo.
 
+=== QUÉ ES LO IMPORTANTE DEL ENVÍO (antes de elegir patrón y NAME) ===
+
+El material principal no es el que sale primero ni el que más ocupa: es el que la redacción va a buscar y reutilizar.
+1. La noticia que va a cubrir la redacción: si el script anuncia un acontecimiento próximo (cumbre, elecciones, juicio, visita) en un lugar concreto, ese lugar y ese acontecimiento son lo importante, aunque el envío lo justifique con otro acto del día.
+2. Los planos con valor de imagen propio (vistas aéreas, ciudad, sedes, decoración, ambiente, llegadas) mandan sobre gente hablando sin SOUNDBITE, pantallas de videoconferencia y salas sin totales.
+3. Sin SOUNDBITE, un acto en el que alguien habla no es material hablado: es un plano más, secundario si hay planos con más valor.
+4. Entre la noticia de un día y un recurso que servirá semanas (la ciudad sede), manda el recurso.
+Lo importante encabeza el NAME y la primera frase del COMMENT; lo demás entra por Y en el NAME y por INCLUYE en el COMMENT, aunque en el vídeo vaya primero. Ej. (APEC, vídeo que abre con una videoconferencia ministerial sin totales y cierra con vistas de Shenzhen, sede de la cumbre): NAME CHINA SHENZHEN DECORACION CUMBRE APEC Y REUNION VIDEOCONFERENCIA; COMMENT VARIAS LOCALIZACIONES. RECURSOS DE SHENZHEN Y DE LA DECORACION DE APEC CHINA 2026 CON MOTIVO DE LA REUNION DE LIDERES ... INCLUYE PLANOS DE LA 37 REUNION MINISTERIAL DEL APEC POR VIDEOCONFERENCIA ...
+
 === NAME (título de archivo) ===
 
 Estructura: PAIS + PALABRA CLAVE DEL TEMA + una sola idea principal.
