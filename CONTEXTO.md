@@ -90,7 +90,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
 - Localizadores (6 nov): Comments con LOCALIZADOR(ES) ("TRATAR AGENCIA CON LOCALIZADORES") -> envio["localizadores"]
   (listas.LOCALIZADORES_RE) -> ficha["con_localizadores"] (lista del panel y buzon). Tras redactar,
   redactor.localizadores(datos): una llamada al modelo con el shotlist, lineas "N|TEXTO" -> [{"plano","texto"}]:
-  declaraciones con LUGAR, FECHA y planos que son recursos reutilizables. Un fallo deja la ficha hecha con aviso.
+  declaraciones y planos que son recursos reutilizables. El modelo da N|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION y el
+  codigo compone "KIEV. DOCE DE OCTUBRE DE 2026. TEXTO. [RESTRICCION.]" (fecha_en_letra; el pais entre parentesis
+  cuando cambia respecto al anterior; restricciones con la tabla de la seccion 5 del criterio). Un fallo deja la
+  ficha hecha con aviso.
   Solo en el panel (pestaña Localizadores, #localizadores/<lote>/<ficha>, boton en la ficha): ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
