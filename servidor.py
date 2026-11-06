@@ -802,12 +802,12 @@ class Worker(threading.Thread):
         entrar en la agencia y gastar una llamada al modelo. Devuelve True si se ha copiado."""
         origen, hecha = ESTADO.ya_hecha(ficha["numero"], ficha.get("fecha") or "", salvo_lote=lote["id"],
                                         creado=ficha.get("creado") or "")
-        if not hecha or (ficha.get("con_localizadores") and not hecha.get("localizadores")):
+        if not hecha or (ficha.get("con_localizadores") and "localizadores" not in hecha):
             return False                         # la de antes no tiene los localizadores que esta pide: se rehace
         with ESTADO.lock:
             for c in CAMPOS:
                 ficha[c] = hecha.get(c, "")
-            if hecha.get("localizadores"):
+            if "localizadores" in hecha:
                 ficha["localizadores"] = list(hecha["localizadores"])
             ficha["normal"] = hecha.get("normal")
             ficha["avisos"] = list(hecha.get("avisos") or [])
@@ -857,11 +857,15 @@ class Worker(threading.Thread):
             try:
                 locs = sacar_localizadores(datos, timeout=CFG["claude_timeout"])
             except Exception as e:
-                avisos.append(f"No han salido los localizadores ({type(e).__name__}: {str(e).splitlines()[0][:120]})")
+                log(f"  {ficha['etiqueta']}: localizadores sin sacar ({type(e).__name__}: {str(e).splitlines()[0][:120]})")
+                avisos.append("No se han podido sacar los localizadores (el servicio de redacción no ha contestado o ha "
+                              "dado un error). La ficha está bien; vuelve a subir la lista para intentarlo otra vez.")
                 locs = None
         with ESTADO.lock:
             if locs is not None:
                 ficha["localizadores"] = locs
+            elif ficha.get("con_localizadores"):
+                ficha["localizadores_fallo"] = True                # el panel dice que mire el aviso
             for c in CAMPOS:
                 ficha[c] = campos.get(c, "")
             if campos.get("NORMAL"):

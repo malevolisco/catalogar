@@ -135,7 +135,7 @@
   .lista .fila:first-child { border-top:0; }
   .lista .cuerpo { flex:1; min-width:0; }
   .lista .orden { color:var(--gris); font-variant-numeric:tabular-nums; font-size:13px; padding-top:2px; }
-  .lista .fila.resaltada { background:var(--papel); }
+  .lista .fila.resaltada { background:var(--papel); box-shadow:inset 3px 0 0 var(--azul); }
 
   /* ---------- entrada de clave ---------- */
   .puerta { max-width:360px; margin:16vh auto 0; padding:0 20px; }
@@ -2068,11 +2068,12 @@
     }
     const linea = (x, i) => `<div class="campo">
         <span class="nombre-campo">Plano ${esc(x.plano)}</span>
-        <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div><span></span></div>`;
+        <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div></div>`;
     caja.innerHTML = `<div class="lista">` + items.map(({ lote, f }) => {
       const locs = f.localizadores || [];
-      const estado = f.estado !== "hecha" ? (f.estado === "error" ? "con error" : "en cola o en curso")
-                   : !locs.length ? "sin localizadores (el shotlist no tiene nada que marcar o no han salido; mira los avisos de la ficha)" : "";
+      const estado = f.estado !== "hecha" ? (f.estado === "error" ? "La ficha ha dado error: los localizadores salen cuando se haga." : "En cola o redactándose: los localizadores salen al terminar la ficha.")
+                   : f.localizadores_fallo ? "No se han podido sacar: mira el aviso de la ficha. Vuelve a subir la lista para intentarlo otra vez."
+                   : !locs.length ? "El shotlist no tiene nada que marcar: ni declaraciones ni planos que sean recursos reutilizables." : "";
       return `<div class="fila" id="loc-${esc(lote.id)}-${esc(f.id)}">
         <div class="cuerpo">
           <div class="titular"><span class="envio">${esc(f.etiqueta)}</span> <span class="origen">${esc(f.headline || "")}</span></div>

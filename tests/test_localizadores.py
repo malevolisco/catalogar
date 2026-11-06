@@ -76,8 +76,9 @@ def test_si_fallan_la_ficha_queda_hecha_con_un_aviso(worker, monkeypatch):  # no
         raise RuntimeError("sin respuesta")
 
     ficha = _arrancar(w, {"con_localizadores": True}, monkeypatch, falla)
-    assert ficha["estado"] == "hecha" and ficha["NAME"] == "N"
-    assert any("No han salido los localizadores" in a for a in ficha["avisos"])
+    assert ficha["estado"] == "hecha" and ficha["NAME"] == "N" and ficha["localizadores_fallo"]
+    aviso = next(a for a in ficha["avisos"] if "localizadores" in a)
+    assert "RuntimeError" not in aviso and "vuelve a subir la lista" in aviso      # sin nombres internos, y que hacer
 
 
 def test_no_van_ni_al_correo_ni_a_mediacentral():
@@ -94,3 +95,12 @@ def test_el_panel_tiene_la_seccion_y_el_enlace():
     panel = (Path(__file__).resolve().parent.parent / "panel" / "index.html").read_text(encoding="utf-8")
     assert 'data-vista="localizadores"' in panel and 'id="vista-localizadores"' in panel
     assert "#localizadores/" in panel and "data-locs" in panel
+
+
+def test_una_ficha_ya_hecha_sin_nada_que_marcar_se_copia_sin_volver_a_pedirlos(monkeypatch):
+    w = servidor.Worker()
+    hecha = {"numero": "0707", "estado": "hecha", "NAME": "N", "COMMENT": "C", "localizadores": []}
+    monkeypatch.setattr(servidor.ESTADO, "ya_hecha", lambda *a, **k: ({"creado": "06/11/2026"}, hecha))
+    monkeypatch.setattr(servidor.ESTADO, "guardar", lambda: None)
+    ficha = {"numero": "0707", "etiqueta": "0707", "con_localizadores": True}
+    assert w.volcar_hecha({"id": "L"}, ficha) and ficha["localizadores"] == []
