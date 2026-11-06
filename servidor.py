@@ -42,7 +42,7 @@ from playwright.sync_api import sync_playwright
 from config import cargar_config, ConfigError
 from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE, reuters_login
 from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal, version_normal,
-                      localizadores as sacar_localizadores,
+                      localizadores as sacar_localizadores, LOCALIZADORES_VERSION,
                       anadir_ejemplo, listar_ejemplos, quitar_ejemplo, salud_ejemplos,
                       anadir_regla, listar_reglas_extra, REGLAS_EXTRA_PATH)
 from correo import (enviar_lote, enviar_seleccion, enviar_fichas, analizar_reparto, enviar, CorreoError,
@@ -802,13 +802,14 @@ class Worker(threading.Thread):
         entrar en la agencia y gastar una llamada al modelo. Devuelve True si se ha copiado."""
         origen, hecha = ESTADO.ya_hecha(ficha["numero"], ficha.get("fecha") or "", salvo_lote=lote["id"],
                                         creado=ficha.get("creado") or "")
-        if not hecha or (ficha.get("con_localizadores") and "localizadores" not in hecha):
-            return False                         # la de antes no tiene los localizadores que esta pide: se rehace
+        if not hecha or (ficha.get("con_localizadores") and hecha.get("localizadores_v") != LOCALIZADORES_VERSION):
+            return False                         # la de antes no tiene estos localizadores (o son de antes): se rehace
         with ESTADO.lock:
             for c in CAMPOS:
                 ficha[c] = hecha.get(c, "")
-            if "localizadores" in hecha:
-                ficha["localizadores"] = list(hecha["localizadores"])
+            if hecha.get("localizadores_v") == LOCALIZADORES_VERSION:
+                ficha["localizadores"] = list(hecha.get("localizadores") or [])
+                ficha["localizadores_v"] = LOCALIZADORES_VERSION
             ficha["normal"] = hecha.get("normal")
             ficha["avisos"] = list(hecha.get("avisos") or [])
             ficha["headline"] = hecha.get("headline", "")
@@ -864,6 +865,7 @@ class Worker(threading.Thread):
         with ESTADO.lock:
             if locs is not None:
                 ficha["localizadores"] = locs
+                ficha["localizadores_v"] = LOCALIZADORES_VERSION
             elif ficha.get("con_localizadores"):
                 ficha["localizadores_fallo"] = True                # el panel dice que mire el aviso
             for c in CAMPOS:

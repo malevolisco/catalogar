@@ -1293,7 +1293,9 @@ def planos_numerados(texto):
 
 
 LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
-localizadores que el catalogador pondra a mano en el video de MediaCentral. Solo se marca:
+localizadores que el catalogador pondra a mano en el video de MediaCentral. Recibes el texto entero de la ficha de la
+agencia: el shotlist es todo ese bloque (titular, datelines, planos, SOUNDBITES, STORY), venga numerado o no. Los planos
+y las declaraciones salen de los planos y SOUNDBITES; el STORY solo da contexto. Solo se marca:
 - cada declaracion (SOUNDBITE o SOT): DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en pocas palabras]. Si
   quien habla es un ciudadano que cuenta lo vivido, TESTIMONIO DE; si es una entrevista, ENTREVISTA A; si es un discurso
   en un acto, INTERVENCION DE; en una rueda de prensa, RUEDA DE PRENSA DE;
@@ -1311,8 +1313,11 @@ En mayusculas, sin tildes (con Ñ), estilo nominal, personas con NOMBRE APELLIDO
 el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, con estos seis campos (el ultimo
 puede ir vacio):
 NUMERO DEL PLANO|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION
+(NUMERO DEL PLANO: el de la agencia si los numera; si no, deja el campo vacio.)
 Sin nada mas. Si ningun plano se marca, devuelve NINGUNO."""
-LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3})\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
+LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3}|-)?\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
+LOCALIZADORES_VERSION = 2            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
+MIN_TEXTO_LOCALIZADORES = 80         # menos no es la ficha de la agencia (un titular suelto): no se gasta la llamada
 DIAS_LETRA = ("UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE DIECISEIS DIECISIETE "
               "DIECIOCHO DIECINUEVE VEINTE VEINTIUNO VEINTIDOS VEINTITRES VEINTICUATRO VEINTICINCO VEINTISEIS "
               "VEINTISIETE VEINTIOCHO VEINTINUEVE TREINTA").split() + ["TREINTA Y UNO"]
@@ -1340,10 +1345,10 @@ def _seccion_restricciones():
 def localizadores(datos, timeout=None):
     """Los localizadores del envio sacados del shotlist: [{"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. ..."}].
     Cada uno: LUGAR. FECHA EN LETRA. TEXTO. [RESTRICCION.] El pais va con el lugar, entre parentesis, cuando cambia
-    respecto al localizador anterior. Lista vacia si el shotlist no tiene planos numerados o no hay nada que marcar."""
-    from paginas_word import extraer_script
-    guion = extraer_script(datos.get("texto") or "")
-    if not planos_numerados(guion):
+    respecto al localizador anterior. El shotlist es el texto entero de la agencia, numerado o no (cortarlo por
+    las marcas de Word dejaba fuera los de Reuters). Lista vacia si no hay texto o nada que marcar."""
+    guion = (datos.get("texto") or "").strip()
+    if len(guion) < MIN_TEXTO_LOCALIZADORES:
         return []
     system = LOCALIZADORES_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
     user = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
@@ -1354,7 +1359,7 @@ def localizadores(datos, timeout=None):
         m = LOCALIZADOR_RE.match(linea)
         if not m:
             continue
-        plano, lugar, pais, fecha, texto, restriccion = (normalizar(x).strip(" .") for x in m.groups())
+        plano, lugar, pais, fecha, texto, restriccion = (normalizar(x or "").strip(" .-") for x in m.groups())
         if not texto:
             continue
         if restriccion.startswith("SIN AVISO"):

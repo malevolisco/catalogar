@@ -709,7 +709,7 @@
 
   <!-- ---- localizadores ---- -->
   <section id="vista-localizadores" class="oculto">
-    <p class="pista" style="margin:0 0 14px">Los envíos que en la lista de MediaCentral piden «TRATAR AGENCIA CON LOCALIZADORES». Salen del shotlist: las declaraciones con su lugar y su fecha, y los planos que son recursos reutilizables. El número es el del plano en el shotlist de la agencia. Pulsa un localizador para copiarlo. Solo están aquí: no van en el correo.</p>
+    <p class="pista" style="margin:0 0 14px">Los envíos que en la lista de MediaCentral piden «TRATAR AGENCIA CON LOCALIZADORES». Salen del shotlist: las declaraciones con su lugar y su fecha, y los planos que son recursos reutilizables. El número es el del plano en el shotlist de la agencia, si los numera. Pulsa un localizador para copiarlo. Solo están aquí: no van en el correo.</p>
     <div id="lista-localizadores"></div>
   </section>
 
@@ -2067,7 +2067,7 @@
       return;
     }
     const linea = (x, i) => `<div class="campo">
-        <span class="nombre-campo">Plano ${esc(x.plano)}</span>
+        <span class="nombre-campo">${x.plano ? "Plano " + esc(x.plano) : "—"}</span>
         <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div></div>`;
     caja.innerHTML = `<div class="lista">` + items.map(({ lote, f }) => {
       const locs = f.localizadores || [];

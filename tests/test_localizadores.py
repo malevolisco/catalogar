@@ -47,8 +47,24 @@ def test_se_leen_las_lineas_del_modelo_y_lo_demas_se_descarta():
     assert "SOUNDBITE" in llamada.call_args.args[1]                # el shotlist va al modelo
     assert "ROTULAR CORTESIA DE" in llamada.call_args.args[0]      # con la tabla de restricciones del criterio
     with mock.patch("redactor.llamar_modelo") as llamada:
-        assert redactor.localizadores({"texto": "Solo un STORY sin planos."}) == []
-    assert not llamada.called                                        # sin planos no se gasta una llamada
+        assert redactor.localizadores({"texto": "Un titular suelto."}) == []
+    assert not llamada.called                                        # sin texto de agencia no se gasta una llamada
+
+
+def test_el_shotlist_es_el_texto_entero_numerado_o_no():
+    """Reuters: la ficha trae Details antes del guion y los planos sin numerar; todo eso es el shotlist."""
+    texto = ("U.S. MIDTERMS: SCENES ACROSS AMERICA AS THE NATION GOES TO THE POLLS\nDetails\nDuration 00:03:12\n"
+             "ANCHORAGE, ALASKA (NOVEMBER 3, 2026) (REUTERS - ACCESS ALL)\nVOTERS QUEUING OUTSIDE POLLING STATION\n"
+             "(SOUNDBITE) (English) VOTER, JANE DOE, SAYING: We came early.\nSTORY: Americans voted on Tuesday.")
+    respuesta = ("|ANCHORAGE|EEUU|03/11/2026|VOTANTES HACIENDO COLA ANTE UN COLEGIO ELECTORAL|\n"
+                 "-|ANCHORAGE|EEUU|03/11/2026|TESTIMONIO DE JANE DOE, VOTANTE, SOBRE LA JORNADA|\n")
+    with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
+        locs = redactor.localizadores({"texto": texto, "fecha": "03/11/2026"})
+    assert "VOTERS QUEUING" in llamada.call_args.args[1] and "SOUNDBITE" in llamada.call_args.args[1]
+    assert locs == [{"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. VOTANTES HACIENDO COLA ANTE UN "
+                                           "COLEGIO ELECTORAL."},
+                    {"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. TESTIMONIO DE JANE DOE, VOTANTE, "
+                                           "SOBRE LA JORNADA."}]
 
 
 def test_la_fecha_va_en_letra():
@@ -76,6 +92,7 @@ def test_el_servidor_los_guarda_solo_si_la_lista_los_pide(worker, monkeypatch): 
     locs = [{"plano": "1", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. VISTA AEREA."}]
     ficha = _arrancar(w, {"con_localizadores": True}, monkeypatch, lambda datos, timeout=None: locs)
     assert ficha["estado"] == "hecha" and ficha["localizadores"] == locs
+    assert ficha["localizadores_v"] == redactor.LOCALIZADORES_VERSION
 
 
 def test_sin_peticion_no_se_piden(worker, monkeypatch):  # noqa: F811
@@ -115,8 +132,13 @@ def test_el_panel_tiene_la_seccion_y_el_enlace():
 
 def test_una_ficha_ya_hecha_sin_nada_que_marcar_se_copia_sin_volver_a_pedirlos(monkeypatch):
     w = servidor.Worker()
-    hecha = {"numero": "0707", "estado": "hecha", "NAME": "N", "COMMENT": "C", "localizadores": []}
+    hecha = {"numero": "0707", "estado": "hecha", "NAME": "N", "COMMENT": "C", "localizadores": [],
+             "localizadores_v": redactor.LOCALIZADORES_VERSION}
     monkeypatch.setattr(servidor.ESTADO, "ya_hecha", lambda *a, **k: ({"creado": "06/11/2026"}, hecha))
     monkeypatch.setattr(servidor.ESTADO, "guardar", lambda: None)
     ficha = {"numero": "0707", "etiqueta": "0707", "con_localizadores": True}
     assert w.volcar_hecha({"id": "L"}, ficha) and ficha["localizadores"] == []
+    # los sacados con la version de antes (sin version) no se copian: al subir otra vez la lista se rehacen
+    vieja = {"numero": "0707", "estado": "hecha", "NAME": "N", "COMMENT": "C", "localizadores": []}
+    monkeypatch.setattr(servidor.ESTADO, "ya_hecha", lambda *a, **k: ({"creado": "06/11/2026"}, vieja))
+    assert not w.volcar_hecha({"id": "L"}, {"numero": "0707", "etiqueta": "0707", "con_localizadores": True})
