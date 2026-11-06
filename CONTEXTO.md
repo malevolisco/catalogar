@@ -89,7 +89,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
 - Localizadores (6 nov): Comments con LOCALIZADOR(ES) ("TRATAR AGENCIA CON LOCALIZADORES") -> envio["localizadores"]
   (listas.LOCALIZADORES_RE) -> ficha["con_localizadores"] (lista del panel y buzon). Tras redactar,
-  redactor.localizadores(datos): una llamada al modelo con el shotlist, lineas "N|TEXTO" -> [{"plano","texto"}]:
+  redactor.localizadores(datos): una llamada al modelo con el TEXTO ENTERO de la agencia (el shotlist es todo el
+  bloque, numerado o no: cortarlo con extraer_script dejaba fuera los de Reuters) -> [{"plano","texto"}]
+  (plano vacio si la agencia no numera); ficha["localizadores_v"]=LOCALIZADORES_VERSION, y una ficha hecha con
+  otra version se rehace al subir la lista otra vez:
   declaraciones y planos que son recursos reutilizables. El modelo da N|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION y el
   codigo compone "KIEV. DOCE DE OCTUBRE DE 2026. TEXTO. [RESTRICCION.]" (fecha_en_letra; el pais entre parentesis
   cuando cambia respecto al anterior; restricciones con la tabla de la seccion 5 del criterio). Un fallo deja la
