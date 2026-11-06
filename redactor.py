@@ -1331,7 +1331,8 @@ def validar(campos):
         if re.search(r"\bCON MOTIVO (?!DE\b|DEL\b)", name):
             avisos.append("CON MOTIVO sin su DE en el NAME")
         if re.search(r"\bRECURSOS\b", name):
-            avisos.append("RECURSOS no va en el NAME: PAIS, lo que se ve y la noticia (RECURSOS DE queda para el COMMENT)")
+            avisos.append("RECURSOS en el NAME solo para recursos de un lugar para mas adelante (la ciudad sede de una "
+                          "cumbre, unas elecciones...); si ilustran la noticia del dia: PAIS, lo que se ve y la noticia")
     if re.search(r"\bSECUELAS?\b", name + " " + comment):
         avisos.append("SECUELAS no se usa: la palabra del archivo es DAÑOS (DAÑOS DE, DAÑOS TRAS)")
         if "CHAMPIONS" in name and "LIGA DE CAMPEONES" in comment:
