@@ -27,7 +27,7 @@ literal.
 import re
 import sys
 
-from actos import DESCRIPTOR, acto_por_texto
+from actos import DESCRIPTOR_TEXTO, EXPRESION_COMMENT, acto_por_texto, quien_habla
 from paginas_word import extraer_script
 
 # ---------------------------------------------------------------- trozos del texto donde mirar
@@ -284,7 +284,13 @@ def detectar(ficha):
     clase, pista = acto_por_texto(ficha)
     if clase:
         situaciones["acto"] = {"clase": clase, "evidencia": pista[:120]}
+    else:
+        # alguien con cargo habla, pero el texto no dice el acto: pista floja, no fija el acto (la imagen sigue contando)
+        clase, pista = quien_habla(ficha)
+        if clase == "declaraciones":
+            situaciones["hablado"] = {"clase": clase, "evidencia": pista[:120]}
     ficha["acto"] = situaciones.get("acto")
+    ficha["hablado"] = situaciones.get("hablado")
     ficha["situaciones"] = situaciones
     ficha["pistas"] = pistas(situaciones)
     if alertas:
@@ -310,7 +316,16 @@ def pistas(situaciones):
         lineas.append("- Ninguna restriccion reconocida en el texto: si no ves otra, RESTRICCIONES es SIN AVISO")
     acto = situaciones.get("acto")
     if acto:
-        lineas.append(f"- Tipo de acto segun el shotlist: {DESCRIPTOR[acto['clase']]} (\"{acto['evidencia']}\")")
+        linea = f"- Tipo de acto segun el shotlist: {DESCRIPTOR_TEXTO[acto['clase']]} (\"{acto['evidencia']}\")"
+        if acto["clase"] in EXPRESION_COMMENT:
+            linea += (f". Va en el NAME y en el COMMENT, delante de quien habla ({EXPRESION_COMMENT[acto['clase']]}), "
+                      "no solo su nombre")
+        lineas.append(linea)
+    hablado = situaciones.get("hablado")
+    if hablado:
+        lineas.append(f"- Quien habla segun el shotlist: {hablado['evidencia']}. Si el texto no dice que sea rueda de "
+                      "prensa, entrevista, comparecencia o intervencion, son DECLARACIONES. Sea cual sea, va en el COMMENT "
+                      "delante de quien habla, no solo su nombre")
     return "\n".join(lineas)
 
 

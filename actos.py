@@ -5,8 +5,12 @@ comparecencia, entrevista, intervencion... Es lo que decide el descriptor del NA
 
 Tres fuentes, de la mas fiable a la menos:
   1. El texto de la agencia (acto_por_texto): el shotlist suele decirlo con todas las letras
-     (NEWS CONFERENCE, INTERVIEW, SPEAKING TO REPORTERS, ADDRESSING PARLIAMENT...). Se mira solo el
-     titular, las datelines y las lineas de plano, no el STORY, que habla de otros dias y otros actos.
+     (NEWS CONFERENCE, INTERVIEW, SPEAKING TO REPORTERS, ADDRESSING PARLIAMENT, VOX POP...). Se mira solo
+     el titular, las datelines y las lineas de plano, no el STORY, que habla de otros dias y otros actos.
+     Si no lo dice, se mira quien habla en cada SOUNDBITE (quien_habla): ciudadanos que cuentan lo vivido
+     (RESIDENT, WITNESS, SURVIVOR...) son TESTIMONIOS; cuatro o mas opinando (VOTER, SHOPPER...), ENCUESTA.
+     Alguien con cargo apunta a DECLARACIONES, pero es una pista floja (puede ser una intervencion o una
+     entrevista que el texto no nombra): no fija el acto, va aparte como ficha["hablado"].
   2. Los fotogramas, con el clasificador de escenas.py entrenado con tus fichas aprobadas: solo
      desempata cuando el texto no dice nada, y solo en las clases en que ha demostrado acertar.
   3. Lo que ha escrito el modelo (clase_de_ficha), que se compara con las otras dos: si no cuadran,
@@ -37,14 +41,23 @@ DESCRIPTOR = {
     "video_promocional": "VIDEO PROMOCIONAL",
     "recursos": "RECURSOS (sin declaraciones)",
 }
+# lo que se reconoce por el texto: las de arriba (que son tambien las clases de imagen) y dos que solo se leen
+DESCRIPTOR_TEXTO = dict(DESCRIPTOR, testimonios="TESTIMONIOS", encuesta="ENCUESTA")
+# como se dice cada material hablado en el COMMENT (delante de quien habla, no solo su nombre)
+EXPRESION_COMMENT = {
+    "rueda_de_prensa": "RUEDA DE PRENSA", "comparecencia_conjunta": "EN COMPARECENCIA CONJUNTA",
+    "comparecencia": "COMPARECENCIA", "declaraciones": "DECLARACIONES", "entrevista": "ENTREVISTA",
+    "intervencion": "INTERVENCION", "testimonios": "TESTIMONIOS", "encuesta": "ENCUESTA",
+}
 
 # Reglas sobre el texto de la agencia, en orden: la primera que casa manda
 REGLAS_TEXTO = [
     ("video_promocional", r"PROMOTIONAL VIDEO|PRODUCT VIDEO|COMPANY HANDOUT|CORPORATE VIDEO"),
     ("comparecencia_conjunta", r"JOINT (?:NEWS|PRESS) CONFERENCE|JOINT PRESSER|JOINT (?:PRESS )?STATEMENTS?\b|JOINT BRIEFING"),
     ("rueda_de_prensa", r"(?:NEWS|PRESS) CONFERENCE|PRESSER\b|(?:PRESS|NEWS|MEDIA) BRIEFING|PRESS BRIEFING"),
+    ("encuesta", r"\bVOX[ -]?POPS?\b"),
     ("entrevista", r"INTERVIEW WITH|IN AN INTERVIEW|DURING AN INTERVIEW|\(INTERVIEW\)|\bINTERVIEW\b(?! (?:ROOM|REQUEST))|"
-                   r"(?:SPEAKING|TALKING) TO (?:REUTERS|THE ASSOCIATED PRESS|AP|EBU)\b|TOLD (?:REUTERS|THE ASSOCIATED PRESS)"),
+                   r"(?:SPEAKING|TALKING) TO (?:REUTERS|THE ASSOCIATED PRESS|AP|EBU)\b|TOLD (?:REUTERS|THE ASSOCIATED PRESS|AP)\b"),
     ("comparecencia", r"ADDRESS(?:ING|ES)? (?:PARLIAMENT|CONGRESS|THE SENATE|LAWMAKERS|THE HOUSE|THE BUNDESTAG|THE KNESSET|THE DUMA)|"
                       r"TESTIF(?:Y|YING|IES|IED)|(?:CONGRESSIONAL|SENATE|COMMITTEE|PARLIAMENTARY) HEARING|HEARING BEFORE|"
                       r"BEFORE (?:THE )?(?:COMMITTEE|PARLIAMENT|CONGRESS|SENATE)|"
@@ -59,6 +72,59 @@ REGLAS_TEXTO = [
 HAY_VOZ_RE = re.compile(r"SOUNDBITE|\bSOT\b|\bSOTS\b|INTERVIEW WITH|\bSAYING\b", re.I)
 LINEA_PLANO_RE = re.compile(r"^\s*(?:\d+\.|-)\s*(.+)$", re.M)
 DATELINE_RE = re.compile(r"^(?:VIDEO SHOWS|SHOWS)\s*:?\s*(.+)$", re.M | re.I)
+
+# quien habla en una linea de SOUNDBITE: lo que va detras de la marca, sin el idioma, hasta SAYING o los dos puntos
+# (Reuters: SOUNDBITE (English) RESIDENT ALI HASSAN, SAYING: / AP: SOUNDBITE (English) Ali Hassan, resident: /
+#  EBU: SOT Ali Hassan, resident)
+SOUNDBITE_RE = re.compile(r"\(?\b(?:SOUNDBITES?|SOTS?)\b\)?\s*:?\s*(.*)$", re.M | re.I)
+# ciudadanos que cuentan lo que han vivido o visto
+VIVIDO_RE = re.compile(
+    r"\b(?:RESIDENTS?|WITNESS(?:ES)?|EYEWITNESS(?:ES)?|SURVIVORS?|VICTIMS?|RELATIVES?|FAMILY MEMBERS?|"
+    r"(?:MOTHER|FATHER|SON|DAUGHTER|BROTHER|SISTER|WIFE|HUSBAND|WIDOW(?:ER)?|UNCLE|AUNT|COUSIN|GRAND(?:MOTHER|FATHER)|"
+    r"NEPHEW|NIECE|PARENTS?|FRIEND|NEIGHBOU?R) OF|NEIGHBOU?RS?|VILLAGERS?|DISPLACED|REFUGEES?|EVACUEES?|PATIENTS?|"
+    r"INJURED|HOMEOWNERS?|LOCALS?|UNIDENTIFIED|(?:LOCAL |YOUNG |ELDERLY |OLD )?(?:MAN|WOMAN|BOY|GIRL))\b")
+# ciudadanos que dan su opinion (si son cuatro o mas, encuesta)
+OPINION_RE = re.compile(
+    r"\b(?:VOTERS?|SHOPPERS?|FANS?|SUPPORTERS?|PASSERS?-?BY|PASSERSBY|COMMUTERS?|CONSUMERS?|CUSTOMERS?|TOURISTS?|"
+    r"VISITORS?|PEDESTRIANS?|CITIZENS?)\b")
+# palabras de cargo o de quien habla en nombre de algo: con una de ellas no es un ciudadano cualquiera, aunque la
+# descripcion lleve tambien RESIDENT o VICTIMS (RESIDENT COORDINATOR, LAWYER FOR THE VICTIMS)
+CARGO_RE = re.compile(
+    r"\b(?:MINISTER|PRESIDENT|PREMIER|CHANCELLOR|SPOKES(?:MAN|WOMAN|PERSON)|SECRETARY|DIRECTOR|CHIEF|HEAD|MAYOR|"
+    r"GOVERNOR|OFFICIALS?|LAWYER|ATTORNEY|PROSECUTOR|JUDGE|POLICE|OFFICER|COMMANDER|GENERAL|AMBASSADOR|ENVOY|CEO|"
+    r"CHAIR(?:MAN|WOMAN|PERSON)?|MANAGER|COACH|PLAYER|ACTOR|ACTRESS|SINGER|ARTIST|PROFESSOR|ANALYST|EXPERT|"
+    r"RESEARCHER|SCIENTIST|LEADER|SENATOR|LAWMAKER|MP|DEPUTY|COORDINATOR|REPRESENTATIVE|COUNCIL(?:LOR|OR)?|"
+    r"ADVISE[RO]|FOUNDER|ACTIVIST|CAMPAIGNER|ORGANISER|ORGANIZER|CANDIDATE|KING|QUEEN|PRINCE|PRINCESS|POPE|"
+    r"DOCTOR|SURGEON|NURSE|RESCUER|FIREFIGHTER|SOLDIER|COMMISSIONER|DELEGATE|OWNER|PRIEST|IMAM|RABBI|BISHOP)\b")
+MIN_ENCUESTA = 4
+
+
+def _quien_habla(guion):
+    """Las descripciones de quien habla en cada SOUNDBITE o SOT, en mayusculas ("" si la linea no lo dice)."""
+    salida = []
+    for resto in SOUNDBITE_RE.findall(guion):
+        quien = re.sub(r"\([^)]*\)", " ", resto.upper())             # idioma y demas parentesis
+        quien = re.split(r"\bSAYING\b|:|[\"“”«]", quien)[0]                # lo que dice, fuera
+        salida.append(" ".join(quien.replace(",", " ").split()))
+    return salida
+
+
+def quien_habla(ficha):
+    """(clase, evidencia) segun quien habla en los SOUNDBITE del shotlist: "testimonios", "encuesta",
+    "declaraciones" (alguien con cargo: pista floja) o (None, ""). Una linea con solo el nombre no dice nada."""
+    quienes = [q for q in _quien_habla(extraer_script(ficha.get("texto") or "")) if q]
+    if not quienes:
+        return None, ""
+    con_cargo = [q for q in quienes if CARGO_RE.search(q)]
+    vivido = [q for q in quienes if VIVIDO_RE.search(q) and q not in con_cargo]
+    opinion = [q for q in quienes if OPINION_RE.search(q) and q not in con_cargo and q not in vivido]
+    if con_cargo:
+        return "declaraciones", f"habla alguien con cargo: {con_cargo[0][:80]}"
+    if len(opinion) >= MIN_ENCUESTA and not vivido:
+        return "encuesta", f"{len(opinion)} ciudadanos opinando: {opinion[0][:60]}"
+    if vivido:
+        return "testimonios", f"ciudadanos que cuentan lo vivido: {vivido[0][:80]}"
+    return None, ""
 
 
 def _texto_acto(ficha):
@@ -84,6 +150,10 @@ def acto_por_texto(ficha):
             return clase, m.group(0).strip()
     if not hay_voz and LINEA_PLANO_RE.search(extraer_script(ficha.get("texto") or "")):
         return "recursos", "ningun SOUNDBITE en el shotlist"
+    if hay_voz:
+        clase, evidencia = quien_habla(ficha)
+        if clase in ("testimonios", "encuesta"):
+            return clase, evidencia
     return None, ""
 
 
@@ -120,8 +190,19 @@ def comparar(ficha, campos, imagen=None):
     avisos = []
     escrito = clase_de_ficha(campos.get("NAME"), campos.get("COMMENT"))
     por_texto, evidencia = (ficha.get("acto") or {}).get("clase"), (ficha.get("acto") or {}).get("evidencia", "")
-    if por_texto and escrito and por_texto != escrito and not (por_texto == "recursos" and escrito == "saludo_reunion"):
-        avisos.append(f"El shotlist dice {DESCRIPTOR[por_texto]} (\"{evidencia}\") y la ficha dice {DESCRIPTOR[escrito]}")
+    # recursos delante e INCLUYE TESTIMONIOS o ENCUESTA detras es correcto: la ficha "es" recursos sin contradecir
+    compatibles = (por_texto == "recursos" and escrito == "saludo_reunion") or \
+        (por_texto in ("testimonios", "encuesta") and escrito == "recursos")
+    if por_texto and escrito and por_texto != escrito and not compatibles:
+        avisos.append(f"El shotlist dice {DESCRIPTOR_TEXTO[por_texto]} (\"{evidencia}\") y la ficha dice {DESCRIPTOR[escrito]}")
+    comment = (campos.get("COMMENT") or "").upper()
+    expresion = EXPRESION_COMMENT.get(por_texto)
+    if expresion and expresion not in comment:
+        avisos.append(f"El shotlist dice {DESCRIPTOR_TEXTO[por_texto]} y el COMMENT no lo pone: va {expresion} delante "
+                      "de quien habla, no solo su nombre")
+    elif not por_texto and ficha.get("hablado") and not any(e in comment for e in EXPRESION_COMMENT.values()):
+        avisos.append("En el shotlist habla alguien con cargo y el COMMENT no dice que es (DECLARACIONES DE, "
+                      "ENTREVISTA A, INTERVENCION DE...): va delante de quien habla, no solo su nombre")
     if imagen and imagen[2] and escrito and imagen[0] in DESCRIPTOR and imagen[0] != escrito and imagen[0] != por_texto:
         avisos.append(f"Por la imagen parece {DESCRIPTOR.get(imagen[0], imagen[0])} (confianza {imagen[1]:.2f}) "
                       f"y la ficha dice {DESCRIPTOR[escrito]}: revisar")
