@@ -1292,6 +1292,43 @@ def planos_numerados(texto):
     return re.findall(r"^\s*(?:\d+\.|-)\s*(.+)$", texto or "", flags=re.M)
 
 
+LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
+localizadores que el catalogador pondra a mano en el video de MediaCentral. Solo se marca:
+- cada declaracion (SOUNDBITE o SOT): LUGAR, DD/MM/AAAA. DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en
+  pocas palabras]. Si quien habla es un ciudadano que cuenta lo vivido, TESTIMONIO DE; si es una entrevista, ENTREVISTA
+  A; si es un discurso en un acto, INTERVENCION DE; en una rueda de prensa, RUEDA DE PRENSA DE;
+- cada plano que sea un recurso reutilizable, que una redaccion podria pedir por si mismo: vistas aereas, la ciudad,
+  edificios, sedes, paisaje, ambiente, llegadas, el hecho que se ve: LUGAR, DD/MM/AAAA. [lo que se ve, nominal].
+No se marcan los planos sin valor propio: cutaways, periodistas, camaras, sala, atril, pantallas, rotulos, planos de
+transicion, gente de paso sin identificar.
+El LUGAR y la fecha son los de la dateline de ese plano (la linea VIDEO SHOWS o SHOWS que lo precede); si no la hay,
+los del envio. LUGAR en español y corto (NUEVA YORK, PEKIN, KIEV), con el pais entre parentesis solo si no se entiende.
+En mayusculas, sin tildes (con Ñ), estilo nominal, personas con NOMBRE APELLIDO, CARGO en español. Nada que no este en
+el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, asi:
+NUMERO DEL PLANO|TEXTO DEL LOCALIZADOR
+Sin nada mas. Si ningun plano se marca, devuelve NINGUNO."""
+LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3})\s*[|]\s*(.+?)\s*$")
+
+
+def localizadores(datos, timeout=None):
+    """Los localizadores del envio sacados del shotlist: [{"plano": "3", "texto": "KIEV, 12/10/2026. ..."}].
+    Lista vacia si el shotlist no tiene planos numerados o no hay nada que marcar."""
+    from paginas_word import extraer_script
+    guion = extraer_script(datos.get("texto") or "")
+    if not planos_numerados(guion):
+        return []
+    user = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
+            f"TITULAR: {datos.get('headline', '')}\n\nSHOTLIST:\n{guion[:12000]}")
+    respuesta = llamar_modelo(LOCALIZADORES_SYSTEM, user, timeout=timeout)
+    salida = []
+    for linea in (respuesta or "").splitlines():
+        m = LOCALIZADOR_RE.match(linea)
+        if m:
+            texto = normalizar(m.group(2))
+            salida.append({"plano": m.group(1), "texto": texto if texto.endswith(".") else texto + "."})
+    return salida
+
+
 def planos_reales(texto):
     """Planos del shotlist que no son SOUNDBITE ni planos de sala (cutaways, periodistas, atril)."""
     return [p for p in planos_numerados(texto)

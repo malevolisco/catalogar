@@ -42,6 +42,7 @@ from playwright.sync_api import sync_playwright
 from config import cargar_config, ConfigError
 from extractor import Extractor, NeedsLogin, NotFound, AntiBot, abrir_contexto, BASE, AP_BASE, EBU_BASE, reuters_login
 from redactor import (redactar, validar, configurar, RedactorError, ModeloNoDisponible, presentar_normal, version_normal,
+                      localizadores as sacar_localizadores,
                       anadir_ejemplo, listar_ejemplos, quitar_ejemplo, salud_ejemplos,
                       anadir_regla, listar_reglas_extra, REGLAS_EXTRA_PATH)
 from correo import (enviar_lote, enviar_seleccion, enviar_fichas, analizar_reparto, enviar, CorreoError,
@@ -801,11 +802,13 @@ class Worker(threading.Thread):
         entrar en la agencia y gastar una llamada al modelo. Devuelve True si se ha copiado."""
         origen, hecha = ESTADO.ya_hecha(ficha["numero"], ficha.get("fecha") or "", salvo_lote=lote["id"],
                                         creado=ficha.get("creado") or "")
-        if not hecha:
-            return False
+        if not hecha or (ficha.get("con_localizadores") and not hecha.get("localizadores")):
+            return False                         # la de antes no tiene los localizadores que esta pide: se rehace
         with ESTADO.lock:
             for c in CAMPOS:
                 ficha[c] = hecha.get(c, "")
+            if hecha.get("localizadores"):
+                ficha["localizadores"] = list(hecha["localizadores"])
             ficha["normal"] = hecha.get("normal")
             ficha["avisos"] = list(hecha.get("avisos") or [])
             ficha["headline"] = hecha.get("headline", "")
@@ -848,7 +851,17 @@ class Worker(threading.Thread):
         self.fallos_seguidos = 0
         self.aviso_sesion_mandado = False
         avisos = list(avisos) + list(datos.get("avisos", []))
+        locs = None
+        if ficha.get("con_localizadores"):
+            # solo para el panel (pestaña Localizadores): ni correo, ni MediaCentral, ni fichas.csv
+            try:
+                locs = sacar_localizadores(datos, timeout=CFG["claude_timeout"])
+            except Exception as e:
+                avisos.append(f"No han salido los localizadores ({type(e).__name__}: {str(e).splitlines()[0][:120]})")
+                locs = None
         with ESTADO.lock:
+            if locs is not None:
+                ficha["localizadores"] = locs
             for c in CAMPOS:
                 ficha[c] = campos.get(c, "")
             if campos.get("NORMAL"):
@@ -1262,7 +1275,7 @@ class Buzon(threading.Thread):
                     # el titulo que trae la lista se guarda para reconocer la ficha en el panel; la fuente
                     # para redactar es la web de la agencia, salvo que Cont. o Comments traigan ya su texto
                     titulos, destinos = {}, {}
-                    creados, textos, columnas = {}, {}, {}
+                    creados, textos, columnas, con_locs = {}, {}, {}, set()
                     for a in p["adjuntos"]:
                         for e in a["envios"]:
                             titulos.setdefault(e["numero"], e["etiqueta"])
@@ -1273,6 +1286,8 @@ class Buzon(threading.Thread):
                                 destinos.setdefault(e["numero"], e["para"])
                             if e.get("creado"):
                                 creados.setdefault(e["numero"], e["creado"])
+                            if e.get("localizadores"):
+                                con_locs.add(e["numero"])
                     fichas = []
                     for n in p["numeros"]:
                         # la fecha escrita junto al numero manda; si no, la comun del correo si la hay
@@ -1280,6 +1295,7 @@ class Buzon(threading.Thread):
                         f["para"] = destinos.get(n, "")
                         f["texto_csv"] = textos.get(n, "")
                         f["texto_csv_col"] = columnas.get(n, "")
+                        f["con_localizadores"] = n in con_locs
                         fichas.append(f)
                     nombre = f"correo de {p['nombre']}: " + ", ".join(p["numeros"][:3]) + (" ..." if len(p["numeros"]) > 3 else "")
                     lotes = crear_lotes("correo", nombre, fichas, responder_a=p["de"], asunto_origen=p["asunto"], nota=nota)
@@ -1513,6 +1529,7 @@ async def subir_lista(fichero: UploadFile = File(...), reparto: str = Form(""), 
         f["para"] = e.get("para", "")
         f["texto_csv"] = e.get("texto", "")
         f["texto_csv_col"] = e.get("columna", "")
+        f["con_localizadores"] = bool(e.get("localizadores"))
         fichas.append(f)
     nota = resumen_lista(envios, descartes) + ((". " + aviso) if aviso else "")
     lotes = crear_lotes("lista", nombre, fichas, nota=nota, rehacer=_es_formal(rehacer),

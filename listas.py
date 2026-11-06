@@ -51,6 +51,8 @@ CAB_CREADO = ("created", "creado", "fecha de creacion", "creation date")
 CAB_TEXTO = ("comments", "comment", "comentario", "comentarios")
 # Cont. (el campo de contenido de MediaCentral): si trae el texto de la agencia, manda sobre Comments
 CAB_CONT = ("cont.", "cont")
+# "TRATAR AGENCIA CON LOCALIZADORES" en Comments: ademas de la ficha, los localizadores (solo en el panel)
+LOCALIZADORES_RE = re.compile(r"\bLOCALIZADOR", re.I)
 MIN_TEXTO_AGENCIA = 120          # menos es una nota ("TRATAR AGENCIAS"), no el texto de la agencia
 INGLES_RE = re.compile(r"\b(?:SHOWS|STORY|SHOTLIST|SOUNDBITE|RESTRICTIONS?|ACCESS|THE|AND|OF|WITH|FROM)\b", re.I)
 
@@ -186,7 +188,7 @@ def leer_lista(nombre, datos):
                  "catalogador": "I24082", "para": "javier", "creado": "21/09/2026 22:15", "texto": ""}, ...]
                (para: a quien mandarle la ficha, o ""; creado: cuando entro en MediaCentral, o "";
                 texto: el de la agencia si lo trae Cont. (primero) o Comments, y entonces no hace falta abrir la
-                web; columna: de cual de las dos ha salido)
+                web; columna: de cual de las dos ha salido; localizadores: True si Comments los pide)
     descartes: [{"fila": 3, "texto": "...", "motivo": "ya la tiene I99999"}, ...]
     aviso:     "" o una frase corta que conviene ensenar (por ejemplo, que el numero no abria la fila)
     """
@@ -248,7 +250,8 @@ def leer_lista(nombre, datos):
         vistos.add(numero)
         texto, columna = texto_de(fila)
         envios.append({"numero": numero, "etiqueta": etiqueta, "fila": n, "catalogador": quien, "para": para,
-                       "creado": leer_creado(celda(i_creado)), "texto": texto, "columna": columna})
+                       "creado": leer_creado(celda(i_creado)), "texto": texto, "columna": columna,
+                       "localizadores": bool(LOCALIZADORES_RE.search(celda(i_texto)))})
 
     aviso = ""
     # Segunda pasada, solo si ninguna fila traia el numero delante: se busca dentro del titulo,
@@ -268,7 +271,9 @@ def leer_lista(nombre, datos):
             agencia, columna = texto_de(fila)
             envios.append({"numero": numero, "etiqueta": texto[:LARGO_ETIQUETA], "fila": n, "catalogador": "", "para": "",
                            "creado": leer_creado(fila[i_creado] if i_creado is not None and i_creado < len(fila) else ""),
-                           "texto": agencia, "columna": columna})
+                           "texto": agencia, "columna": columna,
+                           "localizadores": bool(LOCALIZADORES_RE.search(
+                               fila[i_texto] if i_texto is not None and i_texto < len(fila) else ""))})
         if envios:
             aviso = ("En esta lista el numero no abria la fila: se ha cogido el primero que aparece en cada una. "
                      "Conviene comprobarlos antes de lanzar el lote.")

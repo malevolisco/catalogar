@@ -135,6 +135,7 @@
   .lista .fila:first-child { border-top:0; }
   .lista .cuerpo { flex:1; min-width:0; }
   .lista .orden { color:var(--gris); font-variant-numeric:tabular-nums; font-size:13px; padding-top:2px; }
+  .lista .fila.resaltada { background:var(--papel); }
 
   /* ---------- entrada de clave ---------- */
   .puerta { max-width:360px; margin:16vh auto 0; padding:0 20px; }
@@ -589,6 +590,7 @@
   <div class="marca"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f7cff"/><stop offset="1" stop-color="#2346b0"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#lg)"/><path d="M21.5 10.2A8 8 0 1 0 21.5 21.8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><rect x="20.6" y="14.4" width="3.2" height="3.2" rx="1" fill="#fff"/></svg><div><div class="marca-nombre">Catalogator</div><div class="marca-sub">Archivo · fichas de agencia</div></div></div>
   <nav aria-label="Secciones">
     <button data-vista="fichas" data-titulo="Fichas" class="activa"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4M9.5 12h6M9.5 15.5h6M9.5 9h2.5"/></svg><span>Fichas</span></button>
+    <button data-vista="localizadores" data-titulo="Localizadores"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Localizadores</span></button>
     <button data-vista="reglas" data-titulo="Reglas y criterio"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Reglas</span></button>
     <button data-vista="aprobadas" data-titulo="Fichas aprobadas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.3 1.6 2.8-.2.9 2.6 2.3 1.7-.9 2.7.9 2.7-2.3 1.7-.9 2.6-2.8-.2L12 20.8l-2.3-1.6-2.8.2-.9-2.6-2.3-1.7.9-2.7-.9-2.7 2.3-1.7.9-2.6 2.8.2z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.4"/></svg><span>Fichas aprobadas</span></button>
     <button data-vista="imagenes" data-titulo="Imágenes y escenas"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.8-4.8-8.2 8.8"/></svg><span>Imágenes</span></button>
@@ -703,6 +705,12 @@
       <p class="pista" style="margin:0 0 14px">Cuando apruebas una ficha que has corregido, Catalogator estudia la corrección. Si enseña algo que sirve para otros envíos, te propone aquí la regla. Nunca se añade sola: retócala si quieres y añádela, o descártala y no volverá a proponerla.</p>
       <div id="lista-sug"></div>
     </div>
+  </section>
+
+  <!-- ---- localizadores ---- -->
+  <section id="vista-localizadores" class="oculto">
+    <p class="pista" style="margin:0 0 14px">Los envíos que en la lista de MediaCentral piden «TRATAR AGENCIA CON LOCALIZADORES». Salen del shotlist: las declaraciones con su lugar y su fecha, y los planos que son recursos reutilizables. El número es el del plano en el shotlist de la agencia. Pulsa un localizador para copiarlo. Solo están aquí: no van en el correo.</p>
+    <div id="lista-localizadores"></div>
   </section>
 
   <!-- ---- fichas aprobadas ---- -->
@@ -1176,7 +1184,9 @@
     document.querySelectorAll("nav button").forEach(x => x.classList.toggle("activa", x === b));
     vistaActual = b.dataset.vista;
     $("titulo-vista").textContent = b.dataset.titulo || b.textContent.trim();
-    ["fichas", "reglas", "aprobadas", "imagenes", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    ["fichas", "localizadores", "reglas", "aprobadas", "imagenes", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
+    if (b.dataset.vista === "localizadores") { huellaLocs = ""; pintarLocalizadores(); }
+    else if (location.hash.startsWith("#localizadores")) history.replaceState(null, "", location.pathname + location.search);
     if (b.dataset.vista === "navegador") arrancarVisor();
     if (b.dataset.vista === "reglas") { pedirReglas(); pedirSugerencias(); pedirConsolidadas(); if (subReglas === "base") pedirCriterio(); }
     if (b.dataset.vista === "imagenes") pedirImagenes();
@@ -1272,6 +1282,8 @@
     try { d = await api("GET", "/api/lotes"); }
     catch (e) { $("pulso-texto").textContent = e.message; $("pulso").classList.remove("activa"); return; }
     ultimosDatos = d;
+    if (vistaActual === "localizadores") pintarLocalizadores();
+    else if (!locsAbierto && location.hash.startsWith("#localizadores/")) { locsAbierto = true; irA("localizadores"); }
 
     // Catalogator se ha actualizado y esta pagina es la de antes: se recarga, salvo a mitad de escribir
     if (d.panel && HUELLA_PANEL !== "__HUELLA_" + "PANEL__" && d.panel !== HUELLA_PANEL && !editando.size
@@ -1456,6 +1468,7 @@
            <button class="b mini" data-buena>Buena</button>
            <button class="b mini" data-corregir>Corregir</button>
            ${faltaNormal ? '<button class="b mini" data-normal>Pasar a texto normal</button>' : ""}
+           ${f.con_localizadores ? `<button class="b mini" data-locs>Localizadores${(f.localizadores || []).length ? " (" + f.localizadores.length + ")" : ""}</button>` : ""}
          </div>`;
 
     div.querySelector("input[type=checkbox]").addEventListener("change", e => marcar(lote, f, e.target.checked));
@@ -1470,6 +1483,7 @@
       () => copiar(CAMPOS.map(c => c + ": " + ver(f, c)).join("\n"), "Ficha copiada."));
     div.querySelector("[data-buena]").addEventListener("click", () => aprobar(lote, f, null));
     div.querySelector("[data-corregir]").addEventListener("click", () => corregir(lote, f, div));
+    div.querySelector("[data-locs]")?.addEventListener("click", () => verLocalizadores(lote.id, f.id));
     div.querySelector("[data-normal]")?.addEventListener("click", async e => {
       e.target.disabled = true;
       avisar("Pidiendo la versión en texto normal…");
@@ -2035,6 +2049,58 @@
   // la imagen llega como video (MJPEG) por una sola conexion; si falla, se pide imagen a imagen
   let visorDirecto = false, visorDirectoT = 0, visorSondeo = false;
   function cortarDirecto() { if (visorDirecto) { $("visor-img").removeAttribute("src"); visorDirecto = false; } }
+  // ---------------------------------------------------------------- localizadores (solo aqui: ni correo ni MediaCentral)
+  let huellaLocs = "", locsAbierto = false;
+  function verLocalizadores(idLote, idFicha) {
+    history.replaceState(null, "", `#localizadores/${idLote}/${idFicha}`);   // direccion propia de ese envio
+    irA("localizadores");
+  }
+  function pintarLocalizadores() {
+    const caja = $("lista-localizadores");
+    const items = ((ultimosDatos || {}).lotes || []).flatMap(l => (l.fichas || [])
+      .filter(f => f.con_localizadores).map(f => ({ lote: l, f })));
+    const huella = JSON.stringify(items.map(({ lote, f }) => [lote.id, f.id, f.estado, f.localizadores])) + location.hash;
+    if (huella === huellaLocs) return;                  // sin cambios: no se repinta (no se pierde lo que se mira)
+    huellaLocs = huella;
+    if (!items.length) {
+      caja.innerHTML = `<div class="vacio"><strong>Ningún envío con localizadores</strong>Aparecen aquí los de una lista de MediaCentral cuyo Comments dice «TRATAR AGENCIA CON LOCALIZADORES».</div>`;
+      return;
+    }
+    const linea = (x, i) => `<div class="campo">
+        <span class="nombre-campo">Plano ${esc(x.plano)}</span>
+        <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div><span></span></div>`;
+    caja.innerHTML = `<div class="lista">` + items.map(({ lote, f }) => {
+      const locs = f.localizadores || [];
+      const estado = f.estado !== "hecha" ? (f.estado === "error" ? "con error" : "en cola o en curso")
+                   : !locs.length ? "sin localizadores (el shotlist no tiene nada que marcar o no han salido; mira los avisos de la ficha)" : "";
+      return `<div class="fila" id="loc-${esc(lote.id)}-${esc(f.id)}">
+        <div class="cuerpo">
+          <div class="titular"><span class="envio">${esc(f.etiqueta)}</span> <span class="origen">${esc(f.headline || "")}</span></div>
+          ${f.NAME ? `<p class="pista" style="margin:4px 0 8px">${esc(f.NAME)}</p>` : ""}
+          ${estado ? `<p class="pista" style="margin:4px 0">${esc(estado)}</p>` : locs.map(linea).join("")}
+        </div>
+        <div class="botones">
+          ${locs.length ? '<button class="b mini" data-todos>Copiar todos</button>' : ""}
+          <button class="b mini" data-enlace title="La dirección de los localizadores de este envío">Copiar enlace</button>
+        </div>
+      </div>`;
+    }).join("") + `</div>`;
+    items.forEach(({ lote, f }) => {
+      const fila = document.getElementById(`loc-${lote.id}-${f.id}`);
+      if (!fila) return;
+      const locs = f.localizadores || [];
+      fila.querySelectorAll("[data-loc]").forEach(t => t.addEventListener("click",
+        () => copiar(t.textContent, "Localizador copiado.")));
+      fila.querySelector("[data-todos]")?.addEventListener("click",
+        () => copiar(locs.map(x => x.texto).join("\n"), "Localizadores copiados."));
+      fila.querySelector("[data-enlace]").addEventListener("click", () => copiar(
+        location.origin + location.pathname + `#localizadores/${lote.id}/${f.id}`, "Enlace copiado."));
+    });
+    const m = location.hash.match(/^#localizadores\/([^/]+)\/(.+)$/);
+    const destino = m && document.getElementById(`loc-${m[1]}-${m[2]}`);
+    if (destino) { destino.scrollIntoView({ block: "start" }); destino.classList.add("resaltada"); }
+  }
+
   function irA(vista) { document.querySelector(`nav button[data-vista="${vista}"]`)?.click(); }
   function arrancarVisor() {
     if (visorReloj) return;
