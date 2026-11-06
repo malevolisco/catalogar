@@ -87,6 +87,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   caja el identificador tag:reuters.com,AAAA:newsml_RW{numero}{ddmmaaaa}RP1 (sin revision: no hace falta),
   fecha pedida o ultimos DIAS_POR_ID (7) dias, tope TOPE_POR_ID 90 s. Abrir /all?id= sin busqueda NO vale
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
+- Localizadores (6 nov): Comments con LOCALIZADOR(ES) ("TRATAR AGENCIA CON LOCALIZADORES") -> envio["localizadores"]
+  (listas.LOCALIZADORES_RE) -> ficha["con_localizadores"] (lista del panel y buzon). Tras redactar,
+  redactor.localizadores(datos): una llamada al modelo con el shotlist, lineas "N|TEXTO" -> [{"plano","texto"}]:
+  declaraciones con LUGAR, FECHA y planos que son recursos reutilizables. Un fallo deja la ficha hecha con aviso.
+  Solo en el panel (pestaña Localizadores, #localizadores/<lote>/<ficha>, boton en la ficha): ni correo, ni
+  _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
   UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (15 min) y
   RESPALDO_HORAS (24 h) por INTERNALDATE. atender(respaldo=True): si es peticion de alguien permitido con alguna
