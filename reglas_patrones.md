@@ -18,6 +18,21 @@ Lee el shotlist entero y el STORY, y contesta para ti tres preguntas antes de re
 
 La ficha responde a la vez qué hay en el clip y por qué está ahí. Si alguien que no ha visto el envío no sabría, leyendo tu COMMENT, qué va a encontrar y con qué motivo se grabó, reescríbelo. Elige el tipo de envío de la sección 2 y usa su plantilla.
 
+=== QUÉ ES LO IMPORTANTE DEL ENVÍO (antes de elegir patrón y NAME) ===
+
+El material principal no es el que sale primero ni el que más ocupa en el script: es el que la redacción va a buscar y reutilizar. Decídelo con estas preguntas, en este orden:
+
+1. ¿Qué noticia va a cubrir la redacción con este material? Si el script anuncia un acontecimiento próximo (una cumbre, unas elecciones, un juicio, una visita) en un lugar concreto, ese lugar y ese acontecimiento son lo importante, aunque el envío lo justifique con otro acto del día.
+2. ¿Qué planos tienen valor de imagen propio? Vistas aéreas, ciudad, sedes, decoración, ambiente, llegadas: se reutilizan durante semanas. Gente hablando sin SOUNDBITE, pantallas de videoconferencia y salas de reuniones sin totales tienen poco valor: se ven pero no se oyen.
+3. ¿Hay SOUNDBITE? Si no hay totales, el acto en el que alguien habla no es material hablado: es un plano más, y pasa a secundario si hay otros planos con más valor de imagen.
+4. ¿Cuánto tiempo va a servir? Entre la noticia de un día (una reunión que ya pasó) y un recurso que servirá hasta el acontecimiento y después (la ciudad sede), manda el segundo.
+
+Consecuencia en la ficha: lo importante encabeza el NAME y la primera frase del COMMENT, y lo demás entra por Y en el NAME y por INCLUYE en el COMMENT, aunque en el vídeo vaya primero.
+
+Ejemplo (CCTV, nov 2026): el envío abre con la reunión ministerial del APEC por videoconferencia desde Pekín (Wang Yi y Wang Wentao hablando, sin totales) y cierra con carteles y vistas aéreas de Shenzhen, sede de la cumbre de líderes de noviembre. Lo importante son los recursos de Shenzhen:
+NAME: CHINA RECURSOS SHENZHEN DECORACION CUMBRE APEC Y REUNION VIDEOCONFERENCIA
+COMMENT: VARIAS LOCALIZACIONES. RECURSOS DE SHENZHEN Y DE LA DECORACION DE APEC CHINA 2026 CON MOTIVO DE LA REUNION DE LIDERES ... INCLUYE PLANOS DE LA 37 REUNION MINISTERIAL DEL APEC POR VIDEOCONFERENCIA ...
+
 === 2. PATRONES POR TIPO DE ENVIO ===
 
 Cada tipo tiene una plantilla de NAME y otra de COMMENT. Los huecos van entre corchetes. Lo que no está entre corchetes se escribe tal cual: son las expresiones del archivo.
@@ -51,15 +66,16 @@ B) Material hablado (hay SOUNDBITE y el material es lo que se dice)
    Ej. solo declaraciones, sin planos: ESPAÑA. DECLARACIONES DE SABRINA IMPACCIATORE, ACTRIZ ITALIANA, SOBRE SU ENTRADA EN LA TELEVISION DE ESTADOS UNIDOS. (Sin INCLUYE ni contexto.)
 
 C) Recursos (planos sin SOUNDBITE, aunque el STORY cuente una noticia con declaraciones)
-   NAME:    [PAIS] [qué se ve] [noticia, en dos o tres palabras]   (sin la palabra RECURSOS: en el NAME no se escribe nunca)
+   NAME:    [PAIS] [qué se ve] [noticia, en dos o tres palabras]   (sin la palabra RECURSOS, salvo la excepción de abajo)
    COMMENT: [LUGAR]. RECURSOS DE [lo que se ve] CON MOTIVO DE [la noticia, en una frase].
    Ej. NAME: RUSIA EXTERIORES KREMLIN AVISO UCRANIA ESPACIO AEREO (no RUSIA RECURSOS EXTERIORES ...).
+   Excepción: los recursos de un lugar para usar más adelante (la ciudad sede de una cumbre, de unas elecciones, de una visita o de un juicio que vienen), que no ilustran la noticia del día sino el acontecimiento que se acerca. Ahí el NAME sí lleva RECURSOS, delante del lugar: CHINA RECURSOS SHENZHEN DECORACION CUMBRE APEC Y REUNION VIDEOCONFERENCIA. Lo de Rusia ilustra la noticia de ese día: sin RECURSOS.
    En recursos, el COMMENT es lo que se ve más la noticia en una frase, y ahí termina. Lo que el script cuenta de fondo (lo que alguien dijo otro día, cifras, presupuestos, antecedentes) no se narra, porque no está en las imágenes: WASHINGTON DC. VISTAS AEREAS DEL NUEVO HELIPUERTO YA TERMINADO EN EL JARDIN SUR DE LA CASA BLANCA, JUNTO A LAS OBRAS DEL SALON DE BAILE QUE EL PRESIDENTE DONALD TRUMP QUIERE TERMINAR PESE A LAS DEMANDAS JUDICIALES EN SU CONTRA. Y punto: no sigue con lo que Trump ha elogiado ni con los 400 millones ni con lo que pidió al Congreso.
    Momento del hecho: si las imágenes captan el instante en que ocurre (el choque, la explosión, el derrumbe, la detención), el descriptor del COMMENT es MOMENTO DEL [hecho], no RECURSOS DE, y en el NAME el hecho va directo, sin RECURSOS: EN EL MAR CHOQUE BUQUES FILIPINAS Y CHINA DISPUTA MARITIMA. No confundir con DAÑOS DE, que son los planos posteriores.
    Vistas aéreas: cuando los planos son aéreos, el descriptor es VISTAS AEREAS DE en el COMMENT y VISTA AEREA en el NAME, no RECURSOS AEREOS: EEUU VISTA AEREA CONSTRUCCION SALON DE BAILE Y HELIPUERTO CASA BLANCA. Si la agencia dice que son de dron (DRONE, UAV), el dron va dentro del descriptor y no se marca aparte: VISTAS AEREAS DE DRON DE [qué] en el COMMENT y VISTA AEREA DRON en el NAME. Helicóptero o avión: VISTAS AEREAS DE a secas.
    Ej.: MOSCU. RECURSOS DEL MINISTERIO DE EXTERIORES DE RUSIA, DEL KREMLIN Y DEL PARLAMENTO DE UCRANIA, CON MOTIVO DEL RECHAZO DE RUSIA AL AVISO DE UCRANIA SOBRE LA SEGURIDAD DE SU ESPACIO AEREO.
    Si los planos son de archivo (FILE, ARCHIVE, otra fecha), no es este patrón sino D1, y entonces el motivo no se dice.
-   RECURSOS DE es para planos que no tienen nombre propio de acto: edificios, calles, sedes, archivo. Cuando lo que se ve es un acto con nombre (PHOTOCALL, ALFOMBRA ROJA, LLEGADAS, DESFILE, FUNERAL, POSADO), ese nombre es el descriptor y va directo, sin RECURSOS DE delante: PHOTOCALL DE LA FIESTA DE LOS GOLDEN GLOBES, no RECURSOS DEL PHOTOCALL. En el NAME nunca va RECURSOS, en ningún caso: [PAIS] [lo que se ve o el acto] [noticia].
+   RECURSOS DE es para planos que no tienen nombre propio de acto: edificios, calles, sedes, archivo. Cuando lo que se ve es un acto con nombre (PHOTOCALL, ALFOMBRA ROJA, LLEGADAS, DESFILE, FUNERAL, POSADO), ese nombre es el descriptor y va directo, sin RECURSOS DE delante: PHOTOCALL DE LA FIESTA DE LOS GOLDEN GLOBES, no RECURSOS DEL PHOTOCALL. En el NAME nunca va RECURSOS (salvo los recursos de un lugar para más adelante, ver arriba): [PAIS] [lo que se ve o el acto] [noticia].
    Ej.: TORONTO. PHOTOCALL DE LA FIESTA DE LOS GOLDEN GLOBES CON MOTIVO DEL INICIO DE LA TEMPORADA DE PREMIOS DE CINE. INCLUYE PLANOS DE SETH ROGEN, REBEL WILSON, PATRICIA ARQUETTE, NAOMI WATTS, SARAH PAULSON Y COURTENEY COX.
 
 D) Archivo (planos FILE o ARCHIVE, de otra fecha, rescatados para ilustrar una noticia)
