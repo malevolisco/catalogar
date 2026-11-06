@@ -1294,38 +1294,77 @@ def planos_numerados(texto):
 
 LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
 localizadores que el catalogador pondra a mano en el video de MediaCentral. Solo se marca:
-- cada declaracion (SOUNDBITE o SOT): LUGAR, DD/MM/AAAA. DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en
-  pocas palabras]. Si quien habla es un ciudadano que cuenta lo vivido, TESTIMONIO DE; si es una entrevista, ENTREVISTA
-  A; si es un discurso en un acto, INTERVENCION DE; en una rueda de prensa, RUEDA DE PRENSA DE;
+- cada declaracion (SOUNDBITE o SOT): DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en pocas palabras]. Si
+  quien habla es un ciudadano que cuenta lo vivido, TESTIMONIO DE; si es una entrevista, ENTREVISTA A; si es un discurso
+  en un acto, INTERVENCION DE; en una rueda de prensa, RUEDA DE PRENSA DE;
 - cada plano que sea un recurso reutilizable, que una redaccion podria pedir por si mismo: vistas aereas, la ciudad,
-  edificios, sedes, paisaje, ambiente, llegadas, el hecho que se ve: LUGAR, DD/MM/AAAA. [lo que se ve, nominal].
+  edificios, sedes, paisaje, ambiente, llegadas, el hecho que se ve: [lo que se ve, nominal].
 No se marcan los planos sin valor propio: cutaways, periodistas, camaras, sala, atril, pantallas, rotulos, planos de
 transicion, gente de paso sin identificar.
-El LUGAR y la fecha son los de la dateline de ese plano (la linea VIDEO SHOWS o SHOWS que lo precede); si no la hay,
-los del envio. LUGAR en español y corto (NUEVA YORK, PEKIN, KIEV), con el pais entre parentesis solo si no se entiende.
+De cada localizador das tambien su LUGAR, su PAIS y su FECHA: los de la dateline de ese plano (la linea VIDEO SHOWS o
+SHOWS que lo precede); si no la hay, los del envio. LUGAR y PAIS en español y cortos (NUEVA YORK, PEKIN, KIEV; EEUU,
+CHINA, UCRANIA). FECHA en DD/MM/AAAA.
+Y su RESTRICCION, si ese plano tiene una propia: la que pone su dateline o su linea (MUST COURTESY, NO ACCESS, NO USE...),
+dicha con las formulas de la tabla de abajo. ACCESS ALL y lo que la tabla manda ignorar no son restricciones. Si no
+tiene, el campo va vacio: aqui nunca SIN AVISO (eso es solo para la ficha).
 En mayusculas, sin tildes (con Ñ), estilo nominal, personas con NOMBRE APELLIDO, CARGO en español. Nada que no este en
-el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, asi:
-NUMERO DEL PLANO|TEXTO DEL LOCALIZADOR
+el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, con estos seis campos (el ultimo
+puede ir vacio):
+NUMERO DEL PLANO|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION
 Sin nada mas. Si ningun plano se marca, devuelve NINGUNO."""
-LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3})\s*[|]\s*(.+?)\s*$")
+LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3})\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
+DIAS_LETRA = ("UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE DIECISEIS DIECISIETE "
+              "DIECIOCHO DIECINUEVE VEINTE VEINTIUNO VEINTIDOS VEINTITRES VEINTICUATRO VEINTICINCO VEINTISEIS "
+              "VEINTISIETE VEINTIOCHO VEINTINUEVE TREINTA").split() + ["TREINTA Y UNO"]
+MESES_LETRA = ("ENERO FEBRERO MARZO ABRIL MAYO JUNIO JULIO AGOSTO SEPTIEMBRE OCTUBRE NOVIEMBRE DICIEMBRE").split()
+
+
+def fecha_en_letra(fecha):
+    """12/10/2026 -> DOCE DE OCTUBRE DE 2026 (el dia y el mes en letra, el año en cifra). "" si no es una fecha."""
+    m = re.match(r"^\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$", fecha or "")
+    if not m or not (1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12):
+        return ""
+    return f"{DIAS_LETRA[int(m.group(1)) - 1]} DE {MESES_LETRA[int(m.group(2)) - 1]} DE {m.group(3)}"
+
+
+def _seccion_restricciones():
+    """La tabla de RESTRICCIONES del criterio base, para que los localizadores usen las mismas formulas."""
+    try:
+        texto = (BASE_DIR / "reglas_patrones.md").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    m = re.search(r"^=== 5\. RESTRICCIONES ===\n(.*?)(?=^=== |\Z)", texto, re.S | re.M)
+    return m.group(1).strip() if m else ""
 
 
 def localizadores(datos, timeout=None):
-    """Los localizadores del envio sacados del shotlist: [{"plano": "3", "texto": "KIEV, 12/10/2026. ..."}].
-    Lista vacia si el shotlist no tiene planos numerados o no hay nada que marcar."""
+    """Los localizadores del envio sacados del shotlist: [{"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. ..."}].
+    Cada uno: LUGAR. FECHA EN LETRA. TEXTO. [RESTRICCION.] El pais va con el lugar, entre parentesis, cuando cambia
+    respecto al localizador anterior. Lista vacia si el shotlist no tiene planos numerados o no hay nada que marcar."""
     from paginas_word import extraer_script
     guion = extraer_script(datos.get("texto") or "")
     if not planos_numerados(guion):
         return []
+    system = LOCALIZADORES_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
     user = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
             f"TITULAR: {datos.get('headline', '')}\n\nSHOTLIST:\n{guion[:12000]}")
-    respuesta = llamar_modelo(LOCALIZADORES_SYSTEM, user, timeout=timeout)
-    salida = []
+    respuesta = llamar_modelo(system, user, timeout=timeout)
+    salida, pais_antes = [], None
     for linea in (respuesta or "").splitlines():
         m = LOCALIZADOR_RE.match(linea)
-        if m:
-            texto = normalizar(m.group(2))
-            salida.append({"plano": m.group(1), "texto": texto if texto.endswith(".") else texto + "."})
+        if not m:
+            continue
+        plano, lugar, pais, fecha, texto, restriccion = (normalizar(x).strip(" .") for x in m.groups())
+        if not texto:
+            continue
+        if restriccion.startswith("SIN AVISO"):
+            restriccion = ""                     # la formula de la ficha para "ninguna": aqui no se escribe
+        if pais and pais_antes is not None and pais != pais_antes and pais not in lugar:
+            lugar = f"{lugar} ({pais})" if lugar else pais          # cambia de pais: se dice a cual
+        if pais:
+            pais_antes = pais
+        partes = [lugar, fecha_en_letra(fecha), texto, restriccion]
+        salida.append({"plano": plano, "texto": ". ".join(p for p in partes if p) + "."})
     return salida
 
 
