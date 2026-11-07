@@ -26,45 +26,116 @@ def test_la_lista_marca_los_envios_con_localizadores():
     assert all(e["texto"] == "" for e in envios)              # la nota no es texto de agencia: se va a la web
 
 
-def test_se_leen_las_lineas_del_modelo_y_lo_demas_se_descarta():
-    respuesta = ("1|Kiev|Ucrania|12/10/2026|Vista aérea de un edificio dañado|\n"
-                 "Esto no es un localizador\n"
-                 "3 | KIEV | UCRANIA | 12/10/2026 | DECLARACIONES DE VITALI KLITSCHKO, ALCALDE DE KIEV, SOBRE EL ATAQUE |\n"
-                 "5|VARSOVIA|POLONIA|13/10/2026|LLEGADA DE REFUGIADOS A LA ESTACION|ROTULAR CORTESIA DE ''TVP''\n"
-                 "6|VARSOVIA|POLONIA|13/10/2026|CENTRO DE ACOGIDA|SIN AVISO\n")      # SIN AVISO no es restriccion
-    datos = {"texto": SHOTLIST, "agencia": "REUTERS", "numero": "0707", "fecha": "12/10/2026", "headline": "H"}
-    with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
-        locs = redactor.localizadores(datos)
+# un trozo del 5455 de Reuters (WRAP de las elecciones de medio mandato), como sale del XML
+WRAP = """WRAP: Last-minute appeals and steady turnout as US voters cast ballots
+
+VIDEO SHOWS: WRAP NUMBER 3 OF ELECTION DAY ACROSS US STATES SHOWING MIDDAY VOTING AND SOUNDBITES FROM VOTERS
+
+GRIMES, IOWA, UNITED STATES (NOVEMBER 3, 2026) (REUTERS - Access all)
+
+1. VARIOUS OF PEOPLE VOTING
+
+PORTLAND, MAINE, UNITED STATES (NOVEMBER 3, 2026) (REUTERS - Access all)
+
+7. (SOUNDBITE) (English) DEMOCRAT CANDIDATE FOR US SENATE, TROY JACKSON, SAYING:
+
+"There is the real opportunity across the country for everyday people."
+
+Michigan Senate candidate Abdul El-Sayed said Tuesday (November 3) he is focused on his agenda.
+
+SOUTHFIELD, MICHIGAN, UNITED STATES (NOVEMBER 3, 2026) (REUTERS - Access All)
+
+11. (SOUNDBITE) (English) CHLOE ANDERSON, 19, MICHIGAN VOTER, SAYING:
+
+    "It's a waste of money."
+
+12. (SOUNDBITE) (English) RACHEL BROWN, 24, MICHIGAN VOTER, SAYING:
+
+    "I feel like giving out help is great."
+
+13. JOURNALISTS FILMING
+
+IN SPACE (RELEASED NOVEMBER 3, 2026) (NASA / ANIL MENON - Editorial Use Only / Must on-screen courtesy NASA/Anil Menon.) (ORIGINALLY SHOT IN PORTRAIT)
+
+30. (SOUNDBITE) (English) NASA ASTRONAUT, ANIL MENON, SAYING:
+
+    "Welcome to the space station, where today we have the privilege of being able to vote."
+
+STORY: See shotlist for story details.
+"""
+DATOS = {"texto": WRAP, "agencia": "REUTERS", "numero": "5455", "fecha": "03/11/2026", "headline": "WRAP"}
+
+
+def test_el_codigo_parte_el_shotlist_en_planos_con_su_dateline():
+    planos = redactor.shotlist_planos(WRAP)
+    assert [p["n"] for p in planos] == [1, 7, 11, 12, 13, 30]
+    por = {p["n"]: p for p in planos}
+    assert (por[1]["lugar"], por[1]["fecha"], por[1]["restriccion"]) == ("GRIMES, IOWA, UNITED STATES", "03/11/2026", "")
+    assert por[7]["soundbite"] and not por[7]["ciudadano"] and por[7]["habla"].endswith("TROY JACKSON")
+    assert por[7]["dice"].startswith('"There is')                    # la cita, no el parrafo del bloque siguiente
+    assert por[11]["ciudadano"] and por[12]["ciudadano"]
+    assert por[30]["lugar"] == "IN SPACE" and "Must on-screen courtesy NASA/Anil Menon" in por[30]["restriccion"]
+    assert "PORTRAIT" not in por[30]["restriccion"] and "ACCESS" not in por[1]["restriccion"].upper()
+    # las declaraciones de votantes seguidas van juntas
+    assert [i["id"] for i in redactor._items_localizadores(planos)] == ["1", "7", "11-12", "13", "30"]
+
+
+RESPUESTA_WRAP = """```
+1. | GRIMES | EEUU | VOTANTES EN UN COLEGIO ELECTORAL |
+7|PORTLAND|EEUU|DECLARACIONES DE TROY JACKSON, CANDIDATO DEMOCRATA AL SENADO, SOBRE LA PARTICIPACION||
+PLANOS 11-12|SOUTHFIELD|EEUU|TESTIMONIOS DE VOTANTES|
+13|NO
+30|ESPACIO||DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA NASA, SOBRE SU VOTO DESDE LA ESTACION ESPACIAL|ROTULAR CORTESIA DE ''NASA/ANIL MENON''
+```"""
+
+
+def test_una_linea_por_plano_y_el_codigo_compone_lugar_fecha_y_restriccion():
+    with mock.patch("redactor.llamar_modelo", return_value=RESPUESTA_WRAP) as llamada:
+        locs, avisos = redactor.localizadores(DATOS)
+    assert llamada.call_count == 1 and avisos == []
+    enviado = llamada.call_args.args[1]
+    assert "ID 11-12" in enviado and "GRUPO DE 2 SEGUIDOS" in enviado and "ROTULAR CORTESIA DE" in llamada.call_args.args[0]
     assert locs == [
-        {"plano": "1", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. VISTA AEREA DE UN EDIFICIO DAÑADO."},
-        {"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. DECLARACIONES DE VITALI KLITSCHKO, ALCALDE DE KIEV, "
-                                "SOBRE EL ATAQUE."},
-        # cambia de pais: se dice a cual; y la restriccion del plano, al final
-        {"plano": "5", "texto": "VARSOVIA (POLONIA). TRECE DE OCTUBRE DE 2026. LLEGADA DE REFUGIADOS A LA ESTACION. "
-                                "ROTULAR CORTESIA DE ''TVP''."},
-        {"plano": "6", "texto": "VARSOVIA. TRECE DE OCTUBRE DE 2026. CENTRO DE ACOGIDA."},
+        {"plano": "1", "texto": "GRIMES. TRES DE NOVIEMBRE DE 2026. VOTANTES EN UN COLEGIO ELECTORAL."},
+        {"plano": "7", "texto": "PORTLAND. TRES DE NOVIEMBRE DE 2026. DECLARACIONES DE TROY JACKSON, CANDIDATO "
+                                "DEMOCRATA AL SENADO, SOBRE LA PARTICIPACION."},
+        {"plano": "11-12", "texto": "SOUTHFIELD. TRES DE NOVIEMBRE DE 2026. TESTIMONIOS DE VOTANTES."},
+        {"plano": "30", "texto": "ESPACIO. TRES DE NOVIEMBRE DE 2026. DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA "
+                                 "NASA, SOBRE SU VOTO DESDE LA ESTACION ESPACIAL. ROTULAR CORTESIA DE ''NASA/ANIL MENON''."},
     ]
-    assert "SOUNDBITE" in llamada.call_args.args[1]                # el shotlist va al modelo
-    assert "ROTULAR CORTESIA DE" in llamada.call_args.args[0]      # con la tabla de restricciones del criterio
-    with mock.patch("redactor.llamar_modelo") as llamada:
-        assert redactor.localizadores({"texto": "Un titular suelto."}) == []
-    assert not llamada.called                                        # sin texto de agencia no se gasta una llamada
 
 
-def test_el_shotlist_es_el_texto_entero_numerado_o_no():
-    """Reuters: la ficha trae Details antes del guion y los planos sin numerar; todo eso es el shotlist."""
+def test_los_que_faltan_se_piden_otra_vez_y_si_siguen_faltando_se_avisa(monkeypatch, tmp_path):
+    monkeypatch.setattr(redactor, "BASE_DIR", tmp_path)
+    primera = "1|GRIMES|EEUU|VOTANTES|\n7|NO\n13|NO\n"            # 7 es una declaracion: NO no vale
+    segunda = "7|PORTLAND|EEUU|DECLARACIONES DE TROY JACKSON, CANDIDATO, SOBRE EL VOTO|\n"
+    with mock.patch("redactor.llamar_modelo", side_effect=[primera, segunda]) as llamada:
+        locs, avisos = redactor.localizadores(DATOS)
+    assert llamada.call_count == 2
+    reenvio = llamada.call_args_list[1].args[1]
+    assert "ID 7 " in reenvio and "ID 11-12" in reenvio and "ID 30" in reenvio and "ID 1 " not in reenvio
+    assert [x["plano"] for x in locs] == ["1", "7"]
+    assert avisos == ["Faltan los localizadores de los planos 11-12, 30: el servicio de redacción no los ha devuelto. "
+                      "Ponlos a mano o vuelve a subir la lista."]
+    guardada = (tmp_path / "debug" / "localizadores_5455.txt").read_text(encoding="utf-8")
+    assert "7|NO" in guardada and "TROY JACKSON" in guardada       # la respuesta, para poder ver que paso
+
+
+def test_sin_planos_numerados_se_usa_el_metodo_libre():
     texto = ("U.S. MIDTERMS: SCENES ACROSS AMERICA AS THE NATION GOES TO THE POLLS\nDetails\nDuration 00:03:12\n"
              "ANCHORAGE, ALASKA (NOVEMBER 3, 2026) (REUTERS - ACCESS ALL)\nVOTERS QUEUING OUTSIDE POLLING STATION\n"
              "(SOUNDBITE) (English) VOTER, JANE DOE, SAYING: We came early.\nSTORY: Americans voted on Tuesday.")
     respuesta = ("|ANCHORAGE|EEUU|03/11/2026|VOTANTES HACIENDO COLA ANTE UN COLEGIO ELECTORAL|\n"
-                 "-|ANCHORAGE|EEUU|03/11/2026|TESTIMONIO DE JANE DOE, VOTANTE, SOBRE LA JORNADA|\n")
+                 "-|ANCHORAGE|EEUU|03/11/2026|TESTIMONIO DE UNA VOTANTE|SIN AVISO\n")
     with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
-        locs = redactor.localizadores({"texto": texto, "fecha": "03/11/2026"})
-    assert "VOTERS QUEUING" in llamada.call_args.args[1] and "SOUNDBITE" in llamada.call_args.args[1]
+        locs, avisos = redactor.localizadores({"texto": texto, "fecha": "03/11/2026"})
+    assert "VOTERS QUEUING" in llamada.call_args.args[1] and avisos == []
     assert locs == [{"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. VOTANTES HACIENDO COLA ANTE UN "
                                            "COLEGIO ELECTORAL."},
-                    {"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. TESTIMONIO DE JANE DOE, VOTANTE, "
-                                           "SOBRE LA JORNADA."}]
+                    {"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. TESTIMONIO DE UNA VOTANTE."}]
+    with mock.patch("redactor.llamar_modelo") as llamada:
+        assert redactor.localizadores({"texto": "Un titular suelto."}) == ([], [])
+    assert not llamada.called                                        # sin texto de agencia no se gasta una llamada
 
 
 def test_la_fecha_va_en_letra():
@@ -90,15 +161,15 @@ def _arrancar(w, ficha_extra, monkeypatch, sacar):
 def test_el_servidor_los_guarda_solo_si_la_lista_los_pide(worker, monkeypatch):  # noqa: F811
     w, _, _ = worker
     locs = [{"plano": "1", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. VISTA AEREA."}]
-    ficha = _arrancar(w, {"con_localizadores": True}, monkeypatch, lambda datos, timeout=None: locs)
+    ficha = _arrancar(w, {"con_localizadores": True}, monkeypatch, lambda datos, timeout=None: (locs, ["AVISO X"]))
     assert ficha["estado"] == "hecha" and ficha["localizadores"] == locs
-    assert ficha["localizadores_v"] == redactor.LOCALIZADORES_VERSION
+    assert ficha["localizadores_v"] == redactor.LOCALIZADORES_VERSION and "AVISO X" in ficha["avisos"]
 
 
 def test_sin_peticion_no_se_piden(worker, monkeypatch):  # noqa: F811
     w, _, _ = worker
     pedidos = []
-    ficha = _arrancar(w, {}, monkeypatch, lambda datos, timeout=None: pedidos.append(1) or [])
+    ficha = _arrancar(w, {}, monkeypatch, lambda datos, timeout=None: pedidos.append(1) or ([], []))
     assert ficha["estado"] == "hecha" and "localizadores" not in ficha and not pedidos
 
 

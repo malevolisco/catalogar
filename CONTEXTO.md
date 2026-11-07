@@ -89,13 +89,19 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   (Reuters lo borra). Comprobado a mano con 9631: el 13/10 da 1 resultado, otro dia 0.
 - Localizadores (6 nov): Comments con LOCALIZADOR(ES) ("TRATAR AGENCIA CON LOCALIZADORES") -> envio["localizadores"]
   (listas.LOCALIZADORES_RE) -> ficha["con_localizadores"] (lista del panel y buzon). Tras redactar,
-  redactor.localizadores(datos): una llamada al modelo con el TEXTO ENTERO de la agencia (el shotlist es todo el
-  bloque, numerado o no: cortarlo con extraer_script dejaba fuera los de Reuters) -> [{"plano","texto"}]
-  (plano vacio si la agencia no numera); ficha["localizadores_v"]=LOCALIZADORES_VERSION, y una ficha hecha con
-  otra version se rehace al subir la lista otra vez:
-  declaraciones y planos que son recursos reutilizables. El modelo da N|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION y el
-  codigo compone "KIEV. DOCE DE OCTUBRE DE 2026. TEXTO. [RESTRICCION.]" (fecha_en_letra; el pais entre parentesis
-  cuando cambia respecto al anterior; restricciones con la tabla de la seccion 5 del criterio). Un fallo deja la
+  redactor.localizadores(datos) -> (locs [{"plano","texto"}], avisos). Desde el 7 nov (v3, por el 5455: 32 planos
+  y salieron 5) EL CODIGO lee la estructura: shotlist_planos parte el TEXTO ENTERO (no extraer_script, que cortaba
+  Reuters) en planos numerados con la dateline que los precede (Reuters "LUGAR (NOVEMBER 3, 2026) (FUENTE - restr.)",
+  RELEASED; AP "Lugar - 3 November 2026"): lugar, fecha DD/MM/AAAA, restriccion (ACCESS ALL no es), SOUNDBITE, quien
+  habla, la cita. SOUNDBITES seguidos de ciudadanos (actos.es_ciudadano, sin cargo) en la misma dateline = un item
+  "11-12" (TESTIMONIOS DE VOTANTES, sin nombres ni lo que dicen; peticion de Adrian). El modelo solo redacta:
+  una linea por ID "ID|LUGAR|PAIS|TEXTO|RESTRICCION" o "ID|NO" (solo planos de imagen; declaraciones y grupos nunca).
+  Los ID que faltan (o declaracion con NO) se piden otra vez una vez; si siguen faltando, aviso "Faltan los
+  localizadores de los planos ..." y la respuesta cruda en debug/localizadores_<numero>.txt. Lectura tolerante
+  ("8.", "|" de mas, ```). Sin planos numerados: el metodo libre de antes (LOCALIZADORES_LIBRE_SYSTEM).
+  El codigo compone "KIEV. DOCE DE OCTUBRE DE 2026. TEXTO. [RESTRICCION.]" (fecha_en_letra; el pais entre parentesis
+  cuando cambia; restricciones con la tabla de la seccion 5 del criterio). ficha["localizadores_v"]=
+  LOCALIZADORES_VERSION: una ficha hecha con otra version se rehace al subir la lista otra vez. Un fallo deja la
   ficha hecha con aviso.
   Solo en el panel: pestaña Localizadores (envios plegables, <details>; los pide a /api/localizadores, que da
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en

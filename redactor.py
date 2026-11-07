@@ -1292,7 +1292,7 @@ def planos_numerados(texto):
     return re.findall(r"^\s*(?:\d+\.|-)\s*(.+)$", texto or "", flags=re.M)
 
 
-LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
+LOCALIZADORES_LIBRE_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
 localizadores que el catalogador pondra a mano en el video de MediaCentral. Recibes el texto entero de la ficha de la
 agencia: el shotlist es todo ese bloque (titular, datelines, planos, SOUNDBITES, STORY), venga numerado o no. Los planos
 y las declaraciones salen de los planos y SOUNDBITES; el STORY solo da contexto. Solo se marca:
@@ -1316,7 +1316,7 @@ NUMERO DEL PLANO|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION
 (NUMERO DEL PLANO: el de la agencia si los numera; si no, deja el campo vacio.)
 Sin nada mas. Si ningun plano se marca, devuelve NINGUNO."""
 LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3}|-)?\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
-LOCALIZADORES_VERSION = 2            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
+LOCALIZADORES_VERSION = 3            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
 MIN_TEXTO_LOCALIZADORES = 80         # menos no es la ficha de la agencia (un titular suelto): no se gasta la llamada
 DIAS_LETRA = ("UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE DIECISEIS DIECISIETE "
               "DIECIOCHO DIECINUEVE VEINTE VEINTIUNO VEINTIDOS VEINTITRES VEINTICUATRO VEINTICINCO VEINTISEIS "
@@ -1342,15 +1342,217 @@ def _seccion_restricciones():
     return m.group(1).strip() if m else ""
 
 
+LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Te paso el shotlist de un envio de agencia ya
+partido en planos, cada uno con su ID, su dateline (lugar en ingles), la restriccion de esa dateline si la tiene y su
+contenido. Para CADA ID devuelves una linea, en el mismo orden:
+ID|LUGAR|PAIS|TEXTO|RESTRICCION
+o, solo para un plano de imagen sin valor propio, ID|NO.
+- LUGAR y PAIS: los de su dateline, en español y cortos (NUEVA YORK, PEKIN, KIEV; EEUU, CHINA, UCRANIA). Si la
+  dateline no es un lugar (IN SPACE), dilo en español (ESPACIO) y deja el PAIS vacio.
+- TEXTO, en mayusculas sin tildes (con Ñ), nominal, nombres y cargos en español:
+  - SOUNDBITE de alguien con cargo o conocido: DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en pocas
+    palabras]. En una entrevista, ENTREVISTA A; en un discurso, INTERVENCION DE; en una rueda de prensa, RUEDA DE
+    PRENSA DE. Nunca NO.
+  - CIUDADANOS (votantes, vecinos, testigos...), sueltos o en grupo: TESTIMONIOS DE [quienes, en generico y plural:
+    VOTANTES, VECINOS, AFECTADOS], o TESTIMONIO DE [UN VOTANTE, UNA VECINA] si es uno. Sin nombres y sin lo que dicen.
+    Nunca NO.
+  - PLANO: si es un recurso reutilizable que una redaccion podria pedir por si mismo (vistas aereas, la ciudad,
+    edificios, sedes, paisaje, ambiente, llegadas, gente votando, el hecho que se ve), lo que se ve, nominal y corto.
+    Si no tiene valor propio (cutaways, periodistas, camaras, sala, atril, pantallas, rotulos, transiciones), NO.
+- RESTRICCION: la de su dateline dicha con las formulas de la tabla de abajo; vacia si no tiene. Nunca SIN AVISO.
+Sin nada mas: ni explicaciones, ni encabezados, ni bloques de codigo."""
+MESES_EN = {m: i for i, nombres in enumerate(
+    ["JANUARY JAN", "FEBRUARY FEB", "MARCH MAR", "APRIL APR", "MAY", "JUNE JUN", "JULY JUL", "AUGUST AUG",
+     "SEPTEMBER SEPT SEP", "OCTOBER OCT", "NOVEMBER NOV", "DECEMBER DEC"], 1) for m in nombres.split()}
+_FECHA_EN = r"(?:[A-Z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Z]+\.?\s+\d{4})"
+# Reuters: LUGAR EN MAYUSCULAS (NOVEMBER 3, 2026) (FUENTE - restriccion) ... ; tambien (RELEASED ...) y (FILE - ...)
+DATELINE_REUTERS_RE = re.compile(
+    r"^\s*(?P<lugar>[A-Z0-9][A-Z0-9 .,'’/&-]{1,120}?)\s*\((?:[A-Z ]+?\s*[-–]\s*)?(?:RELEASED\s+)?(?P<fecha>" + _FECHA_EN +
+    r")\)(?P<resto>.*)$")
+# AP: Lugar, Region – 3 November 2026
+DATELINE_AP_RE = re.compile(r"^\s*(?P<lugar>[A-Z][^()\n]{1,100}?)\s+[-–]\s+(?P<fecha>\d{1,2}\s+[A-Za-z]+\s+\d{4})\s*$")
+PLANO_LOC_RE = re.compile(r"^\s*(\d{1,3})\s*[.)]\s+(.+)$")
+SOUNDBITE_LOC_RE = re.compile(r"\bSOUNDBITES?\b|\bSOT\b", re.I)
+SIN_RESTRICCION_RE = re.compile(r"^\s*(?:(?:REUTERS|AP|ASSOCIATED PRESS|EBU)\s*[-–]?\s*)?ACCESS ALL\s*$|ORIGINALLY SHOT IN"
+                                r"|^\s*(?:REUTERS|AP|EBU)\s*$", re.I)
+RESPUESTA_LOC_RE = re.compile(r"^\s*(?:PLANOS?\s+)?(\d{1,3}(?:\s*-\s*\d{1,3})?)\s*[.)]?\s*\|(.*)$", re.I)
+
+
+def _fecha_dateline(texto):
+    """NOVEMBER 3, 2026 / 3 November 2026 -> 03/11/2026 ("" si no se entiende)."""
+    t = (texto or "").upper().replace(",", " ").replace(".", " ").split()
+    try:
+        if t[0].isdigit():
+            dia, mes, anio = int(t[0]), MESES_EN[t[1]], int(t[2])
+        else:
+            mes, dia, anio = MESES_EN[t[0]], int(t[1]), int(t[2])
+    except (IndexError, KeyError, ValueError):
+        return ""
+    return f"{dia:02d}/{mes:02d}/{anio}" if 1 <= dia <= 31 else ""
+
+
+def shotlist_planos(texto):
+    """El shotlist partido en planos por el codigo, sin modelo: [{"n", "linea", "lugar", "fecha", "restriccion",
+    "soundbite", "habla", "ciudadano", "dice"}]. Cada plano lleva el lugar, la fecha y la restriccion de la dateline
+    que lo precede. Lista vacia si el texto no tiene planos numerados."""
+    from actos import es_ciudadano
+    planos, dateline = [], {"lugar": "", "fecha": "", "restriccion": ""}
+    for linea in (texto or "").splitlines():
+        m = PLANO_LOC_RE.match(linea)
+        if m:
+            cuerpo = m.group(2).strip()
+            soundbite = bool(SOUNDBITE_LOC_RE.search(cuerpo))
+            habla = ""
+            if soundbite:
+                habla = re.sub(r"\([^)]*\)", " ", SOUNDBITE_LOC_RE.split(cuerpo, maxsplit=1)[-1])
+                habla = " ".join(re.split(r"\bSAYING\b|:", habla, flags=re.I)[0].replace(",", " , ").split())
+                habla = habla.replace(" ,", ",").strip(" ,.)")
+            planos.append({"n": int(m.group(1)), "linea": cuerpo, **dateline, "soundbite": soundbite, "habla": habla,
+                           "ciudadano": soundbite and es_ciudadano(habla), "dice": ""})
+            continue
+        d = DATELINE_REUTERS_RE.match(linea) or DATELINE_AP_RE.match(linea)
+        if d and _fecha_dateline(d.group("fecha")):
+            partes = re.findall(r"\(([^)]*)\)", d.groupdict().get("resto") or "")
+            restr = [re.sub(r"^[^-–]*?[-–]\s*", "", x, count=1) if re.search(r"[-–]", x) else x for x in partes
+                     if not SIN_RESTRICCION_RE.search(x)]
+            dateline = {"lugar": d.group("lugar").strip(" ,"), "fecha": _fecha_dateline(d.group("fecha")),
+                        "restriccion": " / ".join(r.strip() for r in restr if r.strip())}
+            continue
+        # lo que dice (para el asunto): las citas que siguen al SOUNDBITE, no el parrafo de contexto del siguiente bloque
+        cita = linea.strip()
+        if (planos and planos[-1]["soundbite"] and cita and len(planos[-1]["dice"]) < 300
+                and (cita[0] in "\"“'«" or re.search(r"\bSAYING\b", cita))):
+            planos[-1]["dice"] = (planos[-1]["dice"] + " " + linea.strip())[:300].strip()   # lo que dice: el asunto
+    return planos
+
+
+def _items_localizadores(planos):
+    """Los planos como items para el modelo: los SOUNDBITES seguidos de ciudadanos (numeros consecutivos, misma
+    dateline) van juntos en un solo item "11-12"."""
+    items = []
+    for p in planos:
+        ant = items[-1] if items else None
+        if (p["ciudadano"] and ant and ant["tipo"] == "ciudadanos" and ant["planos"][-1]["n"] == p["n"] - 1
+                and ant["planos"][-1]["lugar"] == p["lugar"] and ant["planos"][-1]["fecha"] == p["fecha"]):
+            ant["planos"].append(p)
+            ant["id"] = f"{ant['planos'][0]['n']}-{p['n']}"
+            continue
+        tipo = "ciudadanos" if p["ciudadano"] else "soundbite" if p["soundbite"] else "plano"
+        items.append({"id": str(p["n"]), "tipo": tipo, "planos": [p]})
+    return items
+
+
+def _prompt_items(items):
+    lineas = []
+    for it in items:
+        p0 = it["planos"][0]
+        if it["tipo"] == "ciudadanos":
+            contenido = ("CIUDADANOS" + (f" (GRUPO DE {len(it['planos'])} SEGUIDOS)" if len(it["planos"]) > 1 else "")
+                         + ": " + " / ".join(p["habla"] for p in it["planos"]))
+        elif it["tipo"] == "soundbite":
+            contenido = f"SOUNDBITE: {p0['habla']}" + (f" — DICE: {p0['dice']}" if p0["dice"] else "")
+        else:
+            contenido = f"PLANO: {p0['linea']}"
+        lineas.append(f"ID {it['id']} | DATELINE: {p0['lugar'] or '(sin dateline)'} | RESTRICCION DE LA DATELINE: "
+                      f"{p0['restriccion'] or '(ninguna)'} | {contenido}")
+    return "\n".join(lineas)
+
+
+def _leer_respuesta_items(respuesta):
+    """{id: (lugar, pais, texto, restriccion) o None si NO}, y las lineas con | que no se han podido leer."""
+    leidas, raras = {}, 0
+    for linea in (respuesta or "").replace("```", "\n").splitlines():
+        if "|" not in linea:
+            continue
+        m = RESPUESTA_LOC_RE.match(linea)
+        if not m:
+            raras += 1
+            continue
+        id_ = re.sub(r"\s+", "", m.group(1))
+        campos = [normalizar(c).strip(" .-") for c in m.group(2).split("|")]
+        if campos and campos[0] == "NO" and not any(campos[1:]):
+            leidas[id_] = None
+            continue
+        while len(campos) > 4 and not campos[-1]:                      # «|» de mas al final
+            campos.pop()
+        campos = (campos + ["", "", "", ""])[:4] if len(campos) <= 4 else campos[:3] + [" ".join(c for c in campos[3:] if c)]
+        if not campos[2]:
+            raras += 1
+            continue
+        leidas[id_] = tuple(campos)
+    return leidas, raras
+
+
+def _guardar_respuesta(numero, texto):
+    """La respuesta del modelo, en debug/, cuando algo no cuadra (para poder ver que paso)."""
+    try:
+        carpeta = BASE_DIR / "debug"
+        carpeta.mkdir(exist_ok=True)
+        nombre = re.sub(r"[^A-Za-z0-9_-]", "", str(numero or "sin_numero"))[:40] or "sin_numero"
+        (carpeta / f"localizadores_{nombre}.txt").write_text(texto or "", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _componer(items, leidas):
+    """Las lineas finales en el orden del shotlist: LUGAR (PAIS si cambia). FECHA EN LETRA. TEXTO. [RESTRICCION.]"""
+    salida, pais_antes = [], None
+    for it in items:
+        dato = leidas.get(it["id"])
+        if not dato:
+            continue
+        lugar, pais, texto, restriccion = dato
+        if restriccion.startswith("SIN AVISO"):
+            restriccion = ""
+        if pais and pais_antes is not None and pais != pais_antes and pais not in lugar:
+            lugar = f"{lugar} ({pais})" if lugar else pais          # cambia de pais: se dice a cual
+        if pais:
+            pais_antes = pais
+        partes = [lugar, fecha_en_letra(it["planos"][0]["fecha"]), texto, restriccion]
+        salida.append({"plano": it["id"], "texto": ". ".join(x for x in partes if x) + "."})
+    return salida
+
+
 def localizadores(datos, timeout=None):
-    """Los localizadores del envio sacados del shotlist: [{"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. ..."}].
-    Cada uno: LUGAR. FECHA EN LETRA. TEXTO. [RESTRICCION.] El pais va con el lugar, entre parentesis, cuando cambia
-    respecto al localizador anterior. El shotlist es el texto entero de la agencia, numerado o no (cortarlo por
-    las marcas de Word dejaba fuera los de Reuters). Lista vacia si no hay texto o nada que marcar."""
-    guion = (datos.get("texto") or "").strip()
-    if len(guion) < MIN_TEXTO_LOCALIZADORES:
-        return []
+    """Los localizadores del envio: ([{"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. ..."}], avisos).
+    El codigo parte el shotlist en planos (con su dateline: lugar, fecha, restriccion) y junta los testimonios de
+    ciudadanos seguidos; el modelo solo redacta, con una linea obligatoria por plano. Se comprueba que estan todos: los
+    que faltan se piden otra vez y, si siguen faltando, se avisa. Sin planos numerados, el metodo libre de antes."""
+    texto_agencia = (datos.get("texto") or "").strip()
+    if len(texto_agencia) < MIN_TEXTO_LOCALIZADORES:
+        return [], []
+    planos = shotlist_planos(texto_agencia)
+    if not planos:
+        return _localizadores_libre(datos, texto_agencia, timeout), []
+    items = _items_localizadores(planos)
     system = LOCALIZADORES_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
+    cabecera = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
+                f"TITULAR: {datos.get('headline', '')}\n\n")
+    obligatorio = {it["id"] for it in items if it["tipo"] != "plano"}
+    leidas, respuestas, raras = {}, [], 0
+    pendientes = items
+    for _ in range(2):                                    # la primera vez todos; la segunda, solo los que faltan
+        respuesta = llamar_modelo(system, cabecera + "PLANOS:\n" + _prompt_items(pendientes), timeout=timeout)
+        respuestas.append(respuesta or "")
+        nuevas, malas = _leer_respuesta_items(respuesta)
+        raras += malas
+        ids = {it["id"] for it in pendientes}
+        leidas.update({k: v for k, v in nuevas.items() if k in ids and not (v is None and k in obligatorio)})
+        pendientes = [it for it in items if it["id"] not in leidas]
+        if not pendientes:
+            break
+    avisos = []
+    if pendientes:
+        avisos.append("Faltan los localizadores de los planos " + ", ".join(it["id"] for it in pendientes)
+                      + ": el servicio de redacción no los ha devuelto. Ponlos a mano o vuelve a subir la lista.")
+    if pendientes or raras:
+        _guardar_respuesta(datos.get("numero"), "\n\n---\n\n".join(respuestas))
+    return _componer(items, leidas), avisos
+
+
+def _localizadores_libre(datos, guion, timeout=None):
+    """Metodo libre (texto sin planos numerados): el modelo da N|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION."""
+    system = LOCALIZADORES_LIBRE_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
     user = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
             f"TITULAR: {datos.get('headline', '')}\n\nSHOTLIST:\n{guion[:12000]}")
     respuesta = llamar_modelo(system, user, timeout=timeout)

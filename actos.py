@@ -97,6 +97,18 @@ CARGO_RE = re.compile(
     r"ADVISE[RO]|FOUNDER|ACTIVIST|CAMPAIGNER|ORGANISER|ORGANIZER|CANDIDATE|KING|QUEEN|PRINCE|PRINCESS|POPE|"
     r"DOCTOR|SURGEON|NURSE|RESCUER|FIREFIGHTER|SOLDIER|COMMISSIONER|DELEGATE|OWNER|PRIEST|IMAM|RABBI|BISHOP)\b")
 MIN_ENCUESTA = 4
+# cargo de verdad (publico o de representacion): con el, aunque diga VOTER o RESIDENT, no es un ciudadano cualquiera.
+# Mas corto que CARGO_RE: "BUSINESS OWNER" o "STUDENT" no quitan a nadie de ser un votante que opina
+CARGO_FUERTE_RE = re.compile(
+    r"\b(?:MINISTER|PRESIDENT|PREMIER|CHANCELLOR|SPOKES(?:MAN|WOMAN|PERSON)|SECRETARY|MAYOR|GOVERNOR|OFFICIALS?|"
+    r"SENATOR|LAWMAKER|MP|CANDIDATE|AMBASSADOR|ENVOY|COMMANDER|GENERAL|CHIEF|DIRECTOR|CEO|COORDINATOR|"
+    r"REPRESENTATIVE|LAWYER|ATTORNEY|PROSECUTOR|JUDGE|POLICE|KING|QUEEN|PRINCE|PRINCESS|POPE)\b")
+
+
+def es_ciudadano(quien):
+    """True si quien habla es un ciudadano sin cargo (votante, vecino, testigo...): sus declaraciones son testimonios."""
+    quien = (quien or "").upper()
+    return bool((VIVIDO_RE.search(quien) or OPINION_RE.search(quien)) and not CARGO_FUERTE_RE.search(quien))
 
 
 def _quien_habla(guion):
