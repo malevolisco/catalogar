@@ -97,7 +97,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   codigo compone "KIEV. DOCE DE OCTUBRE DE 2026. TEXTO. [RESTRICCION.]" (fecha_en_letra; el pais entre parentesis
   cuando cambia respecto al anterior; restricciones con la tabla de la seccion 5 del criterio). Un fallo deja la
   ficha hecha con aviso.
-  Solo en el panel (pestaña Localizadores, #localizadores/<lote>/<ficha>, boton en la ficha): ni correo, ni
+  Solo en el panel: pestaña Localizadores (envios plegables, <details>; los pide a /api/localizadores, que da
+  los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
+  la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
   UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (15 min) y
