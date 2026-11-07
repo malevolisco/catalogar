@@ -1483,6 +1483,18 @@ def _ficha_para_fuera(f, lote):
     return dict({k: f.get(k) for k in claves}, lote=lote["id"])
 
 
+@app.get("/api/localizadores")
+def localizadores_guardados():
+    """Las fichas que piden localizadores, de todos los lotes guardados (en Fichas solo caben los ultimos
+    MAX_LOTES_EN_PANEL): asi no se pierden de vista. Solo lo que pinta la pestaña Localizadores."""
+    claves = ("id", "etiqueta", "headline", "NAME", "estado", "localizadores", "localizadores_fallo")
+    with ESTADO.lock:
+        items = [{"lote": l["id"], "creado": l.get("creado", ""), "f": {k: f.get(k) for k in claves}}
+                 for l in ESTADO.lotes for f in l.get("fichas", []) if f.get("con_localizadores")]
+        texto = json.dumps({"items": items}, ensure_ascii=False)
+    return Response(texto, media_type="application/json")
+
+
 @app.get("/api/ficha")
 def buscar_ficha(numero: str, fecha: str = "", lote: str = ""):
     """La ficha de un numero de envio, para el relleno de MediaCentral.

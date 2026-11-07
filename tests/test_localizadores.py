@@ -142,3 +142,22 @@ def test_una_ficha_ya_hecha_sin_nada_que_marcar_se_copia_sin_volver_a_pedirlos(m
     vieja = {"numero": "0707", "estado": "hecha", "NAME": "N", "COMMENT": "C", "localizadores": []}
     monkeypatch.setattr(servidor.ESTADO, "ya_hecha", lambda *a, **k: ({"creado": "06/11/2026"}, vieja))
     assert not w.volcar_hecha({"id": "L"}, {"numero": "0707", "etiqueta": "0707", "con_localizadores": True})
+
+
+def test_se_guardan_todos_aunque_el_lote_ya_no_salga_en_fichas(monkeypatch):
+    import json
+    lotes = [lote(f"L{i}", ["0001"]) for i in range(servidor.MAX_LOTES_EN_PANEL + 10)]
+    vieja = lotes[-1]["fichas"][0]                          # de un lote que ya no cabe en la vista Fichas
+    vieja.update(con_localizadores=True, estado="hecha", NAME="N", COMMENT="C", correo_x="no",
+                 localizadores=[{"plano": "1", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. VISTA AEREA."}])
+    monkeypatch.setattr(servidor.ESTADO, "lotes", lotes)
+    items = json.loads(servidor.localizadores_guardados().body)["items"]
+    assert [(i["lote"], i["f"]["id"]) for i in items] == [(lotes[-1]["id"], vieja["id"])]
+    assert items[0]["f"]["localizadores"][0]["texto"].startswith("KIEV.") and "COMMENT" not in items[0]["f"]
+
+
+def test_en_la_ficha_es_un_enlace_en_las_notas_y_en_la_pestana_se_pliegan():
+    from pathlib import Path
+    panel = (Path(__file__).resolve().parent.parent / "panel" / "index.html").read_text(encoding="utf-8")
+    assert "Ver localizadores" in panel and 'class="notas"><p><a href="#localizadores/' in panel
+    assert '<details class="fila fila-loc"' in panel and "/api/localizadores" in panel

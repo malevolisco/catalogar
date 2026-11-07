@@ -136,6 +136,16 @@
   .lista .cuerpo { flex:1; min-width:0; }
   .lista .orden { color:var(--gris); font-variant-numeric:tabular-nums; font-size:13px; padding-top:2px; }
   .lista .fila.resaltada { background:var(--papel); box-shadow:inset 3px 0 0 var(--azul); }
+  .lista details.fila-loc { display:block; }
+  .fila-loc summary { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; cursor:pointer; list-style:none; }
+  .fila-loc summary::-webkit-details-marker { display:none; }
+  .fila-loc summary::before { content:"▸"; color:var(--gris); width:12px; }
+  .fila-loc[open] summary::before { content:"▾"; }
+  .fila-loc summary .envio { font-family:var(--mono); font-weight:600; font-size:14px; }
+  .fila-loc summary .origen { color:var(--gris); font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fila-loc .cuerpo-loc { padding:8px 0 2px 22px; }
+  .fila-loc .botones { margin-top:8px; justify-content:flex-start; }
+  .notas a { color:var(--azul); }
 
   /* ---------- entrada de clave ---------- */
   .puerta { max-width:360px; margin:16vh auto 0; padding:0 20px; }
@@ -1185,7 +1195,7 @@
     vistaActual = b.dataset.vista;
     $("titulo-vista").textContent = b.dataset.titulo || b.textContent.trim();
     ["fichas", "localizadores", "reglas", "aprobadas", "imagenes", "navegador", "admin"].forEach(v => $("vista-" + v).classList.toggle("oculto", v !== b.dataset.vista));
-    if (b.dataset.vista === "localizadores") { huellaLocs = ""; pintarLocalizadores(); }
+    if (b.dataset.vista === "localizadores") { huellaLocs = ""; pedirLocalizadores(); }
     else if (location.hash.startsWith("#localizadores")) history.replaceState(null, "", location.pathname + location.search);
     if (b.dataset.vista === "navegador") arrancarVisor();
     if (b.dataset.vista === "reglas") { pedirReglas(); pedirSugerencias(); pedirConsolidadas(); if (subReglas === "base") pedirCriterio(); }
@@ -1282,7 +1292,7 @@
     try { d = await api("GET", "/api/lotes"); }
     catch (e) { $("pulso-texto").textContent = e.message; $("pulso").classList.remove("activa"); return; }
     ultimosDatos = d;
-    if (vistaActual === "localizadores") pintarLocalizadores();
+    if (vistaActual === "localizadores") pedirLocalizadores();
     else if (!locsAbierto && location.hash.startsWith("#localizadores/")) { locsAbierto = true; irA("localizadores"); }
 
     // Catalogator se ha actualizado y esta pagina es la de antes: se recarga, salvo a mitad de escribir
@@ -1463,12 +1473,12 @@
       + (f.alerta ? `<div class="notas alerta"><p>${esc(f.alerta)}</p></div>` : "")
       + ((f.avisos || []).length ? `<div class="notas">${f.avisos.map(a => `<p>${esc(a)}</p>`).join("")}</div>` : "")
       + (faltaNormal ? `<div class="notas"><p>Sin versión en texto normal todavía; se muestra en mayúsculas.</p></div>` : "")
+      + (f.con_localizadores ? `<div class="notas"><p><a href="#localizadores/${esc(lote.id)}/${esc(f.id)}" data-locs>Ver localizadores${(f.localizadores || []).length ? " (" + f.localizadores.length + ")" : ""}</a></p></div>` : "")
       + `<div class="acciones-ficha">
            <button class="b mini" data-copiar>Copiar las cuatro líneas</button>
            <button class="b mini" data-buena>Buena</button>
            <button class="b mini" data-corregir>Corregir</button>
            ${faltaNormal ? '<button class="b mini" data-normal>Pasar a texto normal</button>' : ""}
-           ${f.con_localizadores ? `<button class="b mini" data-locs>Localizadores${(f.localizadores || []).length ? " (" + f.localizadores.length + ")" : ""}</button>` : ""}
          </div>`;
 
     div.querySelector("input[type=checkbox]").addEventListener("change", e => marcar(lote, f, e.target.checked));
@@ -1483,7 +1493,7 @@
       () => copiar(CAMPOS.map(c => c + ": " + ver(f, c)).join("\n"), "Ficha copiada."));
     div.querySelector("[data-buena]").addEventListener("click", () => aprobar(lote, f, null));
     div.querySelector("[data-corregir]").addEventListener("click", () => corregir(lote, f, div));
-    div.querySelector("[data-locs]")?.addEventListener("click", () => verLocalizadores(lote.id, f.id));
+    div.querySelector("[data-locs]")?.addEventListener("click", e => { e.preventDefault(); verLocalizadores(lote.id, f.id); });
     div.querySelector("[data-normal]")?.addEventListener("click", async e => {
       e.target.disabled = true;
       avisar("Pidiendo la versión en texto normal…");
@@ -2050,54 +2060,70 @@
   let visorDirecto = false, visorDirectoT = 0, visorSondeo = false;
   function cortarDirecto() { if (visorDirecto) { $("visor-img").removeAttribute("src"); visorDirecto = false; } }
   // ---------------------------------------------------------------- localizadores (solo aqui: ni correo ni MediaCentral)
-  let huellaLocs = "", locsAbierto = false;
+  // Se piden aparte (/api/localizadores): salen los de todos los lotes guardados, no solo los que caben en Fichas.
+  let huellaLocs = "", locsAbierto = false, locsDatos = [];
+  const locsDesplegados = new Set();                   // los envios que el usuario ha abierto: siguen abiertos al refrescar
   function verLocalizadores(idLote, idFicha) {
     history.replaceState(null, "", `#localizadores/${idLote}/${idFicha}`);   // direccion propia de ese envio
+    locsDesplegados.add(`${idLote}/${idFicha}`);
     irA("localizadores");
+  }
+  async function pedirLocalizadores() {
+    try { locsDatos = (await api("GET", "/api/localizadores")).items || []; } catch (e) { return; }
+    pintarLocalizadores();
   }
   function pintarLocalizadores() {
     const caja = $("lista-localizadores");
-    const items = ((ultimosDatos || {}).lotes || []).flatMap(l => (l.fichas || [])
-      .filter(f => f.con_localizadores).map(f => ({ lote: l, f })));
-    const huella = JSON.stringify(items.map(({ lote, f }) => [lote.id, f.id, f.estado, f.localizadores])) + location.hash;
+    const items = locsDatos;
+    const huella = JSON.stringify(items.map(({ lote, f }) => [lote, f.id, f.estado, f.localizadores, f.localizadores_fallo]))
+      + location.hash;
     if (huella === huellaLocs) return;                  // sin cambios: no se repinta (no se pierde lo que se mira)
     huellaLocs = huella;
     if (!items.length) {
       caja.innerHTML = `<div class="vacio"><strong>Ningún envío con localizadores</strong>Aparecen aquí los de una lista de MediaCentral cuyo Comments dice «TRATAR AGENCIA CON LOCALIZADORES».</div>`;
       return;
     }
+    const m = location.hash.match(/^#localizadores\/([^/]+)\/(.+)$/);
+    if (m) locsDesplegados.add(`${m[1]}/${m[2]}`);
     const linea = (x, i) => `<div class="campo">
         <span class="nombre-campo">${x.plano ? "Plano " + esc(x.plano) : "—"}</span>
         <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div></div>`;
-    caja.innerHTML = `<div class="lista">` + items.map(({ lote, f }) => {
+    caja.innerHTML = `<div class="lista">` + items.map(({ lote, creado, f }) => {
       const locs = f.localizadores || [];
       const estado = f.estado !== "hecha" ? (f.estado === "error" ? "La ficha ha dado error: los localizadores salen cuando se haga." : "En cola o redactándose: los localizadores salen al terminar la ficha.")
                    : f.localizadores_fallo ? "No se han podido sacar: mira el aviso de la ficha. Vuelve a subir la lista para intentarlo otra vez."
                    : !locs.length ? "El shotlist no tiene nada que marcar: ni declaraciones ni planos que sean recursos reutilizables." : "";
-      return `<div class="fila" id="loc-${esc(lote.id)}-${esc(f.id)}">
-        <div class="cuerpo">
-          <div class="titular"><span class="envio">${esc(f.etiqueta)}</span> <span class="origen">${esc(f.headline || "")}</span></div>
-          ${f.NAME ? `<p class="pista" style="margin:4px 0 8px">${esc(f.NAME)}</p>` : ""}
+      const resumen = estado ? (f.estado !== "hecha" ? "pendiente" : f.localizadores_fallo ? "no han salido" : "nada que marcar")
+                             : plural(locs.length, "localizador", "localizadores");
+      const clave = `${lote}/${f.id}`;
+      return `<details class="fila fila-loc" id="loc-${esc(lote)}-${esc(f.id)}" data-clave="${esc(clave)}" ${locsDesplegados.has(clave) ? "open" : ""}>
+        <summary>
+          <span class="envio">${esc(f.etiqueta)}</span>
+          <span class="origen">${esc(f.NAME || f.headline || "")}</span>
+          <span class="marca-estado">${esc(resumen)}${creado ? " · " + esc(creado) : ""}</span>
+        </summary>
+        <div class="cuerpo-loc">
+          ${f.NAME && f.headline ? `<p class="pista" style="margin:4px 0 8px">${esc(f.headline)}</p>` : ""}
           ${estado ? `<p class="pista" style="margin:4px 0">${esc(estado)}</p>` : locs.map(linea).join("")}
+          <div class="botones">
+            ${locs.length ? '<button class="b mini" data-todos>Copiar todos</button>' : ""}
+            <button class="b mini" data-enlace title="La dirección de los localizadores de este envío">Copiar enlace</button>
+          </div>
         </div>
-        <div class="botones">
-          ${locs.length ? '<button class="b mini" data-todos>Copiar todos</button>' : ""}
-          <button class="b mini" data-enlace title="La dirección de los localizadores de este envío">Copiar enlace</button>
-        </div>
-      </div>`;
+      </details>`;
     }).join("") + `</div>`;
     items.forEach(({ lote, f }) => {
-      const fila = document.getElementById(`loc-${lote.id}-${f.id}`);
+      const fila = document.getElementById(`loc-${lote}-${f.id}`);
       if (!fila) return;
       const locs = f.localizadores || [];
+      fila.addEventListener("toggle", () => fila.open ? locsDesplegados.add(fila.dataset.clave) : locsDesplegados.delete(fila.dataset.clave));
       fila.querySelectorAll("[data-loc]").forEach(t => t.addEventListener("click",
         () => copiar(t.textContent, "Localizador copiado.")));
       fila.querySelector("[data-todos]")?.addEventListener("click",
         () => copiar(locs.map(x => x.texto).join("\n"), "Localizadores copiados."));
       fila.querySelector("[data-enlace]").addEventListener("click", () => copiar(
-        location.origin + location.pathname + `#localizadores/${lote.id}/${f.id}`, "Enlace copiado."));
+        location.origin + location.pathname + `#localizadores/${lote}/${f.id}`, "Enlace copiado."));
     });
-    const m = location.hash.match(/^#localizadores\/([^/]+)\/(.+)$/);
     const destino = m && document.getElementById(`loc-${m[1]}-${m[2]}`);
     if (destino) { destino.scrollIntoView({ block: "start" }); destino.classList.add("resaltada"); }
   }
