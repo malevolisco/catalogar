@@ -856,7 +856,8 @@ class Worker(threading.Thread):
         if ficha.get("con_localizadores"):
             # solo para el panel (pestaña Localizadores): ni correo, ni MediaCentral, ni fichas.csv
             try:
-                locs = sacar_localizadores(datos, timeout=CFG["claude_timeout"])
+                locs, avisos_locs = sacar_localizadores(datos, timeout=CFG["claude_timeout"])
+                avisos += avisos_locs                    # p. ej. los planos que el modelo no ha devuelto
             except Exception as e:
                 log(f"  {ficha['etiqueta']}: localizadores sin sacar ({type(e).__name__}: {str(e).splitlines()[0][:120]})")
                 avisos.append("No se han podido sacar los localizadores (el servicio de redacción no ha contestado o ha "
