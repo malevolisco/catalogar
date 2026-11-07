@@ -161,3 +161,4 @@ def test_en_la_ficha_es_un_enlace_en_las_notas_y_en_la_pestana_se_pliegan():
     panel = (Path(__file__).resolve().parent.parent / "panel" / "index.html").read_text(encoding="utf-8")
     assert "Ver localizadores" in panel and 'class="notas"><p><a href="#localizadores/' in panel
     assert '<details class="fila fila-loc"' in panel and "/api/localizadores" in panel
+    assert "No se han podido cargar los localizadores" in panel        # un corte no parece "no hay ninguno"

@@ -2069,7 +2069,12 @@
     irA("localizadores");
   }
   async function pedirLocalizadores() {
-    try { locsDatos = (await api("GET", "/api/localizadores")).items || []; } catch (e) { return; }
+    try { locsDatos = (await api("GET", "/api/localizadores")).items || []; }
+    catch (e) {
+      // un corte no se confunde con "no hay ninguno": si no hay nada pintado, se dice
+      if (!huellaLocs) $("lista-localizadores").innerHTML = `<div class="vacio"><strong>No se han podido cargar los localizadores</strong>Revisa la conexión y vuelve a pulsar la pestaña.</div>`;
+      return;
+    }
     pintarLocalizadores();
   }
   function pintarLocalizadores() {
