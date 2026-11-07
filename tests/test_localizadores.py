@@ -115,7 +115,7 @@ def test_los_que_faltan_se_piden_otra_vez_y_si_siguen_faltando_se_avisa(monkeypa
     reenvio = llamada.call_args_list[1].args[1]
     assert "ID 7 " in reenvio and "ID 11-12" in reenvio and "ID 30" in reenvio and "ID 1 " not in reenvio
     assert [x["plano"] for x in locs] == ["1", "7"]
-    assert avisos == ["Faltan los localizadores de los planos 11-12, 30: el modelo no los ha devuelto. "
+    assert avisos == ["Faltan los localizadores de los planos 11-12, 30: el servicio de redacción no los ha devuelto. "
                       "Ponlos a mano o vuelve a subir la lista."]
     guardada = (tmp_path / "debug" / "localizadores_5455.txt").read_text(encoding="utf-8")
     assert "7|NO" in guardada and "TROY JACKSON" in guardada       # la respuesta, para poder ver que paso

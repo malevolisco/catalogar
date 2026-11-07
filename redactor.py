@@ -1544,7 +1544,7 @@ def localizadores(datos, timeout=None):
     avisos = []
     if pendientes:
         avisos.append("Faltan los localizadores de los planos " + ", ".join(it["id"] for it in pendientes)
-                      + ": el modelo no los ha devuelto. Ponlos a mano o vuelve a subir la lista.")
+                      + ": el servicio de redacción no los ha devuelto. Ponlos a mano o vuelve a subir la lista.")
     if pendientes or raras:
         _guardar_respuesta(datos.get("numero"), "\n\n---\n\n".join(respuestas))
     return _componer(items, leidas), avisos
