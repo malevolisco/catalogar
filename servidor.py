@@ -52,7 +52,7 @@ from buzon import leer as leer_buzon, asunto_respuesta, nota_adjuntos, MARCA as 
 from listas import leer_lista, leer_texto, resumen as resumen_lista, resumen_agencias, agencia_de, ListaError
 import paginas_word
 import listas
-from actos import huella_fotogramas, guardar_para_entrenar
+from actos import huella_fotogramas, guardar_para_entrenar, siguen_igual
 from catalogar import guardar_csv, FECHA_RE
 import admin
 import aprender
@@ -1440,14 +1440,62 @@ def estado():
     return ESTADO.resumen()
 
 
+MINIATURAS_DIR = BASE_DIR / "miniaturas"
+MINIATURAS_TIPOS = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+
+
+def _elegir_miniaturas(rutas):
+    """Las (como mucho) dos que se ensenan junto a la ficha: sin el primer fotograma ni el ultimo (como el
+    clasificador de escenas: suelen ser negro o cartela), el primero y el ultimo de los que quedan."""
+    medio = rutas[1:-1] if len(rutas) > 2 else rutas
+    return medio[:1] + medio[-1:] if len(medio) > 1 else medio
+
+
+def _ficha_al_panel(f):
+    """La ficha tal cual menos las rutas de sus fotogramas (el navegador no las necesita): en su lugar cuantas
+    miniaturas se pueden pedir y una marca para que una ficha rehecha no ensene las de antes. Sin mirar el disco
+    (esto va cada 5 s): si una ya no esta, el panel la oculta."""
+    huella = f.get("fotogramas") or []
+    if not huella:
+        return f
+    g = {k: v for k, v in f.items() if k != "fotogramas"}
+    g["miniaturas_n"] = len(_elegir_miniaturas(huella))
+    g["miniaturas_v"] = str(huella[0].get("mtime", "")) if isinstance(huella[0], dict) else ""
+    return g
+
+
 @app.get("/api/lotes")
 def lotes():
     # se convierte a JSON dentro del cerrojo: fuera, el worker puede tocar una ficha mientras se
     # recorre y eso da un 500 intermitente ("dictionary changed size during iteration")
     with ESTADO.lock:
-        cuerpo = json.dumps({"lotes": ESTADO.lotes[:MAX_LOTES_EN_PANEL], **ESTADO.resumen(), "panel": huella_panel()},
-                            ensure_ascii=False)
+        vista = [dict(l, fichas=[_ficha_al_panel(f) for f in l.get("fichas", [])])
+                 for l in ESTADO.lotes[:MAX_LOTES_EN_PANEL]]
+        cuerpo = json.dumps({"lotes": vista, **ESTADO.resumen(), "panel": huella_panel()}, ensure_ascii=False)
     return Response(cuerpo, media_type="application/json")
+
+
+@app.get("/api/miniatura/{id_lote}/{id_ficha}/{n}")
+def miniatura(id_lote: str, id_ficha: str, n: int):
+    """Un fotograma de una ficha hecha, para verlo a su lado en el panel. Solo si sigue siendo de esa ficha
+    (Reuters repite numeros y miniaturas/<numero>/ se sobrescribe) y si es una imagen dentro de miniaturas/."""
+    with ESTADO.lock:
+        l = ESTADO.lote(id_lote)
+        f = next((x for x in (l or {}).get("fichas", []) if x.get("id") == id_ficha), None)
+        huella = list((f or {}).get("fotogramas") or [])
+    elegidas = _elegir_miniaturas(siguen_igual(huella))
+    if not 0 <= n < len(elegidas):
+        raise HTTPException(404, "Sin miniatura")
+    ruta = elegidas[n].resolve()
+    tipo = MINIATURAS_TIPOS.get(ruta.suffix.lower())
+    if not tipo or not ruta.is_relative_to(MINIATURAS_DIR.resolve()) or not ruta.is_file():
+        raise HTTPException(404, "Sin miniatura")
+    try:
+        datos = ruta.read_bytes()
+    except OSError:
+        raise HTTPException(404, "Sin miniatura")
+    return Response(datos, media_type=tipo, headers={"Cache-Control": "private, max-age=86400",
+                                                     "X-Content-Type-Options": "nosniff"})
 
 
 def crear_lotes(tipo, nombre, fichas, **extra):
