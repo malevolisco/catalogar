@@ -108,11 +108,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
-  UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (15 min) y
+  UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (90 s desde el 10 nov; antes 15 min) y
   RESPALDO_HORAS (24 h) por INTERNALDATE. atender(respaldo=True): si es peticion de alguien permitido con alguna
   fila con texto (Cont./Comments), marca \Seen + CatalogatorNubeRespaldo ANTES de redactar (la Raspberry busca
   UNSEEN: no contesta dos veces) y contesta igual que un +csv; si no, NoRespaldo y sin leer para la Raspberry.
-  El timbre suena tambien por correos con adjunto sin leer a los 15 min (ULTIMO_RESPALDO). Mismos correos;
+  El timbre suena tambien por correos con adjunto sin leer a los 2 min (ULTIMO_RESPALDO; hay que volver a pegarlo).
+  Requiere la Raspberry con correo_buzon_minutos = 1 (marca leido en la misma vuelta): Adrian pidio «al minuto». Mismos correos;
   solo el aviso de fallo tras dos intentos dice "mas tarde" en vez de "sin el +csv".
 - Columna Cont. (27 oct): en las listas de MediaCentral (listas.leer_lista, Raspberry) y en la nube
   (nube.fichas_de_tabla), si la columna «Cont.» trae el texto de la agencia (texto_agencia) manda sobre Comments

@@ -237,7 +237,8 @@ def test_pendientes_coge_los_csv_y_de_respaldo_solo_lo_que_la_raspberry_no_ha_le
     m = BuzonFalso({
         b"1": (csv, ahora - 60, set()),                                   # +csv: siempre
         b"2": (normal, ahora - 20 * 60, set()),                           # sin leer a los 20 min: respaldo
-        b"3": (normal, ahora - 5 * 60, set()),                            # 5 min: aun le toca a la Raspberry
+        b"3": (normal, ahora - 30, set()),                                # 30 s: aun le toca a la Raspberry
+        b"10": (normal, ahora - 2 * 60, set()),                           # 2 min sin leer: la Raspberry no esta
         b"4": (normal, ahora - 20 * 60, {"\\Seen"}),                     # leido: la Raspberry esta
         b"5": (normal, ahora - 30 * 3600, set()),                         # mas de un dia: olvidado
         b"6": (normal, ahora - 20 * 60, {buzon.MARCA_RECHAZADO}),         # remitente rechazado
@@ -245,7 +246,7 @@ def test_pendientes_coge_los_csv_y_de_respaldo_solo_lo_que_la_raspberry_no_ha_le
         b"8": (normal, ahora - 3 * 3600, {"\\Seen", nube.RESPALDO}),     # cogido y fallo una vez: se reintenta
         b"9": (normal, ahora - 20 * 60, {"\\Seen", nube.HECHO}),         # ya contestado
     })
-    assert sorted(nube.pendientes(m, ahora)) == [(b"1", False), (b"2", True), (b"8", True)]
+    assert sorted(nube.pendientes(m, ahora)) == [(b"1", False), (b"10", True), (b"2", True), (b"8", True)]
 
 
 def test_sin_secretos_no_hace_nada(monkeypatch):

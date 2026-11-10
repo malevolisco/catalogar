@@ -7,8 +7,8 @@ Mira la bandeja de la cuenta de Catalogator y, por cada correo nuevo mandado a l
 (catalogator+csv@gmail.com) con un CSV o un Excel de MediaCentral adjunto, redacta cada fila con su Cont. o
 Comments como texto de la agencia y contesta igual que contesta Catalogator (correo.enviar_fichas).
 
-Respaldo de la Raspberry: un correo a la direccion normal que sigue sin leer a los 15 minutos (la Raspberry
-no esta o no funciona) se contesta igual, si trae un CSV con texto de agencia. Antes de redactar se marca
+Respaldo de la Raspberry: un correo a la direccion normal que sigue sin leer a los 90 segundos (la Raspberry
+lo marca leido en cuanto lo ve, mirando el buzon cada minuto: si no, no esta o no funciona) se contesta igual, si trae un CSV con texto de agencia. Antes de redactar se marca
 leido, para que la Raspberry no lo conteste otra vez si vuelve. Si no hay nada que la nube sepa hacer (solo
 numeros, sin texto), se deja sin leer para la Raspberry.
 
@@ -192,7 +192,8 @@ def responder(cfg, destino, asunto_origen, hechas, fallidas, descartes, problema
 DIAS_ATRAS = 7                      # correos de la ultima semana; lo anterior ya se ha contestado o caducado
 FALLO = "CatalogatorNubeFallo"      # primer intento fallido: al segundo se contesta que no se ha podido
 # respaldo de la Raspberry: correos a la direccion normal que nadie ha leido
-ESPERA_RASPBERRY = 15 * 60          # sin leer tras 15 min: la Raspberry no esta (mira el correo cada pocos minutos)
+ESPERA_RASPBERRY = 90               # sin leer tras 90 s: la Raspberry no esta (mira el buzon cada minuto y marca
+                                    # leido en esa misma vuelta; peticion de Adrian, 10 nov: «al minuto»)
 RESPALDO_HORAS = 24                 # lo que lleva mas de un dia sin leer no se contesta (correos olvidados)
 RESPALDO = "CatalogatorNubeRespaldo"        # cogido por la nube (ya leido: la Raspberry no lo toca)
 NO_RESPALDO = "CatalogatorNubeNoRespaldo"   # mirado: nada que la nube sepa hacer, se queda para la Raspberry

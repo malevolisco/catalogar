@@ -5,8 +5,8 @@
  * Catalogator (script.google.com) y lo ejecuta Google cada minuto. Cambia el texto del issue del timbre, y eso
  * arranca la nube en ese momento (nube.yml, «issues»), cuando:
  *   - ha llegado un correo a la dirección con +csv (la nube los contesta siempre), o
- *   - un correo con adjunto a la dirección normal sigue sin leer a los 15 minutos: la Raspberry no está o no
- *     funciona, y la nube hace de respaldo (nube.py decide si sabe contestarlo).
+ *   - un correo con adjunto a la dirección normal sigue sin leer a los 2 minutos: la Raspberry (que mira el
+ *     correo cada minuto y lo marca leído en cuanto lo ve) no está o no funciona, y la nube hace de respaldo (nube.py decide si sabe contestarlo).
  * No lee ni guarda el contenido de los correos: solo mira si los hay, si están leídos, su hora y a quién van.
  *
  * La llave solo puede tocar issues: nunca lanzar tareas de GitHub, que con ellas se podría publicar una
@@ -18,7 +18,7 @@
 const REPOSITORIO = 'malevolisco/catalogar';
 const ISSUE = 64;                // «Timbre de la nube (no cerrar ni borrar)»: nube.yml solo atiende a este
 const PRIMERA_VEZ_HORAS = 2;     // la primera vez, mira los correos de las últimas 2 horas
-const ESPERA_RASPBERRY = 15 * 60;   // como nube.py: sin leer tras 15 minutos, la Raspberry no está
+const ESPERA_RASPBERRY = 90;        // como nube.py: sin leer tras 90 segundos, la Raspberry no está
 const RESPALDO_HORAS = 24;          // como nube.py: lo que lleva más de un día sin leer no se contesta
 
 function timbre() {
@@ -42,7 +42,7 @@ function timbre() {
   GmailApp.search('(deliveredto:' + direccion + ' OR to:' + direccion + ') after:' + (desde - 60), 0, 20)
     .forEach(function (hilo) { ultimo = Math.max(ultimo, segundos(hilo.getLastMessageDate())); });
 
-  // respaldo: correos con adjunto, sin leer, de entre 15 minutos y un día, que no van a +csv.
+  // respaldo: correos con adjunto, sin leer, de entre 2 minutos y un día, que no van a +csv.
   // ULTIMO_RESPALDO es la hora del más reciente por el que ya se avisó (un aviso por correo)
   const desdeRespaldo = Number(props.getProperty('ULTIMO_RESPALDO') || (ahora - RESPALDO_HORAS * 3600));
   let ultimoRespaldo = desdeRespaldo;
@@ -51,8 +51,8 @@ function timbre() {
       hilo.getMessages().forEach(function (correo) {
         const hora = segundos(correo.getDate());
         const destinos = (correo.getTo() + ',' + correo.getCc()).toLowerCase();
-        // un minuto de más: aquí se mira la fecha del correo y en la nube la de llegada, que va unos segundos después
-        if (correo.isUnread() && hora > desdeRespaldo && ahora - hora >= ESPERA_RASPBERRY + 60 &&
+        // medio minuto de más: aquí se mira la fecha del correo y en la nube la de llegada, unos segundos después
+        if (correo.isUnread() && hora > desdeRespaldo && ahora - hora >= ESPERA_RASPBERRY + 30 &&
             destinos.indexOf('+csv@') < 0) {
           ultimoRespaldo = Math.max(ultimoRespaldo, hora);
         }
