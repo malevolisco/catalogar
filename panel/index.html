@@ -98,6 +98,13 @@
   .campo .cuenta.roza { color:var(--espera); }
   .campo .cuenta.pasa { color:var(--tally); font-weight:600; }
   .campo textarea { grid-column:2 / span 2; }
+  .cuerpo-ficha { display:flex; gap:16px; align-items:flex-start; }
+  .cuerpo-ficha .campos { flex:1; min-width:0; }
+  .fotos-ficha { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; padding-top:4px; }
+  .fotos-ficha a { display:block; width:132px; aspect-ratio:16/9; border-radius:6px; overflow:hidden; background:#e8eaef;
+                   border:1px solid var(--linea); }
+  .fotos-ficha a:focus-visible { outline:2px solid var(--azul); outline-offset:2px; }
+  .fotos-ficha img { width:100%; height:100%; object-fit:cover; display:block; }
   .notas { font-size:13px; color:var(--espera); margin-top:9px; padding-left:114px; }
   .notas.alerta { color:var(--tally); font-weight:600; }
   .notas p { margin:3px 0; }
@@ -279,6 +286,9 @@
     .campo { grid-template-columns:1fr; }
     .campo .cuenta { padding-top:0; }
     .campo textarea { grid-column:1; }
+    .cuerpo-ficha { flex-direction:column; gap:8px; }
+    .fotos-ficha { flex-direction:row; padding-top:0; }
+    .fotos-ficha a { width:calc(50% - 3px); max-width:180px; }
     .notas, .acciones-ficha { padding-left:0; }
     .barra { gap:10px; flex-wrap:wrap; }
     nav { order:3; width:100%; margin-right:0; }
@@ -1464,12 +1474,19 @@
     div.dataset.clave = claveSel(lote, f);
 
     const faltaNormal = modo === "normalizado" && !f.normal;
-    div.innerHTML = titular
-      + CAMPOS.map(c => `<div class="campo">
+    // uno o dos fotogramas del video al lado (solo si Catalogator abrio la web de la agencia); al pulsar, en grande
+    const fotos = Array.from({ length: Math.min(2, f.miniaturas_n || 0) }, (_, i) => {
+      const url = `/api/miniatura/${encodeURIComponent(lote.id)}/${encodeURIComponent(f.id)}/${i}?v=${encodeURIComponent(f.miniaturas_v || "")}`;
+      return `<a href="${url}" target="_blank" rel="noopener" title="Ver el fotograma en grande">`
+        + `<img src="${url}" alt="Fotograma ${i + 1} de ${esc(f.etiqueta)}" loading="lazy" data-foto></a>`;
+    }).join("");
+    const campos = CAMPOS.map(c => `<div class="campo">
             <span class="nombre-campo">${c}</span>
             <div class="texto" title="Pulsa para copiar">${esc(ver(f, c))}</div>
             ${cuenta(c, ver(f, c))}
-          </div>`).join("")
+          </div>`).join("");
+    div.innerHTML = titular
+      + (fotos ? `<div class="cuerpo-ficha"><div class="campos">${campos}</div><div class="fotos-ficha">${fotos}</div></div>` : campos)
       + (f.alerta ? `<div class="notas alerta"><p>${esc(f.alerta)}</p></div>` : "")
       + ((f.avisos || []).length ? `<div class="notas">${f.avisos.map(a => `<p>${esc(a)}</p>`).join("")}</div>` : "")
       + (faltaNormal ? `<div class="notas"><p>Sin versión en texto normal todavía; se muestra en mayúsculas.</p></div>` : "")
@@ -1500,6 +1517,12 @@
       try { await api("POST", `/api/fichas/${lote.id}/${f.id}/normalizar`); ultima = ""; refrescar(); }
       catch (err) { avisar(err.message, true); e.target.disabled = false; }
     });
+    // un fotograma que ya no esta (se borro o Reuters reutilizo el numero) no se ve roto: se quita
+    div.querySelectorAll("img[data-foto]").forEach(img => img.addEventListener("error", () => {
+      const caja = img.closest(".fotos-ficha");
+      img.closest("a").remove();
+      if (caja && !caja.children.length) caja.remove();
+    }, { once: true }));
     return div;
   }
 

@@ -107,6 +107,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
+- Miniaturas en el panel (10 nov, peticion de Adrian: «un thumbnail al lado de la nota hecha... o un par», en el
+  panel): GET /api/miniatura/<lote>/<ficha>/<n> (n 0-1) sirve dos de los fotogramas ya guardados al redactar
+  (ficha["fotogramas"], sin el primero ni el ultimo) solo si actos.siguen_igual (Reuters reutiliza numeros) y solo
+  .jpg/.png dentro de miniaturas/ (ruta resuelta), con nosniff. /api/lotes manda miniaturas_n/_v en vez de las
+  rutas. panel: .cuerpo-ficha con .fotos-ficha a la derecha (debajo en movil), se quitan si fallan. Sin imagen
+  cuando el texto viene de Cont./Comments ni en la nube. tests/test_miniaturas.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
   UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (90 s desde el 10 nov; antes 15 min) y
   RESPALDO_HORAS (24 h) por INTERNALDATE. atender(respaldo=True): si es peticion de alguien permitido con alguna
