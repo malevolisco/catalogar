@@ -20,7 +20,10 @@ La respuesta dice cuáles son.
 ## Si Catalogator no funciona (respaldo)
 
 No hace falta cambiar nada: se sigue mandando a la **dirección normal**. Si la Raspberry está apagada o no
-funciona y a los **15 minutos** el correo sigue sin leer, la nube lo contesta en su lugar, con el mismo formato.
+funciona y a los **2 minutos** el correo sigue sin leer, la nube lo contesta en su lugar, con el mismo formato.
+Para eso la Raspberry tiene que mirar el correo **cada minuto** (panel de administración, «Mirar el buzón cada
+(minutos)»: 1): cuando está encendida marca leído cada correo en cuanto lo ve, y la nube ya no lo toca. Con más
+minutos, la nube podría adelantarse y llegarían dos respuestas.
 
 - Solo si el correo trae un CSV o Excel con el texto de la agencia (Cont. o Comments): la nube no entra en
   Reuters, AP ni EBU. Un correo con solo números se queda sin leer y lo contesta la Raspberry cuando vuelva.
@@ -41,7 +44,7 @@ funciona y a los **15 minutos** el correo sigue sin leer, la nube lo contesta en
   Raspberry está apagada unos días, la nube sigue funcionando con lo último que recibió.
 - Los correos a la dirección con +csv solo los contesta la nube. La Raspberry los deja sin tocar, así
   que no se contestan dos veces. Los de la dirección normal, la Raspberry; la nube solo si siguen sin leer a
-  los 15 minutos (ver «Si Catalogator no funciona»).
+  los 2 minutos (ver «Si Catalogator no funciona»).
 
 ## Lo que no hace
 
@@ -82,7 +85,7 @@ crear `CATALOGATOR_API_KEY` (clave de la API de Claude) o `CATALOGATOR_OPENAI_KE
 GitHub promete lanzar la nube cada 10 minutos, pero con los repositorios gratuitos la retrasa: en la práctica,
 cada 2 a 6 horas. El timbre lo arregla: es un programita de Google (Apps Script) que vive en la cuenta de Gmail de
 Catalogator y que Google ejecuta cada minuto, gratis. Si ha llegado un correo a la dirección con +csv, o si un
-correo con adjunto a la dirección normal sigue sin leer a los 15 minutos, cambia el texto del issue «Timbre de la
+correo con adjunto a la dirección normal sigue sin leer a los 2 minutos, cambia el texto del issue «Timbre de la
 nube» del repositorio (el 64) y eso arranca la nube en ese momento. No lee el contenido de los correos: solo mira
 si los hay, si están leídos, su hora y a quién van. Ese issue no hay que tocarlo ni cerrarlo.
 
