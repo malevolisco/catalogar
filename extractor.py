@@ -1068,7 +1068,11 @@ class Extractor:
         xml = self._xml_reuters(numero, avisos_lista) if self.reuters_xml else None
         if xml:
             headline, texto = xml["headline"] or headline, xml["texto"]
-        minis = self.miniaturas(numero, self.n_miniaturas)
+        minis = self._fotogramas_xml(numero, xml, self.n_miniaturas) if xml else []
+        if not minis:
+            dia = cand["fecha"] or info.get("fecha") or (xml or {}).get("fecha") or ""
+            propias = (str(numero).zfill(4) + dia.replace("/", "")) if re.fullmatch(r"\d{2}/\d{2}/\d{4}", dia) else ""
+            minis = self.miniaturas(numero, self.n_miniaturas, propias=propias)
         return {
             "agencia": "REUTERS",
             "miniaturas": minis,
@@ -1110,12 +1114,13 @@ class Extractor:
         return datos
 
     # ------------------------------------------------------------------ miniaturas
-    def _candidatas_fotogramas(self):
+    def _candidatas_fotogramas(self, dentro=""):
         """(urls de las imagenes de la pagina que pueden ser fotogramas, cuantas imagenes hay en total), o
-        (None, 0) si no se puede mirar la pagina."""
+        (None, 0) si no se puede mirar la pagina. dentro: solo las de ese contenedor (la ventana de la ficha de AP,
+        no los resultados de la busqueda que quedan detras, que son otras noticias)."""
         try:
             crudas = self._page.eval_on_selector_all(
-                "img",
+                f"{dentro} img".strip(),
                 "els => els.map(e => { const r = e.getBoundingClientRect();"
                 " let s = e.currentSrc || e.src || ''; try { s = s && !s.startsWith('data:') ? new URL(s, document.baseURI).href : s; } catch (x) {}"
                 " return {s: s, w: Math.max(e.naturalWidth, r.width), h: Math.max(e.naturalHeight, r.height)}; })")
@@ -1134,7 +1139,7 @@ class Extractor:
             cand.append(s)
         return cand, len(crudas)
 
-    def _esperar_fotogramas(self, cand, total, limite_ms=None):
+    def _esperar_fotogramas(self, cand, total, limite_ms=None, dentro=""):
         """La pagina pinta los fotogramas tarde o solo al bajar por ella (carga perezosa): se baja un poco cada
         medio segundo, por la pagina y por los paneles con barra, hasta tener 3 o agotar el tiempo."""
         restante = ESPERA_FOTOGRAMAS_MS if limite_ms is None else limite_ms
@@ -1148,21 +1153,22 @@ class Extractor:
             except Exception:
                 break
             restante -= 500
-            nuevas, n = self._candidatas_fotogramas()
+            nuevas, n = self._candidatas_fotogramas(dentro)
             if nuevas is None:
                 break
             cand, total = nuevas, n
         return cand, total
 
-    def _volcar_sin_fotos(self, numero):
-        """Copia de la pagina (texto, HTML y captura) cuando no salen fotogramas, para poder ver por que: va en el
-        zip de Diagnostico de Admin. Solo se guardan las ultimas VOLCADOS_SIN_FOTOS."""
+    def _volcar_sin_fotos(self, numero, sufijo="sinfotos"):
+        """Copia de la pagina (texto, HTML y captura) cuando no salen fotogramas (sinfotos) o salen de la pagina sin
+        poder asegurar que son de este envio (fotospagina), para poder ver por que: va en el zip de Diagnostico de
+        Admin. Solo se guardan las ultimas VOLCADOS_SIN_FOTOS de cada clase."""
         etiqueta = re.sub(r"[^A-Za-z0-9_-]", "", str(numero))[:20] or "envio"
-        self._dump(f"{etiqueta}_sinfotos", forzar=True)
+        self._dump(f"{etiqueta}_{sufijo}", forzar=True)
         try:
             grupos = {}
-            for f in DEBUG_DIR.glob("*_sinfotos.*"):
-                grupos.setdefault(f.name.split("_sinfotos.")[0], []).append(f)
+            for f in DEBUG_DIR.glob(f"*_{sufijo}.*"):
+                grupos.setdefault(f.name.split(f"_{sufijo}.")[0], []).append(f)
             viejos = sorted(grupos.values(), key=lambda fs: (max(x.stat().st_mtime for x in fs), fs[0].name))[:-VOLCADOS_SIN_FOTOS]
             for fs in viejos:
                 for f in fs:
@@ -1170,26 +1176,92 @@ class Extractor:
         except OSError:
             pass
 
-    def miniaturas(self, numero, cuantas=8):
+    def _guardar_fotogramas(self, numero, piezas):
+        """[(bytes, ".jpg"|".png")] -> rutas en miniaturas/<numero>/ (01.jpg, 02.jpg...), quitando las de antes."""
+        destino = BASE_DIR / "miniaturas" / str(numero)
+        destino.mkdir(parents=True, exist_ok=True)
+        for viejo in destino.glob("*"):
+            try:
+                viejo.unlink()
+            except OSError:
+                pass
+        rutas = []
+        for i, (datos, ext) in enumerate(piezas, 1):
+            try:
+                f = destino / f"{i:02d}{ext}"
+                f.write_bytes(datos)
+                rutas.append(str(f))
+            except OSError:
+                continue
+        return rutas
+
+    def _fotogramas_xml(self, numero, xml, cuantas):
+        """Los fotogramas de la tira (thumbnailgrid) del XML de Reuters: son de este envio y de esta version, no
+        de otras noticias ni de otras versiones que salen en la pagina. Se baja con la sesion del navegador y se
+        parte en fotogramas segun el aspecto del video. [] si no hay tira, no se puede bajar o falta pillow."""
+        if not cuantas:
+            return []
+        tiras = sorted((i for i in (xml or {}).get("imagenes") or [] if "thumbnailgrid" in (i.get("rendition") or "").lower()),
+                       key=lambda i: -(i.get("ancho") or 0))
+        if not tiras:
+            return []
+        try:
+            import io
+            from PIL import Image
+        except ImportError:
+            return []
+        m = re.fullmatch(r"\s*(\d+)\s*:\s*(\d+)\s*", (xml or {}).get("aspecto") or "16:9")
+        a, b = (int(m.group(1)), int(m.group(2))) if m and int(m.group(2)) else (16, 9)
+        for tira in tiras:
+            href = tira["href"]
+            for url in dict.fromkeys([href.replace("http://", "https://", 1), href]):
+                try:
+                    resp = self._page.request.get(url, timeout=20000)      # usa la sesion del navegador
+                    if not resp.ok or not (resp.headers.get("content-type") or "").lower().startswith("image/"):
+                        continue
+                    imagen = Image.open(io.BytesIO(resp.body()))
+                    imagen.load()
+                except Exception:
+                    continue
+                ancho, alto = imagen.size
+                paso = max(1, round(alto * a / b))
+                total = ancho // paso
+                if total < 2:
+                    continue
+                elegidos = sorted({int(i * total / min(cuantas, total)) for i in range(min(cuantas, total))})
+                piezas = []
+                for k in elegidos:
+                    caja = imagen.crop((k * paso, 0, min(ancho, (k + 1) * paso), alto)).convert("RGB")
+                    salida = io.BytesIO()
+                    caja.save(salida, "JPEG", quality=85)
+                    piezas.append((salida.getvalue(), ".jpg"))
+                rutas = self._guardar_fotogramas(numero, piezas)
+                if rutas:
+                    print(f"[fotogramas] {numero}: {len(rutas)} de la tira del XML de Reuters")
+                    return rutas
+        return []
+
+    def miniaturas(self, numero, cuantas=8, propias=""):
         """Muestrea fotogramas del visor y los guarda en miniaturas/<numero>/.
-        Devuelve la lista de rutas. Nunca lanza: si algo falla, devuelve []."""
+        propias: un trozo que llevan las direcciones de las imagenes de este envio (Reuters: numero y fecha); si
+        alguna lo lleva, solo se usan esas. Devuelve la lista de rutas. Nunca lanza: si algo falla, devuelve []."""
         if not cuantas:
             return []
         page = self._page
-        cand, total = self._candidatas_fotogramas()
+        try:
+            hay_modal = page.locator("lib-video-detail").count() > 0
+        except Exception:
+            hay_modal = False
+        dentro = "lib-video-detail" if hay_modal else ""       # AP: detras de la ventana hay otras noticias
+        cand, total = self._candidatas_fotogramas(dentro)
         if cand is None:
             return []
         if self.debug:
             print(f"[miniaturas] {len(cand)} candidatas de {total} imagenes en la pagina")
         if len(cand) < 3 and self._bloqueando:
             # en modo solo texto la pagina no ha bajado las imagenes: se quita el bloqueo
-            try:
-                hay_modal = page.locator("lib-video-detail").count() > 0
-            except Exception:
-                hay_modal = False
             if hay_modal:
-                # AP: la ficha es una ventana encima de la busqueda y recargar la cerraria; se piden otra vez las
-                # imagenes que se habian bloqueado
+                # AP: recargar cerraria la ventana de la ficha; se piden otra vez las imagenes que se habian bloqueado
                 self._bloquear(False)
                 try:
                     page.evaluate("() => document.querySelectorAll('img').forEach(e => {"
@@ -1200,8 +1272,16 @@ class Extractor:
                 self._ver_completa()
                 self._esperar(800)
         if len(cand) < 3:
-            cand, total = self._esperar_fotogramas(cand, total)
-        if len(cand) < 3:
+            cand, total = self._esperar_fotogramas(cand, total, dentro=dentro)
+        if propias:
+            mias = [u for u in cand if propias.lower() in u.lower()]
+            if mias:
+                cand = mias
+            elif len(cand) >= 3:
+                print(f"[fotogramas] {numero}: las imagenes de la pagina no llevan el identificador del envio; "
+                      f"pueden ser de otra noticia o de otra version (copia de la pagina en Diagnostico)")
+                self._volcar_sin_fotos(numero, "fotospagina")
+        if len(cand) < (1 if propias and cand and all(propias.lower() in u.lower() for u in cand) else 3):
             print(f"[fotogramas] {numero}: la pagina de la agencia ensena {total} imagen(es) y no hay 3 que sirvan "
                   f"como fotogramas; la ficha sale sin miniaturas (copia de la pagina en Diagnostico)")
             self._volcar_sin_fotos(numero)
@@ -1209,28 +1289,19 @@ class Extractor:
         if len(cand) > cuantas:                            # muestreo repartido por la duracion
             paso = len(cand) / cuantas
             cand = [cand[int(i * paso)] for i in range(cuantas)]
-        destino = BASE_DIR / "miniaturas" / str(numero)
-        destino.mkdir(parents=True, exist_ok=True)
-        for viejo in destino.glob("*"):
-            try:
-                viejo.unlink()
-            except OSError:
-                pass
-        rutas = []
-        for i, u in enumerate(cand, 1):
+        piezas = []
+        for u in cand:
             try:
                 resp = page.request.get(u, timeout=15000)   # usa la sesion del navegador
                 if not resp.ok:
                     continue
                 tipo = (resp.headers.get("content-type") or "").lower()
-                ext = ".png" if "png" in tipo or u.lower().endswith(".png") else ".jpg"
-                f = destino / f"{i:02d}{ext}"
-                f.write_bytes(resp.body())
-                rutas.append(str(f))
+                piezas.append((resp.body(), ".png" if "png" in tipo or u.lower().endswith(".png") else ".jpg"))
             except Exception:
                 continue
+        rutas = self._guardar_fotogramas(numero, piezas)
         if self.debug:
-            print(f"[miniaturas] descargadas {len(rutas)} en {destino}")
+            print(f"[miniaturas] descargadas {len(rutas)}")
         return rutas
 
     # ================================================================== AP NEWSROOM

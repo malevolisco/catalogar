@@ -997,8 +997,9 @@ def diagnostico():
         for f in volcados:
             z.write(f, f"busquedas/{f.name}")
         # las paginas de las que no salieron fotogramas (extractor.VOLCADOS_SIN_FOTOS, las ultimas)
-        for f in sorted((BASE_DIR / "debug").glob("*_sinfotos.*"), key=lambda f: f.stat().st_mtime)[-30:]:
-            z.write(f, f"fotogramas/{f.name}")
+        for clase in ("sinfotos", "fotospagina"):
+            for f in sorted((BASE_DIR / "debug").glob(f"*_{clase}.*"), key=lambda f: f.stat().st_mtime)[-30:]:
+                z.write(f, f"fotogramas/{f.name}")
         z.writestr("registro.txt", "\n".join(f"[{c}] {t}" for _, c, t in list(REGISTRO)[-1500:]))
         try:
             import salud

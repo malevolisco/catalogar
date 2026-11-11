@@ -117,6 +117,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   lib-video-detail quita el bloqueo sin recargar y repide las <img>; en Reuters _ver_completa; luego hasta
   ESPERA_FOTOGRAMAS_MS (8 s) baja por la pagina cada 500 ms. Si no: linea "[fotogramas] ..." en el registro y copia
   debug/<numero>_sinfotos.* (las VOLCADOS_SIN_FOTOS = 10 ultimas), que van en el zip de Diagnostico (fotogramas/).
+  6512 (11 nov, «fotos de otra noticia», quiza de una actualizacion): Reuters coge primero la tira del XML
+  (reuters_xml.leer -> imagenes/aspecto; Extractor._fotogramas_xml baja rend:thumbnailgrid con page.request y la
+  parte con pillow por el aspecto); si no, de la pagina solo las <img> con numero+fecha (p. ej. 651207112026) en la
+  URL, y si ninguna, como antes con linea y copia debug/<n>_fotospagina.*. AP: solo "lib-video-detail img".
   tests/test_fotogramas.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
   UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (90 s desde el 10 nov; antes 15 min) y
