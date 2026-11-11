@@ -81,40 +81,90 @@ def test_el_codigo_parte_el_shotlist_en_planos_con_su_dateline():
 
 
 RESPUESTA_WRAP = """```
-1. | GRIMES | EEUU | VOTANTES EN UN COLEGIO ELECTORAL |
-7|PORTLAND|EEUU|DECLARACIONES DE TROY JACKSON, CANDIDATO DEMOCRATA AL SENADO, SOBRE LA PARTICIPACION||
-PLANOS 11-12|SOUTHFIELD|EEUU|TESTIMONIOS DE VOTANTES|
+1. | EEUU | GRIMES (IOWA) | VOTANTES EN UN COLEGIO ELECTORAL |
+7|EEUU|PORTLAND (MAINE)|DECLARACIONES DE TROY JACKSON, CANDIDATO DEMOCRATA AL SENADO, SOBRE LA PARTICIPACION. DICE QUE ES UNA OPORTUNIDAD PARA LA GENTE CORRIENTE||
+PLANOS 11-12|EEUU|SOUTHFIELD (MICHIGAN)|DECLARACIONES DE VOTANTES QUE DICEN QUE LAS AYUDAS SON UN DESPILFARRO|
 13|NO
-30|ESPACIO||DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA NASA, SOBRE SU VOTO DESDE LA ESTACION ESPACIAL|ROTULAR CORTESIA DE ''NASA/ANIL MENON''
+30||ESPACIO EXTERIOR|DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA NASA, SOBRE SU VOTO DESDE LA ESTACION ESPACIAL|ROTULAR CORTESIA DE ''NASA/ANIL MENON''
 ```"""
 
 
-def test_una_linea_por_plano_y_el_codigo_compone_lugar_fecha_y_restriccion():
+def test_reglas_de_adrian_y_el_programa_quita_lo_que_no_cambia():
     with mock.patch("redactor.llamar_modelo", return_value=RESPUESTA_WRAP) as llamada:
         locs, avisos = redactor.localizadores(DATOS)
     assert llamada.call_count == 1 and avisos == []
-    enviado = llamada.call_args.args[1]
-    assert "ID 11-12" in enviado and "GRUPO DE 2 SEGUIDOS" in enviado and "ROTULAR CORTESIA DE" in llamada.call_args.args[0]
+    system, enviado = llamada.call_args.args[0], llamada.call_args.args[1]
+    assert "ID 11-12" in enviado and "GRUPO DE 2 SEGUIDOS" in enviado and "DICEN:" in enviado
+    assert "SOUTHFIELD, MICHIGAN, UNITED STATES (NOVEMBER 3, 2026) (REUTERS - Access All)" in enviado   # la dateline
+    assert "FORMATO DE CADA LOCALIZADOR" in system and "COMPROBACIÓN FINAL" in system   # reglas_localizadores.md
+    assert "AJUSTES DE ADRIAN" in system and "DECLARACIONES DE VOTANTES QUE" in system
+    assert "=== CRITERIO DE CATALOGACION" in system and "RESTRICCIONES" in system        # todo el criterio normal
     assert locs == [
-        {"plano": "1", "texto": "GRIMES. TRES DE NOVIEMBRE DE 2026. VOTANTES EN UN COLEGIO ELECTORAL."},
-        {"plano": "7", "texto": "PORTLAND. TRES DE NOVIEMBRE DE 2026. DECLARACIONES DE TROY JACKSON, CANDIDATO "
-                                "DEMOCRATA AL SENADO, SOBRE LA PARTICIPACION."},
-        {"plano": "11-12", "texto": "SOUTHFIELD. TRES DE NOVIEMBRE DE 2026. TESTIMONIOS DE VOTANTES."},
-        {"plano": "30", "texto": "ESPACIO. TRES DE NOVIEMBRE DE 2026. DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA "
-                                 "NASA, SOBRE SU VOTO DESDE LA ESTACION ESPACIAL. ROTULAR CORTESIA DE ''NASA/ANIL MENON''."},
+        {"plano": "1", "texto": "EEUU. GRIMES (IOWA). 3 DE NOVIEMBRE DE 2026. VOTANTES EN UN COLEGIO ELECTORAL."},
+        {"plano": "7", "texto": "PORTLAND (MAINE). DECLARACIONES DE TROY JACKSON, CANDIDATO DEMOCRATA AL SENADO, SOBRE "
+                                "LA PARTICIPACION. DICE QUE ES UNA OPORTUNIDAD PARA LA GENTE CORRIENTE."},
+        {"plano": "11-12", "texto": "SOUTHFIELD (MICHIGAN). DECLARACIONES DE VOTANTES QUE DICEN QUE LAS AYUDAS SON UN "
+                                    "DESPILFARRO."},
+        {"plano": "30", "texto": "ESPACIO EXTERIOR. DECLARACIONES DE ANIL MENON, ASTRONAUTA DE LA NASA, SOBRE SU VOTO "
+                                 "DESDE LA ESTACION ESPACIAL. ROTULAR CORTESIA DE ''NASA/ANIL MENON''.",
+         "restriccion": "ROTULAR CORTESIA DE ''NASA/ANIL MENON''."},
+        {"plano": "", "pie": True, "texto": "RESTRICCIONES: ROTULAR CORTESIA DE ''NASA/ANIL MENON''."},
     ]
+
+
+def test_el_modelo_puede_juntar_planos_seguidos():
+    respuesta = ("1-7|EEUU|GRIMES (IOWA)|VOTANTES Y DECLARACIONES DE TROY JACKSON, CANDIDATO, SOBRE EL VOTO|\n"
+                 "11-12|EEUU|SOUTHFIELD (MICHIGAN)|DECLARACIONES DE VOTANTES QUE DICEN QUE VOTAN TEMPRANO|\n"
+                 "13-30|EEUU|SOUTHFIELD (MICHIGAN)|PERIODISTAS Y DECLARACIONES DE ANIL MENON, ASTRONAUTA|\n"
+                 "7-12|EEUU|X|SOLAPADO: SE DESCARTA|\n")
+    with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
+        locs, avisos = redactor.localizadores(DATOS)
+    assert llamada.call_count == 1 and avisos == []
+    assert [x["plano"] for x in locs] == ["1-7", "11-12", "13-30", ""]
+    assert locs[2]["texto"] == "PERIODISTAS Y DECLARACIONES DE ANIL MENON, ASTRONAUTA."    # nada cambia: solo el texto
+    assert locs[-1]["texto"] == "RESTRICCIONES: SIN AVISO."
+
+
+def test_pais_ciudad_y_fecha_solo_cuando_cambian():
+    lineas = [
+        {"plano": "1", "pais": "UCRANIA", "ciudad": "KIEV", "fecha": "12/10/2026", "texto": "DAÑOS DE UN ATAQUE",
+         "restriccion": ""},
+        {"plano": "2", "pais": "UCRANIA", "ciudad": "KIEV", "fecha": "13/10/2026", "texto": "FUNERAL", "restriccion": ""},
+        {"plano": "3", "pais": "UCRANIA", "ciudad": "JARKOV", "fecha": "13/10/2026", "texto": "RESCATE",
+         "restriccion": "NO ARCHIVAR"},
+        {"plano": "4", "pais": "", "ciudad": "INTERNET", "fecha": "RECIENTE", "texto": "PUBLICACION EN REDES SOCIALES",
+         "restriccion": "SIN AVISO"},
+        {"plano": "5", "pais": "UCRANIA", "ciudad": "JARKOV", "fecha": "13/10/2026", "texto": "BOMBEROS", "restriccion": ""},
+    ]
+    assert [x["texto"] for x in redactor._componer_lineas(lineas)] == [
+        "UCRANIA. KIEV. 12 DE OCTUBRE DE 2026. DAÑOS DE UN ATAQUE.",
+        "13 DE OCTUBRE DE 2026. FUNERAL.",
+        "JARKOV. RESCATE. NO ARCHIVAR.",
+        "INTERNET. FECHA RECIENTE SIN ESPECIFICAR. PUBLICACION EN REDES SOCIALES.",   # sin pais, y nunca SIN AVISO
+        "UCRANIA. JARKOV. 13 DE OCTUBRE DE 2026. BOMBEROS.",                           # tras INTERNET, el pais otra vez
+        "RESTRICCIONES: NO ARCHIVAR.",
+    ]
+    assert redactor._componer_lineas([]) == []                                    # sin localizadores, tampoco pie
+
+
+def test_una_dateline_recent_es_fecha_reciente():
+    texto = ("UNKNOWN LOCATION (RECENT) (SOCIAL MEDIA - No resale)\n1. VARIOUS OF DRONE STRIKE\n"
+             "KYIV, UKRAINE (OCTOBER 12, 2026) (REUTERS - Access all)\n2. DAMAGED BUILDING")
+    planos = redactor.shotlist_planos(texto)
+    assert [(p["n"], p["fecha"]) for p in planos] == [(1, "RECIENTE"), (2, "12/10/2026")]
+    assert redactor.fecha_en_letra("RECIENTE") == "FECHA RECIENTE SIN ESPECIFICAR"
 
 
 def test_los_que_faltan_se_piden_otra_vez_y_si_siguen_faltando_se_avisa(monkeypatch, tmp_path):
     monkeypatch.setattr(redactor, "BASE_DIR", tmp_path)
-    primera = "1|GRIMES|EEUU|VOTANTES|\n7|NO\n13|NO\n"            # 7 es una declaracion: NO no vale
-    segunda = "7|PORTLAND|EEUU|DECLARACIONES DE TROY JACKSON, CANDIDATO, SOBRE EL VOTO|\n"
+    primera = "1|EEUU|GRIMES (IOWA)|VOTANTES|\n7|NO\n13|NO\n"            # 7 es una declaracion: NO no vale
+    segunda = "7|EEUU|PORTLAND (MAINE)|DECLARACIONES DE TROY JACKSON, CANDIDATO, SOBRE EL VOTO|\n"
     with mock.patch("redactor.llamar_modelo", side_effect=[primera, segunda]) as llamada:
         locs, avisos = redactor.localizadores(DATOS)
     assert llamada.call_count == 2
     reenvio = llamada.call_args_list[1].args[1]
     assert "ID 7 " in reenvio and "ID 11-12" in reenvio and "ID 30" in reenvio and "ID 1 " not in reenvio
-    assert [x["plano"] for x in locs] == ["1", "7"]
+    assert [x["plano"] for x in locs] == ["1", "7", ""]
     assert avisos == ["Faltan los localizadores de los planos 11-12, 30: el servicio de redacción no los ha devuelto. "
                       "Ponlos a mano o vuelve a subir la lista."]
     guardada = (tmp_path / "debug" / "localizadores_5455.txt").read_text(encoding="utf-8")
@@ -125,23 +175,24 @@ def test_sin_planos_numerados_se_usa_el_metodo_libre():
     texto = ("U.S. MIDTERMS: SCENES ACROSS AMERICA AS THE NATION GOES TO THE POLLS\nDetails\nDuration 00:03:12\n"
              "ANCHORAGE, ALASKA (NOVEMBER 3, 2026) (REUTERS - ACCESS ALL)\nVOTERS QUEUING OUTSIDE POLLING STATION\n"
              "(SOUNDBITE) (English) VOTER, JANE DOE, SAYING: We came early.\nSTORY: Americans voted on Tuesday.")
-    respuesta = ("|ANCHORAGE|EEUU|03/11/2026|VOTANTES HACIENDO COLA ANTE UN COLEGIO ELECTORAL|\n"
-                 "-|ANCHORAGE|EEUU|03/11/2026|TESTIMONIO DE UNA VOTANTE|SIN AVISO\n")
+    respuesta = ("|EEUU|ANCHORAGE (ALASKA)|03/11/2026|VOTANTES HACIENDO COLA ANTE UN COLEGIO ELECTORAL|\n"
+                 "-|EEUU|ANCHORAGE (ALASKA)|03/11/2026|DECLARACIONES DE UNA VOTANTE QUE DICE QUE HA VENIDO PRONTO|SIN AVISO\n")
     with mock.patch("redactor.llamar_modelo", return_value=respuesta) as llamada:
         locs, avisos = redactor.localizadores({"texto": texto, "fecha": "03/11/2026"})
     assert "VOTERS QUEUING" in llamada.call_args.args[1] and avisos == []
-    assert locs == [{"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. VOTANTES HACIENDO COLA ANTE UN "
-                                           "COLEGIO ELECTORAL."},
-                    {"plano": "", "texto": "ANCHORAGE. TRES DE NOVIEMBRE DE 2026. TESTIMONIO DE UNA VOTANTE."}]
+    assert "FORMATO DE CADA LOCALIZADOR" in llamada.call_args.args[0]
+    assert [x["texto"] for x in locs] == [
+        "EEUU. ANCHORAGE (ALASKA). 3 DE NOVIEMBRE DE 2026. VOTANTES HACIENDO COLA ANTE UN COLEGIO ELECTORAL.",
+        "DECLARACIONES DE UNA VOTANTE QUE DICE QUE HA VENIDO PRONTO.",
+        "RESTRICCIONES: SIN AVISO."]
     with mock.patch("redactor.llamar_modelo") as llamada:
         assert redactor.localizadores({"texto": "Un titular suelto."}) == ([], [])
     assert not llamada.called                                        # sin texto de agencia no se gasta una llamada
 
 
-def test_la_fecha_va_en_letra():
-    assert redactor.fecha_en_letra("12/10/2026") == "DOCE DE OCTUBRE DE 2026"
-    assert redactor.fecha_en_letra("1/9/2026") == "UNO DE SEPTIEMBRE DE 2026"
-    assert redactor.fecha_en_letra("31/12/2026") == "TREINTA Y UNO DE DICIEMBRE DE 2026"
+def test_la_fecha_va_con_el_mes_en_letra():
+    assert redactor.fecha_en_letra("12/10/2026") == "12 DE OCTUBRE DE 2026"
+    assert redactor.fecha_en_letra("03/11/2026") == "3 DE NOVIEMBRE DE 2026"
     assert redactor.fecha_en_letra("") == "" and redactor.fecha_en_letra("32/1/2026") == ""
 
 
