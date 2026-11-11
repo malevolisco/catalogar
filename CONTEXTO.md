@@ -107,6 +107,12 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
+- Varios hablan en el mismo acto (11 nov, «cortito y al pie», «se aplica a todo»): reglas_patrones.md (B, parrafo
+  VARIOS HABLAN EN EL MISMO ACTO) y reglas_ligeras.md: una frase con el acto, los que hablan y los temas
+  (COMPARECENCIA CONJUNTA DE X, CARGO, CON Y, CARGO, SOBRE ... Y SOBRE ...), nunca una por persona, sin protocolo
+  (visita, ceremonia, guardia de honor, saludos); recursos con valor propio siguen primero. actos: descriptor
+  COMPARECENCIA CONJUNTA. Localizadores: un localizador (rango) para los que hablan en el mismo acto;
+  LOCALIZADORES_VERSION = 5.
 - Reglas de localizadores de Adrian (11 nov): reglas_localizadores.md (su texto tal cual; va en el paquete,
   empaquetar.INCLUIR), SOLO para localizadores: no cambia reglas.md/reglas_patrones.md ni nada del NAME/COMMENT. El
   system de redactor.localizadores = _FORMA_LOCALIZADORES (mecanica + AJUSTES DE ADRIAN: votantes seguidos juntos,
