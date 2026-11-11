@@ -1309,7 +1309,10 @@ Escribe siempre PAIS y CIUDAD de cada localizador: el programa quita los que no 
 AJUSTES DE ADRIAN (11/11/2026), mandan sobre las reglas de abajo: ciudadanos sin cargo que opinan (votantes, vecinos,
 estudiantes...) seguidos van en un solo localizador, sin nombres pero con lo esencial: DECLARACIONES DE VOTANTES QUE
 DICEN QUE... (si es uno: DECLARACIONES DE UNA VOTANTE QUE DICE QUE...); si cuentan lo que han vivido, TESTIMONIOS DE
-VECINOS QUE CUENTAN... (o TESTIMONIO DE UN VECINO QUE CUENTA...).
+VECINOS QUE CUENTAN... (o TESTIMONIO DE UN VECINO QUE CUENTA...). Varios que hablan en el mismo acto (comparecencia
+conjunta, rueda de prensa conjunta...) van en un solo localizador con los temas, juntando sus totales en un rango:
+COMPARECENCIA CONJUNTA DE TO LAM, PRESIDENTE DE VIETNAM, CON SANAE TAKAICHI, PRIMERA MINISTRA DE JAPON, SOBRE ... Y SOBRE
+...; y el protocolo que los rodea (ceremonia de bienvenida, guardia de honor, saludos) se funde con ellos o va como NO.
 Sin nada mas que las lineas pedidas: ni explicaciones, ni encabezados, ni bloques de codigo."""
 LOCALIZADORES_SYSTEM = """Te paso el shotlist ya partido: cada linea es un ID (un plano, o un grupo de ciudadanos que
 hablan seguidos) con su dateline tal cual la da la agencia, la restriccion de esa dateline y su contenido. Devuelve una
@@ -1319,7 +1322,7 @@ ID|PAIS|CIUDAD|TEXTO|RESTRICCION
   habla con su total), el primero y el ultimo con guion: 6-8.
 - Cada ID tiene que quedar dentro de un localizador o, solo si es un plano de imagen sin valor propio que no se funde con
   nada, en una linea ID|NO. Un total (SOUNDBITE) o un grupo de CIUDADANOS nunca es NO, y un total no se junta con otro
-  total distinto."""
+  total distinto, salvo los de varios que hablan en el mismo acto (ver los ajustes)."""
 LOCALIZADORES_LIBRE_SYSTEM = """Te paso el texto entero de la ficha de la agencia: el shotlist es todo ese bloque
 (titular, datelines, planos, SOUNDBITES, STORY), sin numerar o numerado de otra forma. Los localizadores salen de los
 planos y las declaraciones; el STORY solo da contexto. Devuelve una linea por localizador, en el orden del shotlist:
@@ -1890,7 +1893,7 @@ def adjuntar_imagenes(user, rutas):
         "muchas veces no dice en que acto se habla. Resuelve con ellos, en este orden:\n"
         "1. QUE CLASE DE ACTO ES. Atril con carteleria del convocante y periodistas sentados: RUEDA DE PRENSA. "
         "Dos personas sentadas en butacas o en un atril doble con las banderas de sus paises detras, hablando a la "
-        "prensa: son DECLARACIONES dichas EN COMPARECENCIA CONJUNTA, que es el marco y no el descriptor, y es el acto en si, no algo posterior a una reunion. Una persona ante un "
+        "prensa: COMPARECENCIA CONJUNTA, el acto en si (no algo posterior a una reunion), en una sola frase con los dos y los temas. Una persona ante un "
         "organo, un estrado o un hemiciclo: COMPARECENCIA. Alguien hablando de pie en la calle o a la salida con "
         "los microfonos en mano delante: DECLARACIONES. Alguien tomando la palabra en un acto que va de otra cosa "
         "(mitin, congreso, entrega de premios, misa): INTERVENCION. Dos personas frente a frente con un "

@@ -32,7 +32,7 @@ EXT_IMAGEN = (".jpg", ".jpeg", ".png", ".webp")
 # clase (nombre de carpeta del clasificador) -> descriptor que lleva la ficha
 DESCRIPTOR = {
     "rueda_de_prensa": "RUEDA DE PRENSA",
-    "comparecencia_conjunta": "DECLARACIONES EN COMPARECENCIA CONJUNTA",
+    "comparecencia_conjunta": "COMPARECENCIA CONJUNTA",
     "comparecencia": "COMPARECENCIA",
     "declaraciones": "DECLARACIONES",
     "entrevista": "ENTREVISTA",
@@ -45,7 +45,7 @@ DESCRIPTOR = {
 DESCRIPTOR_TEXTO = dict(DESCRIPTOR, testimonios="TESTIMONIOS", encuesta="ENCUESTA")
 # como se dice cada material hablado en el COMMENT (delante de quien habla, no solo su nombre)
 EXPRESION_COMMENT = {
-    "rueda_de_prensa": "RUEDA DE PRENSA", "comparecencia_conjunta": "EN COMPARECENCIA CONJUNTA",
+    "rueda_de_prensa": "RUEDA DE PRENSA", "comparecencia_conjunta": "COMPARECENCIA CONJUNTA",
     "comparecencia": "COMPARECENCIA", "declaraciones": "DECLARACIONES", "entrevista": "ENTREVISTA",
     "intervencion": "INTERVENCION", "testimonios": "TESTIMONIOS", "encuesta": "ENCUESTA",
 }
@@ -177,7 +177,7 @@ def clase_de_ficha(name, comment):
         return None                                   # material mezclado: no enseña una sola escena
     if "VIDEO PROMOCIONAL" in comment:
         return "video_promocional"
-    if "EN COMPARECENCIA CONJUNTA" in comment:
+    if "COMPARECENCIA CONJUNTA" in comment:            # tambien las de antes: EN COMPARECENCIA CONJUNTA CON
         return "comparecencia_conjunta"
     if re.search(r"SALUDOS? Y (?:MUDOS?|REUNION)", name + " " + comment):
         return "saludo_reunion"
