@@ -233,3 +233,47 @@ def test_en_la_ficha_es_un_enlace_en_las_notas_y_en_la_pestana_se_pliegan():
     assert "Ver localizadores" in panel and 'class="notas"><p><a href="#localizadores/' in panel
     assert '<details class="fila fila-loc"' in panel and "/api/localizadores" in panel
     assert "No se han podido cargar los localizadores" in panel        # un corte no parece "no hay ninguno"
+
+
+class _Peticion:
+    def __init__(self, datos):
+        self.datos = datos
+
+    async def json(self):
+        return self.datos
+
+
+class _Fichero:
+    def __init__(self, nombre, contenido):
+        self.filename, self.contenido = nombre, contenido
+
+    async def read(self):
+        return self.contenido
+
+
+def test_la_casilla_con_localizadores_los_pide_para_todos(monkeypatch):
+    import asyncio
+    monkeypatch.setattr(servidor.ESTADO, "lotes", [])
+    monkeypatch.setattr(servidor.ESTADO, "guardar", lambda *a, **k: None)
+    asyncio.run(servidor.subir_numeros(_Peticion({"texto": "7612 7613", "localizadores": True})))
+    asyncio.run(servidor.subir_numeros(_Peticion({"texto": "7614"})))
+    marcas = {f["numero"]: bool(f.get("con_localizadores")) for l in servidor.ESTADO.lotes for f in l["fichas"]}
+    assert marcas == {"7612": True, "7613": True, "7614": False}
+    csv = ('Name,Catalogador,Comments,Created\n'
+           '"0624 USA-X",,TRATAR AGENCIA CON LOCALIZADORES,06/10/2026 10:00\n'
+           '"0625 USA-Y",,,06/10/2026 10:00\n').encode()
+    servidor.ESTADO.lotes = []
+    asyncio.run(servidor.subir_lista(_Fichero("lista.csv", csv), reparto="", fecha="", formal="", rehacer=""))
+    asyncio.run(servidor.subir_lista(_Fichero("lista.csv", csv), reparto="", fecha="", formal="", rehacer="",
+                                     localizadores="1"))
+    sin, con = sorted(servidor.ESTADO.lotes, key=lambda l: any(f["con_localizadores"] for f in l["fichas"]
+                                                               if f["numero"] == "0625"))
+    assert {f["numero"]: f["con_localizadores"] for f in sin["fichas"]} == {"0624": True, "0625": False}
+    assert all(f["con_localizadores"] for f in con["fichas"])
+
+
+def test_la_casilla_esta_encima_de_rehacer():
+    from pathlib import Path
+    panel = (Path(__file__).resolve().parent.parent / "panel" / "index.html").read_text(encoding="utf-8")
+    assert panel.index('id="con-locs"') < panel.index('id="rehacer"')
+    assert 'localizadores: $("con-locs").checked' in panel and 'fd.append("localizadores"' in panel

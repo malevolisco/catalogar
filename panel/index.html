@@ -657,6 +657,7 @@
           <label for="fecha">Fecha común</label>
           <input type="text" id="fecha" placeholder="06/09/2026" inputmode="numeric">
           <p class="pista">Opcional</p>
+          <label class="casilla" style="margin-top:6px" title="Saca también los localizadores de todos los envíos (se ven en la pestaña Localizadores, no van por correo). Sin marcar, solo los de las filas de la lista que piden «TRATAR AGENCIA CON LOCALIZADORES»."><input type="checkbox" id="con-locs"> Con localizadores</label>
           <label class="casilla" style="margin-top:6px" title="Por defecto, un envío que ya está catalogado en otro lote se copia tal cual, sin volver a la agencia ni al modelo. Marca esto para rehacerlo."><input type="checkbox" id="rehacer"> Rehacer las ya hechas</label>
         </div>
         <button class="b principal" id="enviar-numeros">Catalogar</button>
@@ -1262,7 +1263,7 @@
     if (!texto) { avisar("Escribe al menos un número de envío.", true); $("numeros").focus(); return; }
     $("enviar-numeros").disabled = true;
     try {
-      const r = await api("POST", "/api/lotes/numeros", { texto, fecha: $("fecha").value, reparto: $("reparto").value, formal: $("reparto-formal").checked, rehacer: $("rehacer").checked });
+      const r = await api("POST", "/api/lotes/numeros", { texto, fecha: $("fecha").value, reparto: $("reparto").value, formal: $("reparto-formal").checked, rehacer: $("rehacer").checked, localizadores: $("con-locs").checked });
       let mensaje = (r.fichas === 1 ? "Un envío en cola" : r.fichas + " envíos en cola") + " (" + r.agencias + ")"
         + (r.lotes > 1 ? ", en " + r.lotes + " lotes." : ".");
       if (r.ignorados.length) mensaje += " Ignorado: " + r.ignorados.join("; ") + ".";
@@ -1279,6 +1280,7 @@
     fd.append("reparto", $("reparto").value);
     fd.append("formal", $("reparto-formal").checked ? "1" : "");
     fd.append("rehacer", $("rehacer").checked ? "1" : "");
+    fd.append("localizadores", $("con-locs").checked ? "1" : "");
     fd.append("fecha", $("fecha").value);
     $("enviar-lista").disabled = true;
     try {
