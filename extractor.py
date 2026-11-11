@@ -29,6 +29,8 @@ from situaciones import detectar as detectar_situaciones
 BASE_DIR = Path(__file__).resolve().parent
 PROFILE_DIR = BASE_DIR / "perfil_chromium"
 DEBUG_DIR = BASE_DIR / "debug"
+ESPERA_FOTOGRAMAS_MS = 8000     # lo que se espera, bajando por la pagina, a que pinte los fotogramas
+VOLCADOS_SIN_FOTOS = 10         # copias de paginas sin fotogramas que se guardan en debug/ (las ultimas)
 
 # ---------------------------------------------------------------- Reuters Connect
 BASE = "https://www.reutersconnect.com"
@@ -1108,20 +1110,17 @@ class Extractor:
         return datos
 
     # ------------------------------------------------------------------ miniaturas
-    def miniaturas(self, numero, cuantas=8):
-        """Muestrea fotogramas del visor y los guarda en miniaturas/<numero>/.
-        Devuelve la lista de rutas. Nunca lanza: si algo falla, devuelve []."""
-        if not cuantas:
-            return []
-        page = self._page
+    def _candidatas_fotogramas(self):
+        """(urls de las imagenes de la pagina que pueden ser fotogramas, cuantas imagenes hay en total), o
+        (None, 0) si no se puede mirar la pagina."""
         try:
-            crudas = page.eval_on_selector_all(
+            crudas = self._page.eval_on_selector_all(
                 "img",
                 "els => els.map(e => { const r = e.getBoundingClientRect();"
                 " let s = e.currentSrc || e.src || ''; try { s = s && !s.startsWith('data:') ? new URL(s, document.baseURI).href : s; } catch (x) {}"
                 " return {s: s, w: Math.max(e.naturalWidth, r.width), h: Math.max(e.naturalHeight, r.height)}; })")
         except Exception:
-            return []
+            return None, 0
         vistas, cand = set(), []
         for im in crudas:
             s = (im.get("s") or "").strip()
@@ -1133,17 +1132,79 @@ class Extractor:
                 continue
             vistas.add(s)
             cand.append(s)
+        return cand, len(crudas)
+
+    def _esperar_fotogramas(self, cand, total, limite_ms=None):
+        """La pagina pinta los fotogramas tarde o solo al bajar por ella (carga perezosa): se baja un poco cada
+        medio segundo, por la pagina y por los paneles con barra, hasta tener 3 o agotar el tiempo."""
+        restante = ESPERA_FOTOGRAMAS_MS if limite_ms is None else limite_ms
+        while len(cand) < 3 and restante > 0:
+            try:
+                self._page.evaluate(
+                    "() => { window.scrollBy(0, window.innerHeight);"
+                    " document.querySelectorAll('*').forEach(e => {"
+                    " if (e.scrollHeight > e.clientHeight + 50) e.scrollTop += e.clientHeight; }); }")
+                self._page.wait_for_timeout(500)
+            except Exception:
+                break
+            restante -= 500
+            nuevas, n = self._candidatas_fotogramas()
+            if nuevas is None:
+                break
+            cand, total = nuevas, n
+        return cand, total
+
+    def _volcar_sin_fotos(self, numero):
+        """Copia de la pagina (texto, HTML y captura) cuando no salen fotogramas, para poder ver por que: va en el
+        zip de Diagnostico de Admin. Solo se guardan las ultimas VOLCADOS_SIN_FOTOS."""
+        etiqueta = re.sub(r"[^A-Za-z0-9_-]", "", str(numero))[:20] or "envio"
+        self._dump(f"{etiqueta}_sinfotos", forzar=True)
+        try:
+            grupos = {}
+            for f in DEBUG_DIR.glob("*_sinfotos.*"):
+                grupos.setdefault(f.name.split("_sinfotos.")[0], []).append(f)
+            viejos = sorted(grupos.values(), key=lambda fs: (max(x.stat().st_mtime for x in fs), fs[0].name))[:-VOLCADOS_SIN_FOTOS]
+            for fs in viejos:
+                for f in fs:
+                    f.unlink()
+        except OSError:
+            pass
+
+    def miniaturas(self, numero, cuantas=8):
+        """Muestrea fotogramas del visor y los guarda en miniaturas/<numero>/.
+        Devuelve la lista de rutas. Nunca lanza: si algo falla, devuelve []."""
+        if not cuantas:
+            return []
+        page = self._page
+        cand, total = self._candidatas_fotogramas()
+        if cand is None:
+            return []
         if self.debug:
-            print(f"[miniaturas] {len(cand)} candidatas de {len(crudas)} imagenes en la pagina")
-        if len(cand) < 3:
+            print(f"[miniaturas] {len(cand)} candidatas de {total} imagenes en la pagina")
+        if len(cand) < 3 and self._bloqueando:
+            # en modo solo texto la pagina no ha bajado las imagenes: se quita el bloqueo
             try:
                 hay_modal = page.locator("lib-video-detail").count() > 0
             except Exception:
                 hay_modal = False
-            if self._bloqueando and not hay_modal:       # en modo solo texto la pagina no las ha dibujado: se ve entera
+            if hay_modal:
+                # AP: la ficha es una ventana encima de la busqueda y recargar la cerraria; se piden otra vez las
+                # imagenes que se habian bloqueado
+                self._bloquear(False)
+                try:
+                    page.evaluate("() => document.querySelectorAll('img').forEach(e => {"
+                                  " const s = e.getAttribute('src'); if (s) { e.removeAttribute('src'); e.setAttribute('src', s); } })")
+                except Exception:
+                    pass
+            else:
                 self._ver_completa()
                 self._esperar(800)
-                return self.miniaturas(numero, cuantas)
+        if len(cand) < 3:
+            cand, total = self._esperar_fotogramas(cand, total)
+        if len(cand) < 3:
+            print(f"[fotogramas] {numero}: la pagina de la agencia ensena {total} imagen(es) y no hay 3 que sirvan "
+                  f"como fotogramas; la ficha sale sin miniaturas (copia de la pagina en Diagnostico)")
+            self._volcar_sin_fotos(numero)
             return []
         if len(cand) > cuantas:                            # muestreo repartido por la duracion
             paso = len(cand) / cuantas

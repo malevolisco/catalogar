@@ -113,6 +113,11 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   .jpg/.png dentro de miniaturas/ (ruta resuelta), con nosniff. /api/lotes manda miniaturas_n/_v en vez de las
   rutas. panel: .cuerpo-ficha con .fotos-ficha a la derecha (debajo en movil), se quitan si fallan. Sin imagen
   cuando el texto viene de Cont./Comments ni en la nube. tests/test_miniaturas.py.
+  Fotogramas (11 nov, 6597 y AP 4696362 salian sin): Extractor.miniaturas, con menos de 3, en AP con la ventana
+  lib-video-detail quita el bloqueo sin recargar y repide las <img>; en Reuters _ver_completa; luego hasta
+  ESPERA_FOTOGRAMAS_MS (8 s) baja por la pagina cada 500 ms. Si no: linea "[fotogramas] ..." en el registro y copia
+  debug/<numero>_sinfotos.* (las VOLCADOS_SIN_FOTOS = 10 ultimas), que van en el zip de Diagnostico (fotogramas/).
+  tests/test_fotogramas.py.
 - Nube de respaldo (28 oct): nube.pendientes coge, ademas de los +csv, los correos a la direccion normal
   UNSEEN, sin CatalogarRechazado ni CatalogatorNubeNoRespaldo, de entre ESPERA_RASPBERRY (90 s desde el 10 nov; antes 15 min) y
   RESPALDO_HORAS (24 h) por INTERNALDATE. atender(respaldo=True): si es peticion de alguien permitido con alguna
