@@ -1330,7 +1330,7 @@ PLANO|PAIS|CIUDAD|FECHA|TEXTO|RESTRICCION
 PLANO: el numero de la agencia si los numera, si no vacio. FECHA: la de su dateline en DD/MM/AAAA, o RECIENTE si la
 agencia no la concreta ("Recent"). Si no hay nada que marcar, devuelve NINGUNO."""
 LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3}(?:\s*-\s*\d{1,3})?|-)?\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
-LOCALIZADORES_VERSION = 4            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
+LOCALIZADORES_VERSION = 5            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
 MIN_TEXTO_LOCALIZADORES = 80         # menos no es la ficha de la agencia (un titular suelto): no se gasta la llamada
 MESES_LETRA = ("ENERO FEBRERO MARZO ABRIL MAYO JUNIO JULIO AGOSTO SEPTIEMBRE OCTUBRE NOVIEMBRE DICIEMBRE").split()
 FECHA_RECIENTE = "RECIENTE"          # la agencia no da la fecha ("Recent")

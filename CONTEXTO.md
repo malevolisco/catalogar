@@ -111,7 +111,8 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   VARIOS HABLAN EN EL MISMO ACTO) y reglas_ligeras.md: una frase con el acto, los que hablan y los temas
   (COMPARECENCIA CONJUNTA DE X, CARGO, CON Y, CARGO, SOBRE ... Y SOBRE ...), nunca una por persona, sin protocolo
   (visita, ceremonia, guardia de honor, saludos); recursos con valor propio siguen primero. actos: descriptor
-  COMPARECENCIA CONJUNTA. Localizadores: un localizador (rango) para los que hablan en el mismo acto.
+  COMPARECENCIA CONJUNTA. Localizadores: un localizador (rango) para los que hablan en el mismo acto;
+  LOCALIZADORES_VERSION = 5.
 - Reglas de localizadores de Adrian (11 nov): reglas_localizadores.md (su texto tal cual; va en el paquete,
   empaquetar.INCLUIR), SOLO para localizadores: no cambia reglas.md/reglas_patrones.md ni nada del NAME/COMMENT. El
   system de redactor.localizadores = _FORMA_LOCALIZADORES (mecanica + AJUSTES DE ADRIAN: votantes seguidos juntos,
