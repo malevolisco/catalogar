@@ -69,6 +69,20 @@ def leer(datos):
             except ValueError:
                 pass
     duracion = _duracion(max(durs)) if durs else ""
+    # las imagenes de este envio (y de esta version): la tira de fotogramas (thumbnailgrid) y las fijas
+    # (viewImage, baseImage, thumbnail); el aspecto del video para partir la tira
+    imagenes, aspecto = [], ""
+    for rc in raiz.iter(f"{{{NS['n']}}}remoteContent"):
+        tipo = (rc.get("contenttype") or rc.get("contentType") or "").lower()
+        if tipo.startswith("video/") and not aspecto:
+            aspecto = rc.get("videoaspectratio") or ""
+        if tipo == "image/jpeg" and (rc.get("href") or "").startswith(("http://", "https://")):
+            try:
+                ancho, alto = int(rc.get("width") or 0), int(rc.get("height") or 0)
+            except ValueError:
+                ancho = alto = 0
+            imagenes.append({"rendition": rc.get("rendition") or "", "href": rc.get("href"),
+                             "ancho": ancho, "alto": alto})
     version = paquete.get("version") or ""
     partes = [headline, ""] + [p + "\n" for p in guion]
     if restricciones:
@@ -82,7 +96,7 @@ def leer(datos):
         partes += ["Revision", version]
     return {"numero": numero, "rev": version, "slug": slug, "headline": headline, "fecha": fecha,
             "restricciones": restricciones, "duracion": duracion, "guion": guion,
-            "texto": "\n".join(partes).strip()}
+            "imagenes": imagenes, "aspecto": aspecto, "texto": "\n".join(partes).strip()}
 
 
 if __name__ == "__main__":
