@@ -1570,7 +1570,7 @@ def buscar_ficha(numero: str, fecha: str = "", lote: str = ""):
 
 @app.post("/api/lotes/lista")
 async def subir_lista(fichero: UploadFile = File(...), reparto: str = Form(""), fecha: str = Form(""),
-                      formal: str = Form(""), rehacer: str = Form("")):
+                      formal: str = Form(""), rehacer: str = Form(""), localizadores: str = Form("")):
     """Lista de trabajo: el CSV o el Excel que se exporta de la busqueda de MediaCentral.
     Solo se saca de el que envios hay que hacer; las fichas se leen luego de la web de la agencia.
     Un Excel de fichas (columnas NAME y CONT) no va aqui: eso es python catalogar.py --excel."""
@@ -1596,7 +1596,8 @@ async def subir_lista(fichero: UploadFile = File(...), reparto: str = Form(""), 
         f["para"] = e.get("para", "")
         f["texto_csv"] = e.get("texto", "")
         f["texto_csv_col"] = e.get("columna", "")
-        f["con_localizadores"] = bool(e.get("localizadores"))
+        # la casilla «Con localizadores» los pide para toda la lista; sin ella, las filas que los piden en Comments
+        f["con_localizadores"] = bool(e.get("localizadores")) or _es_formal(localizadores)
         fichas.append(f)
     nota = resumen_lista(envios, descartes) + ((". " + aviso) if aviso else "")
     lotes = crear_lotes("lista", nombre, fichas, nota=nota, rehacer=_es_formal(rehacer),
@@ -1624,6 +1625,9 @@ async def subir_numeros(request: Request):
     if reparto:
         _comprobar_reparto(reparto)
     fichas = [ficha_vacia(n, "", n, f) for n, f in trabajos]
+    if _es_formal(datos.get("localizadores")):            # casilla «Con localizadores»
+        for f in fichas:
+            f["con_localizadores"] = True
     nombre = ", ".join(n for n, _ in trabajos[:3]) + (" ..." if len(trabajos) > 3 else "")
     lotes = crear_lotes("numeros", nombre, fichas, rehacer=_es_formal(datos.get("rehacer")),
                         reparto=reparto or "", formal=_es_formal(datos.get("formal")) if reparto else False)
@@ -1634,7 +1638,7 @@ async def subir_numeros(request: Request):
 
 
 def _es_formal(valor):
-    """Una casilla de la pagina (Formal, Rehacer): llega como true/false (JSON) o "1"/"" (formulario)."""
+    """Una casilla de la pagina (Formal, Rehacer, Con localizadores): llega como true/false (JSON) o "1"/"" (formulario)."""
     return str(valor).strip().lower() in ("1", "true", "si", "on")
 
 

@@ -107,6 +107,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
+- Casilla «Con localizadores» (11 nov, encima de «Rehacer las ya hechas»): /api/lotes/numeros (JSON localizadores)
+  y /api/lotes/lista (Form localizadores) ponen con_localizadores a todas las fichas; sin ella, solo las filas con
+  TRATAR AGENCIA CON LOCALIZADORES.
 - Miniaturas en el panel (10 nov, peticion de Adrian: «un thumbnail al lado de la nota hecha... o un par», en el
   panel): GET /api/miniatura/<lote>/<ficha>/<n> (n 0-1) sirve dos de los fotogramas ya guardados al redactar
   (ficha["fotogramas"], sin el primero ni el ultimo) solo si actos.siguen_igual (Reuters reutiliza numeros) y solo
