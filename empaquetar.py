@@ -17,7 +17,8 @@ AQUI = Path(__file__).resolve().parent
 
 # lo que es de la herramienta (codigo y criterio)
 INCLUIR = [
-    "*.py", "reglas_patrones.md", "reglas.md", "reglas_ligeras.md", "README.md", "requirements.txt",
+    "*.py", "reglas_patrones.md", "reglas.md", "reglas_ligeras.md", "reglas_localizadores.md", "README.md",
+    "requirements.txt",
     "config.example.json", "mediacentral.example.json", "arrancar.bat", "arrancar_mediacentral.bat",
     "EXE_MIN", "panel/index.html", "demo/*",
 ]

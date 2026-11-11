@@ -107,6 +107,17 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
+- Reglas de localizadores de Adrian (11 nov): reglas_localizadores.md (su texto tal cual; va en el paquete,
+  empaquetar.INCLUIR), SOLO para localizadores: no cambia reglas.md/reglas_patrones.md ni nada del NAME/COMMENT. El
+  system de redactor.localizadores = _FORMA_LOCALIZADORES (mecanica + AJUSTES DE ADRIAN: votantes seguidos juntos,
+  sin nombres pero con lo esencial, DECLARACIONES DE VOTANTES QUE DICEN QUE...) + LOCALIZADORES_SYSTEM (por planos:
+  ID|PAIS|CIUDAD|TEXTO|RESTRICCION, rangos 6-8 para juntar planos seguidos, ID|NO solo imagen) o
+  LOCALIZADORES_LIBRE_SYSTEM + reglas_localizadores.md + criterio_vigente() entero como referencia. El codigo compone
+  (_componer_lineas): PAIS. CIUDAD. FECHA. TEXTO. [RESTR.] quitando lo que no cambia (dateline que no es lugar: sin
+  pais y el siguiente lo repite), fecha "3 DE NOVIEMBRE DE 2026" (Adrian eligio dia en cifra) o "FECHA RECIENTE SIN
+  ESPECIFICAR" (dateline RECENT), y un item final {"pie": True, "texto": "RESTRICCIONES: ..."}; la restriccion del
+  plano en "restriccion" (negrita en el panel). Numero solo en el panel (Adrian: al copiar sin numero).
+  LOCALIZADORES_VERSION = 4.
 - Casilla «Con localizadores» (11 nov, encima de «Rehacer las ya hechas»): /api/lotes/numeros (JSON localizadores)
   y /api/lotes/lista (Form localizadores) ponen con_localizadores a todas las fichas; sin ella, solo las filas con
   TRATAR AGENCIA CON LOCALIZADORES.

@@ -1292,80 +1292,80 @@ def planos_numerados(texto):
     return re.findall(r"^\s*(?:\d+\.|-)\s*(.+)$", texto or "", flags=re.M)
 
 
-LOCALIZADORES_LIBRE_SYSTEM = """Eres documentalista del archivo de RTVE. Del shotlist de un envio de agencia sacas los
-localizadores que el catalogador pondra a mano en el video de MediaCentral. Recibes el texto entero de la ficha de la
-agencia: el shotlist es todo ese bloque (titular, datelines, planos, SOUNDBITES, STORY), venga numerado o no. Los planos
-y las declaraciones salen de los planos y SOUNDBITES; el STORY solo da contexto. Solo se marca:
-- cada declaracion (SOUNDBITE o SOT): DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en pocas palabras]. Si
-  quien habla es un ciudadano que cuenta lo vivido, TESTIMONIO DE; si es una entrevista, ENTREVISTA A; si es un discurso
-  en un acto, INTERVENCION DE; en una rueda de prensa, RUEDA DE PRENSA DE;
-- cada plano que sea un recurso reutilizable, que una redaccion podria pedir por si mismo: vistas aereas, la ciudad,
-  edificios, sedes, paisaje, ambiente, llegadas, el hecho que se ve: [lo que se ve, nominal].
-No se marcan los planos sin valor propio: cutaways, periodistas, camaras, sala, atril, pantallas, rotulos, planos de
-transicion, gente de paso sin identificar.
-De cada localizador das tambien su LUGAR, su PAIS y su FECHA: los de la dateline de ese plano (la linea VIDEO SHOWS o
-SHOWS que lo precede); si no la hay, los del envio. LUGAR y PAIS en español y cortos (NUEVA YORK, PEKIN, KIEV; EEUU,
-CHINA, UCRANIA). FECHA en DD/MM/AAAA.
-Y su RESTRICCION, si ese plano tiene una propia: la que pone su dateline o su linea (MUST COURTESY, NO ACCESS, NO USE...),
-dicha con las formulas de la tabla de abajo. ACCESS ALL y lo que la tabla manda ignorar no son restricciones. Si no
-tiene, el campo va vacio: aqui nunca SIN AVISO (eso es solo para la ficha).
-En mayusculas, sin tildes (con Ñ), estilo nominal, personas con NOMBRE APELLIDO, CARGO en español. Nada que no este en
-el shotlist. Devuelve solo una linea por localizador, en el orden del shotlist, con estos seis campos (el ultimo
-puede ir vacio):
-NUMERO DEL PLANO|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION
-(NUMERO DEL PLANO: el de la agencia si los numera; si no, deja el campo vacio.)
-Sin nada mas. Si ningun plano se marca, devuelve NINGUNO."""
-LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3}|-)?\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
-LOCALIZADORES_VERSION = 3            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
+REGLAS_LOCALIZADORES_PATH = BASE_DIR / "reglas_localizadores.md"   # las de Adrian, solo para localizadores
+_FORMA_LOCALIZADORES = """Eres documentalista del archivo de RTVE y sacas los localizadores de un envio de agencia: el
+catalogador los copia uno a uno en el video de MediaCentral. Sigues las REGLAS DE LOCALIZADORES (abajo) y, para todo lo
+demas (vocabulario, nombres en español y transliteracion, cargos, descriptores de lo hablado, restricciones), el CRITERIO
+DE CATALOGACION que va al final; su formato de NAME, COMMENT y RESTRICCIONES no se aplica aqui.
+Escribe siempre PAIS y CIUDAD de cada localizador: el programa quita los que no cambian, pone la fecha
+("3 DE NOVIEMBRE DE 2026" o "FECHA RECIENTE SIN ESPECIFICAR"), la numeracion y la linea RESTRICCIONES del pie.
+- PAIS y CIUDAD: los de la dateline del plano, en español; la region de la ciudad entre parentesis si hace falta
+  (SAN DIEGO (CALIFORNIA)). Si la dateline no es un lugar (INTERNET, GRAFICOS, EN EL AIRE, EN EL MAR, ESPACIO EXTERIOR,
+  UBICACION DESCONOCIDA, SEDE DE NACIONES UNIDAS), va en CIUDAD y el PAIS vacio.
+- TEXTO: solo la descripcion, sin pais, ciudad ni fecha, con las marcas del material (SIN SONIDO, IMAGENES DE ARCHIVO,
+  VIDEO EN VERTICAL...). Sin numero delante.
+- RESTRICCION: la que afecta a RTVE en ese plano, con las formulas de la tabla del criterio; vacia si no tiene (nunca
+  SIN AVISO: el pie lo pone el programa).
+AJUSTES DE ADRIAN (11/11/2026), mandan sobre las reglas de abajo: ciudadanos sin cargo que opinan (votantes, vecinos,
+estudiantes...) seguidos van en un solo localizador, sin nombres pero con lo esencial: DECLARACIONES DE VOTANTES QUE
+DICEN QUE... (si es uno: DECLARACIONES DE UNA VOTANTE QUE DICE QUE...); si cuentan lo que han vivido, TESTIMONIOS DE
+VECINOS QUE CUENTAN... (o TESTIMONIO DE UN VECINO QUE CUENTA...).
+Sin nada mas que las lineas pedidas: ni explicaciones, ni encabezados, ni bloques de codigo."""
+LOCALIZADORES_SYSTEM = """Te paso el shotlist ya partido: cada linea es un ID (un plano, o un grupo de ciudadanos que
+hablan seguidos) con su dateline tal cual la da la agencia, la restriccion de esa dateline y su contenido. Devuelve una
+linea por localizador, en el orden del shotlist:
+ID|PAIS|CIUDAD|TEXTO|RESTRICCION
+- ID: el de la linea. Si juntas en un localizador planos seguidos (mismo sitio y misma accion, o los recursos de quien
+  habla con su total), el primero y el ultimo con guion: 6-8.
+- Cada ID tiene que quedar dentro de un localizador o, solo si es un plano de imagen sin valor propio que no se funde con
+  nada, en una linea ID|NO. Un total (SOUNDBITE) o un grupo de CIUDADANOS nunca es NO, y un total no se junta con otro
+  total distinto."""
+LOCALIZADORES_LIBRE_SYSTEM = """Te paso el texto entero de la ficha de la agencia: el shotlist es todo ese bloque
+(titular, datelines, planos, SOUNDBITES, STORY), sin numerar o numerado de otra forma. Los localizadores salen de los
+planos y las declaraciones; el STORY solo da contexto. Devuelve una linea por localizador, en el orden del shotlist:
+PLANO|PAIS|CIUDAD|FECHA|TEXTO|RESTRICCION
+PLANO: el numero de la agencia si los numera, si no vacio. FECHA: la de su dateline en DD/MM/AAAA, o RECIENTE si la
+agencia no la concreta ("Recent"). Si no hay nada que marcar, devuelve NINGUNO."""
+LOCALIZADOR_RE = re.compile(r"^\s*(\d{1,3}(?:\s*-\s*\d{1,3})?|-)?\s*\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]+)\|?([^|]*)$")
+LOCALIZADORES_VERSION = 4            # sube cuando cambia como se sacan: las fichas hechas con otra se rehacen
 MIN_TEXTO_LOCALIZADORES = 80         # menos no es la ficha de la agencia (un titular suelto): no se gasta la llamada
-DIAS_LETRA = ("UNO DOS TRES CUATRO CINCO SEIS SIETE OCHO NUEVE DIEZ ONCE DOCE TRECE CATORCE QUINCE DIECISEIS DIECISIETE "
-              "DIECIOCHO DIECINUEVE VEINTE VEINTIUNO VEINTIDOS VEINTITRES VEINTICUATRO VEINTICINCO VEINTISEIS "
-              "VEINTISIETE VEINTIOCHO VEINTINUEVE TREINTA").split() + ["TREINTA Y UNO"]
 MESES_LETRA = ("ENERO FEBRERO MARZO ABRIL MAYO JUNIO JULIO AGOSTO SEPTIEMBRE OCTUBRE NOVIEMBRE DICIEMBRE").split()
+FECHA_RECIENTE = "RECIENTE"          # la agencia no da la fecha ("Recent")
 
 
 def fecha_en_letra(fecha):
-    """12/10/2026 -> DOCE DE OCTUBRE DE 2026 (el dia y el mes en letra, el año en cifra). "" si no es una fecha."""
+    """03/11/2026 -> 3 DE NOVIEMBRE DE 2026 (el mes en letra; Adrian, 11 nov); RECIENTE -> FECHA RECIENTE SIN
+    ESPECIFICAR. "" si no es una fecha."""
+    if (fecha or "").strip().upper() == FECHA_RECIENTE:
+        return "FECHA RECIENTE SIN ESPECIFICAR"
     m = re.match(r"^\s*(\d{1,2})/(\d{1,2})/(\d{4})\s*$", fecha or "")
     if not m or not (1 <= int(m.group(1)) <= 31 and 1 <= int(m.group(2)) <= 12):
         return ""
-    return f"{DIAS_LETRA[int(m.group(1)) - 1]} DE {MESES_LETRA[int(m.group(2)) - 1]} DE {m.group(3)}"
+    return f"{int(m.group(1))} DE {MESES_LETRA[int(m.group(2)) - 1]} DE {m.group(3)}"
 
 
-def _seccion_restricciones():
-    """La tabla de RESTRICCIONES del criterio base, para que los localizadores usen las mismas formulas."""
+def _system_localizadores(mecanica):
+    """Forma comun + mecanica (por planos o libre) + las reglas de localizadores de Adrian + el criterio vigente."""
     try:
-        texto = (BASE_DIR / "reglas_patrones.md").read_text(encoding="utf-8")
+        reglas = REGLAS_LOCALIZADORES_PATH.read_text(encoding="utf-8")
     except OSError:
-        return ""
-    m = re.search(r"^=== 5\. RESTRICCIONES ===\n(.*?)(?=^=== |\Z)", texto, re.S | re.M)
-    return m.group(1).strip() if m else ""
+        reglas = ""
+    try:
+        criterio_txt = criterio_vigente()
+    except Exception:                     # sin criterio legible: las reglas de localizadores bastan
+        criterio_txt = ""
+    return (_FORMA_LOCALIZADORES + "\n\n" + mecanica
+            + ("\n\n=== REGLAS DE LOCALIZADORES (de Adrian; solo para localizadores) ===\n\n" + reglas if reglas else "")
+            + ("\n\n=== CRITERIO DE CATALOGACION (referencia: lengua, nombres, descriptores, restricciones) ===\n\n"
+               + criterio_txt if criterio_txt else ""))
 
 
-LOCALIZADORES_SYSTEM = """Eres documentalista del archivo de RTVE. Te paso el shotlist de un envio de agencia ya
-partido en planos, cada uno con su ID, su dateline (lugar en ingles), la restriccion de esa dateline si la tiene y su
-contenido. Para CADA ID devuelves una linea, en el mismo orden:
-ID|LUGAR|PAIS|TEXTO|RESTRICCION
-o, solo para un plano de imagen sin valor propio, ID|NO.
-- LUGAR y PAIS: los de su dateline, en español y cortos (NUEVA YORK, PEKIN, KIEV; EEUU, CHINA, UCRANIA). Si la
-  dateline no es un lugar (IN SPACE), dilo en español (ESPACIO) y deja el PAIS vacio.
-- TEXTO, en mayusculas sin tildes (con Ñ), nominal, nombres y cargos en español:
-  - SOUNDBITE de alguien con cargo o conocido: DECLARACIONES DE NOMBRE APELLIDO, CARGO, SOBRE [asunto en pocas
-    palabras]. En una entrevista, ENTREVISTA A; en un discurso, INTERVENCION DE; en una rueda de prensa, RUEDA DE
-    PRENSA DE. Nunca NO.
-  - CIUDADANOS (votantes, vecinos, testigos...), sueltos o en grupo: TESTIMONIOS DE [quienes, en generico y plural:
-    VOTANTES, VECINOS, AFECTADOS], o TESTIMONIO DE [UN VOTANTE, UNA VECINA] si es uno. Sin nombres y sin lo que dicen.
-    Nunca NO.
-  - PLANO: si es un recurso reutilizable que una redaccion podria pedir por si mismo (vistas aereas, la ciudad,
-    edificios, sedes, paisaje, ambiente, llegadas, gente votando, el hecho que se ve), lo que se ve, nominal y corto.
-    Si no tiene valor propio (cutaways, periodistas, camaras, sala, atril, pantallas, rotulos, transiciones), NO.
-- RESTRICCION: la de su dateline dicha con las formulas de la tabla de abajo; vacia si no tiene. Nunca SIN AVISO.
-Sin nada mas: ni explicaciones, ni encabezados, ni bloques de codigo."""
 MESES_EN = {m: i for i, nombres in enumerate(
     ["JANUARY JAN", "FEBRUARY FEB", "MARCH MAR", "APRIL APR", "MAY", "JUNE JUN", "JULY JUL", "AUGUST AUG",
      "SEPTEMBER SEPT SEP", "OCTOBER OCT", "NOVEMBER NOV", "DECEMBER DEC"], 1) for m in nombres.split()}
-_FECHA_EN = r"(?:[A-Z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Z]+\.?\s+\d{4})"
-# Reuters: LUGAR EN MAYUSCULAS (NOVEMBER 3, 2026) (FUENTE - restriccion) ... ; tambien (RELEASED ...) y (FILE - ...)
+_FECHA_EN = r"(?:[A-Z]+\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[A-Z]+\.?\s+\d{4}|RECENT(?:LY)?|DATE UNKNOWN|UNKNOWN DATE)"
+# Reuters: LUGAR EN MAYUSCULAS (NOVEMBER 3, 2026) (FUENTE - restriccion) ... ; tambien (RELEASED ...), (FILE - ...) y
+# (RECENT)
 DATELINE_REUTERS_RE = re.compile(
     r"^\s*(?P<lugar>[A-Z0-9][A-Z0-9 .,'’/&-]{1,120}?)\s*\((?:[A-Z ]+?\s*[-–]\s*)?(?:RELEASED\s+)?(?P<fecha>" + _FECHA_EN +
     r")\)(?P<resto>.*)$")
@@ -1379,7 +1379,9 @@ RESPUESTA_LOC_RE = re.compile(r"^\s*(?:PLANOS?\s+)?(\d{1,3}(?:\s*-\s*\d{1,3})?)\
 
 
 def _fecha_dateline(texto):
-    """NOVEMBER 3, 2026 / 3 November 2026 -> 03/11/2026 ("" si no se entiende)."""
+    """NOVEMBER 3, 2026 / 3 November 2026 -> 03/11/2026; RECENT -> RECIENTE ("" si no se entiende)."""
+    if re.fullmatch(r"\s*(?:RECENT(?:LY)?|DATE UNKNOWN|UNKNOWN DATE)\s*", texto or "", re.I):
+        return FECHA_RECIENTE
     t = (texto or "").upper().replace(",", " ").replace(".", " ").split()
     try:
         if t[0].isdigit():
@@ -1393,10 +1395,10 @@ def _fecha_dateline(texto):
 
 def shotlist_planos(texto):
     """El shotlist partido en planos por el codigo, sin modelo: [{"n", "linea", "lugar", "fecha", "restriccion",
-    "soundbite", "habla", "ciudadano", "dice"}]. Cada plano lleva el lugar, la fecha y la restriccion de la dateline
-    que lo precede. Lista vacia si el texto no tiene planos numerados."""
+    "dateline", "soundbite", "habla", "ciudadano", "dice"}]. Cada plano lleva el lugar, la fecha, la restriccion y la
+    linea entera de la dateline que lo precede. Lista vacia si el texto no tiene planos numerados."""
     from actos import es_ciudadano
-    planos, dateline = [], {"lugar": "", "fecha": "", "restriccion": ""}
+    planos, dateline = [], {"lugar": "", "fecha": "", "restriccion": "", "dateline": ""}
     for linea in (texto or "").splitlines():
         m = PLANO_LOC_RE.match(linea)
         if m:
@@ -1416,7 +1418,8 @@ def shotlist_planos(texto):
             restr = [re.sub(r"^[^-–]*?[-–]\s*", "", x, count=1) if re.search(r"[-–]", x) else x for x in partes
                      if not SIN_RESTRICCION_RE.search(x)]
             dateline = {"lugar": d.group("lugar").strip(" ,"), "fecha": _fecha_dateline(d.group("fecha")),
-                        "restriccion": " / ".join(r.strip() for r in restr if r.strip())}
+                        "restriccion": " / ".join(r.strip() for r in restr if r.strip()),
+                        "dateline": " ".join(linea.split())[:300]}
             continue
         # lo que dice (para el asunto): las citas que siguen al SOUNDBITE, no el parrafo de contexto del siguiente bloque
         cita = linea.strip()
@@ -1447,31 +1450,51 @@ def _prompt_items(items):
     for it in items:
         p0 = it["planos"][0]
         if it["tipo"] == "ciudadanos":
+            dicen = " / ".join(p["dice"] for p in it["planos"] if p["dice"])
             contenido = ("CIUDADANOS" + (f" (GRUPO DE {len(it['planos'])} SEGUIDOS)" if len(it["planos"]) > 1 else "")
-                         + ": " + " / ".join(p["habla"] for p in it["planos"]))
+                         + ": " + " / ".join(p["habla"] for p in it["planos"]) + (f" — DICEN: {dicen}" if dicen else ""))
         elif it["tipo"] == "soundbite":
-            contenido = f"SOUNDBITE: {p0['habla']}" + (f" — DICE: {p0['dice']}" if p0["dice"] else "")
+            contenido = f"SOUNDBITE: {p0['linea']}" + (f" — DICE: {p0['dice']}" if p0["dice"] else "")
         else:
             contenido = f"PLANO: {p0['linea']}"
-        lineas.append(f"ID {it['id']} | DATELINE: {p0['lugar'] or '(sin dateline)'} | RESTRICCION DE LA DATELINE: "
+        lineas.append(f"ID {it['id']} | DATELINE: {p0['dateline'] or '(sin dateline)'} | RESTRICCION DE LA DATELINE: "
                       f"{p0['restriccion'] or '(ninguna)'} | {contenido}")
     return "\n".join(lineas)
 
 
-def _leer_respuesta_items(respuesta):
-    """{id: (lugar, pais, texto, restriccion) o None si NO}, y las lineas con | que no se han podido leer."""
-    leidas, raras = {}, 0
+def _rango(id_, items):
+    """Los indices de los items que cubre un ID de la respuesta ("7", "11-12" o un rango "6-8" que junta varios).
+    [] si no casa con items seguidos."""
+    m = re.fullmatch(r"(\d{1,3})(?:-(\d{1,3}))?", id_)
+    if not m:
+        return []
+    desde, hasta = int(m.group(1)), int(m.group(2) or m.group(1))
+    exacto = [i for i, it in enumerate(items) if it["id"] == id_]
+    if exacto:
+        return exacto
+    dentro = [i for i, it in enumerate(items) if desde <= it["planos"][0]["n"] and it["planos"][-1]["n"] <= hasta]
+    if not dentro or dentro != list(range(dentro[0], dentro[-1] + 1)) or desde > hasta:
+        return []
+    if items[dentro[0]]["planos"][0]["n"] != desde or items[dentro[-1]]["planos"][-1]["n"] != hasta:
+        return []
+    return dentro
+
+
+def _leer_respuesta_items(respuesta, items):
+    """[(indices de items, (pais, ciudad, texto, restriccion) o None si NO)] en el orden de la respuesta, y cuantas
+    lineas con | no se han podido leer."""
+    leidas, raras = [], 0
     for linea in (respuesta or "").replace("```", "\n").splitlines():
         if "|" not in linea:
             continue
         m = RESPUESTA_LOC_RE.match(linea)
-        if not m:
+        indices = _rango(re.sub(r"\s+", "", m.group(1)), items) if m else []
+        if not indices:
             raras += 1
             continue
-        id_ = re.sub(r"\s+", "", m.group(1))
         campos = [normalizar(c).strip(" .-") for c in m.group(2).split("|")]
         if campos and campos[0] == "NO" and not any(campos[1:]):
-            leidas[id_] = None
+            leidas.append((indices, None))
             continue
         while len(campos) > 4 and not campos[-1]:                      # «|» de mas al final
             campos.pop()
@@ -1479,7 +1502,7 @@ def _leer_respuesta_items(respuesta):
         if not campos[2]:
             raras += 1
             continue
-        leidas[id_] = tuple(campos)
+        leidas.append((indices, tuple(campos)))
     return leidas, raras
 
 
@@ -1494,30 +1517,56 @@ def _guardar_respuesta(numero, texto):
         pass
 
 
-def _componer(items, leidas):
-    """Las lineas finales en el orden del shotlist: LUGAR (PAIS si cambia). FECHA EN LETRA. TEXTO. [RESTRICCION.]"""
-    salida, pais_antes = [], None
-    for it in items:
-        dato = leidas.get(it["id"])
-        if not dato:
-            continue
-        lugar, pais, texto, restriccion = dato
-        if restriccion.startswith("SIN AVISO"):
+def _componer_lineas(lineas):
+    """[{"plano", "pais", "ciudad", "fecha" (DD/MM/AAAA o RECIENTE), "texto", "restriccion"}] en orden -> los
+    localizadores: PAIS. CIUDAD. FECHA. TEXTO. [RESTRICCION.] sin lo que no cambia respecto al anterior (una dateline que
+    no es un lugar va sin pais, y el siguiente vuelve a decir el suyo), y al final el pie RESTRICCIONES."""
+    salida, antes = [], {"pais": None, "ciudad": None, "fecha": None}
+    for x in lineas:
+        pais, ciudad, restriccion = x["pais"], x["ciudad"], x["restriccion"]
+        if restriccion.upper().startswith("SIN AVISO"):
             restriccion = ""
-        if pais and pais_antes is not None and pais != pais_antes and pais not in lugar:
-            lugar = f"{lugar} ({pais})" if lugar else pais          # cambia de pais: se dice a cual
-        if pais:
-            pais_antes = pais
-        partes = [lugar, fecha_en_letra(it["planos"][0]["fecha"]), texto, restriccion]
-        salida.append({"plano": it["id"], "texto": ". ".join(x for x in partes if x) + "."})
+        fecha = fecha_en_letra(x["fecha"])
+        partes = []
+        if pais and pais != antes["pais"]:
+            partes.append(pais)
+        if ciudad and (ciudad != antes["ciudad"] or partes):
+            partes.append(ciudad)
+        if fecha and fecha != antes["fecha"]:
+            partes.append(fecha)
+        partes += [x["texto"], restriccion]
+        antes = {"pais": pais or None, "ciudad": ciudad or antes["ciudad"], "fecha": fecha or antes["fecha"]}
+        item = {"plano": x["plano"], "texto": ". ".join(p for p in partes if p) + "."}
+        if restriccion:
+            item["restriccion"] = restriccion + "."
+        salida.append(item)
+    if salida:
+        vistas = list(dict.fromkeys(i["restriccion"] for i in salida if i.get("restriccion")))
+        salida.append({"plano": "", "pie": True,
+                       "texto": "RESTRICCIONES: " + (" ".join(vistas) if vistas else "SIN AVISO.")})
     return salida
 
 
+def _componer(items, leidas):
+    """Los localizadores en el orden del shotlist a partir de lo leido de la respuesta."""
+    lineas = []
+    for indices, dato in sorted((x for x in leidas if x[1]), key=lambda x: x[0][0]):
+        p0 = items[indices[0]]["planos"][0]
+        ultimo = items[indices[-1]]
+        plano = items[indices[0]]["id"] if len(indices) == 1 else f"{p0['n']}-{ultimo['planos'][-1]['n']}"
+        pais, ciudad, texto, restriccion = dato
+        lineas.append({"plano": plano, "pais": pais, "ciudad": ciudad, "fecha": p0["fecha"], "texto": texto,
+                       "restriccion": restriccion})
+    return _componer_lineas(lineas)
+
+
 def localizadores(datos, timeout=None):
-    """Los localizadores del envio: ([{"plano": "3", "texto": "KIEV. DOCE DE OCTUBRE DE 2026. ..."}], avisos).
+    """Los localizadores del envio: ([{"plano": "3", "texto": "UCRANIA. KIEV. 12 DE OCTUBRE DE 2026. ..."}, ...,
+    {"plano": "", "pie": True, "texto": "RESTRICCIONES: SIN AVISO."}], avisos).
     El codigo parte el shotlist en planos (con su dateline: lugar, fecha, restriccion) y junta los testimonios de
-    ciudadanos seguidos; el modelo solo redacta, con una linea obligatoria por plano. Se comprueba que estan todos: los
-    que faltan se piden otra vez y, si siguen faltando, se avisa. Sin planos numerados, el metodo libre de antes."""
+    ciudadanos seguidos; el modelo redacta con las reglas de localizadores de Adrian y puede juntar planos seguidos, pero
+    cada plano tiene que quedar en un localizador o como NO (los totales nunca). Se comprueba que estan todos: los que
+    faltan se piden otra vez y, si siguen faltando, se avisa. Sin planos numerados, el metodo libre."""
     texto_agencia = (datos.get("texto") or "").strip()
     if len(texto_agencia) < MIN_TEXTO_LOCALIZADORES:
         return [], []
@@ -1525,25 +1574,31 @@ def localizadores(datos, timeout=None):
     if not planos:
         return _localizadores_libre(datos, texto_agencia, timeout), []
     items = _items_localizadores(planos)
-    system = LOCALIZADORES_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
+    system = _system_localizadores(LOCALIZADORES_SYSTEM)
     cabecera = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
                 f"TITULAR: {datos.get('headline', '')}\n\n")
-    obligatorio = {it["id"] for it in items if it["tipo"] != "plano"}
-    leidas, respuestas, raras = {}, [], 0
-    pendientes = items
+    obligatorio = {i for i, it in enumerate(items) if it["tipo"] != "plano"}
+    leidas, respuestas, raras, cubiertos = [], [], 0, set()
+    pendientes = list(range(len(items)))
     for _ in range(2):                                    # la primera vez todos; la segunda, solo los que faltan
-        respuesta = llamar_modelo(system, cabecera + "PLANOS:\n" + _prompt_items(pendientes), timeout=timeout)
+        lista = [items[i] for i in pendientes]
+        respuesta = llamar_modelo(system, cabecera + "PLANOS:\n" + _prompt_items(lista), timeout=timeout)
         respuestas.append(respuesta or "")
-        nuevas, malas = _leer_respuesta_items(respuesta)
+        nuevas, malas = _leer_respuesta_items(respuesta, items)
         raras += malas
-        ids = {it["id"] for it in pendientes}
-        leidas.update({k: v for k, v in nuevas.items() if k in ids and not (v is None and k in obligatorio)})
-        pendientes = [it for it in items if it["id"] not in leidas]
+        for indices, dato in nuevas:
+            if any(i in cubiertos or i not in pendientes for i in indices):
+                continue                                  # ya cubierto, o de los que no se pedian
+            if dato is None and any(i in obligatorio for i in indices):
+                continue                                  # un total o un grupo no puede ser NO: se vuelve a pedir
+            leidas.append((indices, dato))
+            cubiertos.update(indices)
+        pendientes = [i for i in range(len(items)) if i not in cubiertos]
         if not pendientes:
             break
     avisos = []
     if pendientes:
-        avisos.append("Faltan los localizadores de los planos " + ", ".join(it["id"] for it in pendientes)
+        avisos.append("Faltan los localizadores de los planos " + ", ".join(items[i]["id"] for i in pendientes)
                       + ": el servicio de redacción no los ha devuelto. Ponlos a mano o vuelve a subir la lista.")
     if pendientes or raras:
         _guardar_respuesta(datos.get("numero"), "\n\n---\n\n".join(respuestas))
@@ -1551,28 +1606,20 @@ def localizadores(datos, timeout=None):
 
 
 def _localizadores_libre(datos, guion, timeout=None):
-    """Metodo libre (texto sin planos numerados): el modelo da N|LUGAR|PAIS|DD/MM/AAAA|TEXTO|RESTRICCION."""
-    system = LOCALIZADORES_LIBRE_SYSTEM + "\n\nTABLA DE RESTRICCIONES (las mismas formulas que en la ficha):\n" + _seccion_restricciones()
+    """Metodo libre (texto sin planos numerados): el modelo da PLANO|PAIS|CIUDAD|FECHA|TEXTO|RESTRICCION."""
     user = (f"ENVIO: {datos.get('agencia', '')} {datos.get('numero', '')}, fecha {datos.get('fecha', '')}\n"
             f"TITULAR: {datos.get('headline', '')}\n\nSHOTLIST:\n{guion[:12000]}")
-    respuesta = llamar_modelo(system, user, timeout=timeout)
-    salida, pais_antes = [], None
-    for linea in (respuesta or "").splitlines():
+    respuesta = llamar_modelo(_system_localizadores(LOCALIZADORES_LIBRE_SYSTEM), user, timeout=timeout)
+    lineas = []
+    for linea in (respuesta or "").replace("```", "\n").splitlines():
         m = LOCALIZADOR_RE.match(linea)
         if not m:
             continue
-        plano, lugar, pais, fecha, texto, restriccion = (normalizar(x or "").strip(" .-") for x in m.groups())
-        if not texto:
-            continue
-        if restriccion.startswith("SIN AVISO"):
-            restriccion = ""                     # la formula de la ficha para "ninguna": aqui no se escribe
-        if pais and pais_antes is not None and pais != pais_antes and pais not in lugar:
-            lugar = f"{lugar} ({pais})" if lugar else pais          # cambia de pais: se dice a cual
-        if pais:
-            pais_antes = pais
-        partes = [lugar, fecha_en_letra(fecha), texto, restriccion]
-        salida.append({"plano": plano, "texto": ". ".join(p for p in partes if p) + "."})
-    return salida
+        plano, pais, ciudad, fecha, texto, restriccion = (normalizar(x or "").strip(" .-") for x in m.groups())
+        if texto:
+            lineas.append({"plano": plano.replace(" ", ""), "pais": pais, "ciudad": ciudad, "fecha": fecha,
+                           "texto": texto, "restriccion": restriccion})
+    return _componer_lineas(lineas)
 
 
 def planos_reales(texto):

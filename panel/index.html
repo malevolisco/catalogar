@@ -1492,7 +1492,7 @@
       + (f.alerta ? `<div class="notas alerta"><p>${esc(f.alerta)}</p></div>` : "")
       + ((f.avisos || []).length ? `<div class="notas">${f.avisos.map(a => `<p>${esc(a)}</p>`).join("")}</div>` : "")
       + (faltaNormal ? `<div class="notas"><p>Sin versión en texto normal todavía; se muestra en mayúsculas.</p></div>` : "")
-      + (f.con_localizadores ? `<div class="notas"><p><a href="#localizadores/${esc(lote.id)}/${esc(f.id)}" data-locs>Ver localizadores${(f.localizadores || []).length ? " (" + f.localizadores.length + ")" : ""}</a></p></div>` : "")
+      + (f.con_localizadores ? `<div class="notas"><p><a href="#localizadores/${esc(lote.id)}/${esc(f.id)}" data-locs>Ver localizadores${(f.localizadores || []).filter(x => !x.pie).length ? " (" + f.localizadores.filter(x => !x.pie).length + ")" : ""}</a></p></div>` : "")
       + `<div class="acciones-ficha">
            <button class="b mini" data-copiar>Copiar las cuatro líneas</button>
            <button class="b mini" data-buena>Buena</button>
@@ -2110,21 +2110,25 @@
     if (huella === huellaLocs) return;                  // sin cambios: no se repinta (no se pierde lo que se mira)
     huellaLocs = huella;
     if (!items.length) {
-      caja.innerHTML = `<div class="vacio"><strong>Ningún envío con localizadores</strong>Aparecen aquí los de una lista de MediaCentral cuyo Comments dice «TRATAR AGENCIA CON LOCALIZADORES».</div>`;
+      caja.innerHTML = `<div class="vacio"><strong>Ningún envío con localizadores</strong>Aparecen aquí los envíos encargados con la casilla «Con localizadores» y los de una lista de MediaCentral cuyo Comments dice «TRATAR AGENCIA CON LOCALIZADORES».</div>`;
       return;
     }
     const m = location.hash.match(/^#localizadores\/([^/]+)\/(.+)$/);
     if (m) locsDesplegados.add(`${m[1]}/${m[2]}`);
+    // numerados solo aqui (al copiar van sin numero); la restriccion del plano, en negrita; el pie, sin numero
+    const conNegrita = x => x.restriccion && x.texto.endsWith(x.restriccion)
+      ? esc(x.texto.slice(0, -x.restriccion.length)) + `<strong>${esc(x.restriccion)}</strong>` : esc(x.texto);
     const linea = (x, i) => `<div class="campo">
-        <span class="nombre-campo">${x.plano ? "Plano " + esc(x.plano) : "—"}</span>
-        <div class="texto" data-loc="${i}" title="Pulsa para copiar">${esc(x.texto)}</div></div>`;
+        <span class="nombre-campo">${x.pie ? "Pie" : (i + 1) + "." + (x.plano ? ` <span class="pista">plano ${esc(x.plano)}</span>` : "")}</span>
+        <div class="texto" data-loc="${i}" title="Pulsa para copiar">${conNegrita(x)}</div></div>`;
     caja.innerHTML = `<div class="lista">` + items.map(({ lote, creado, f }) => {
       const locs = f.localizadores || [];
+      const cuantos = locs.filter(x => !x.pie).length;
       const estado = f.estado !== "hecha" ? (f.estado === "error" ? "La ficha ha dado error: los localizadores salen cuando se haga." : "En cola o redactándose: los localizadores salen al terminar la ficha.")
                    : f.localizadores_fallo ? "No se han podido sacar: mira el aviso de la ficha. Vuelve a subir la lista para intentarlo otra vez."
-                   : !locs.length ? "El shotlist no tiene nada que marcar: ni declaraciones ni planos que sean recursos reutilizables." : "";
+                   : !cuantos ? "El shotlist no tiene nada que marcar: ni declaraciones ni planos que sean recursos reutilizables." : "";
       const resumen = estado ? (f.estado !== "hecha" ? "pendiente" : f.localizadores_fallo ? "no han salido" : "nada que marcar")
-                             : plural(locs.length, "localizador", "localizadores");
+                             : plural(cuantos, "localizador", "localizadores");
       const clave = `${lote}/${f.id}`;
       return `<details class="fila fila-loc" id="loc-${esc(lote)}-${esc(f.id)}" data-clave="${esc(clave)}" ${locsDesplegados.has(clave) ? "open" : ""}>
         <summary>
