@@ -107,6 +107,10 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   los de TODOS los lotes guardados, no solo los MAX_LOTES_EN_PANEL de Fichas), #localizadores/<lote>/<ficha>, y en
   la ficha un enlace «Ver localizadores» en las notas: ni correo, ni
   _ficha_para_fuera (MediaCentral), ni fichas.csv. tests/test_localizadores.py.
+- Catalogador desconocido por correo (23 nov, «no lo dejes sin contestar»): buzon._de_adjunto llama a
+  listas.leer_lista(..., desconocidos_al_remitente=True): la fila de un catalogador que no esta en "catalogadores" se
+  hace sin dueño (para "") y va en la respuesta al remitente; nota_adjuntos lo dice. Desde el panel, como antes
+  (se salta, «ya la tiene X»). La nube ya contestaba todo al remitente.
 - Varios hablan en el mismo acto (11 nov, «cortito y al pie», «se aplica a todo»): reglas_patrones.md (B, parrafo
   VARIOS HABLAN EN EL MISMO ACTO) y reglas_ligeras.md: una frase con el acto, los que hablan y los temas
   (COMPARECENCIA CONJUNTA DE X, CARGO, CON Y, CARGO, SOBRE ... Y SOBRE ...), nunca una por persona, sin protocolo
