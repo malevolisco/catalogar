@@ -19,7 +19,9 @@ Reglas, en este orden:
   2. Fila con algo en la columna Catalogador: si ese usuario de MediaCentral esta en "catalogadores"
      de config.json ({"I23785": "yo", "I24082": "javier"}), la fila se hace y sale con "para": a
      quien hay que mandarle la ficha ("yo" no se manda: se ve en la pagina). Si no se sabe quien es,
-     fuera, y se dice el usuario para poder añadirlo.
+     fuera, y se dice el usuario para poder añadirlo; pero si la lista llega por correo
+     (desconocidos_al_remitente), la fila se hace y va a quien mando el correo (Adrian, 23 nov: «no lo
+     dejes sin contestar»).
   3. En la columna de fecha (Created) nunca se buscan numeros: su 2026 es el error clasico de
      rastrear el fichero entero buscando cuatro cifras. Lo que si se lee de ella es cuando entro el
      envio en MediaCentral ("creado": dd/mm/aaaa HH:MM), porque los numeros de Reuters se repiten
@@ -181,8 +183,12 @@ def _normalizar(numero):
     return numero.zfill(4) if len(numero) <= 4 else numero
 
 
-def leer_lista(nombre, datos):
+def leer_lista(nombre, datos, desconocidos_al_remitente=False):
     """Lee una lista de trabajo y devuelve (envios, descartes, aviso).
+
+    desconocidos_al_remitente: la lista ha llegado por correo. Una fila cuyo catalogador no esta en
+    "catalogadores" no se salta: se hace sin dueño ("para" vacio), asi que va a quien mando el correo, y
+    lleva "catalogador_desconocido" con el usuario para decirselo en la respuesta.
 
     envios:    [{"numero": "4359", "etiqueta": "USA-MAMDANI LULA-PRESSER: ...", "fila": 2,
                  "catalogador": "I24082", "para": "javier", "creado": "21/09/2026 22:15", "texto": ""}, ...]
@@ -234,7 +240,7 @@ def leer_lista(nombre, datos):
             continue
         quien = celda(i_catalogador)
         para = persona_de(quien)
-        if quien and not para:
+        if quien and not para and not desconocidos_al_remitente:
             descartes.append({"fila": n, "texto": texto[:LARGO_ETIQUETA], "motivo": f"ya la tiene {quien}"})
             catalogadores[quien] = catalogadores.get(quien, 0) + 1
             continue
@@ -252,6 +258,8 @@ def leer_lista(nombre, datos):
         envios.append({"numero": numero, "etiqueta": etiqueta, "fila": n, "catalogador": quien, "para": para,
                        "creado": leer_creado(celda(i_creado)), "texto": texto, "columna": columna,
                        "localizadores": bool(LOCALIZADORES_RE.search(celda(i_texto)))})
+        if quien and not para:                        # solo llega aqui con desconocidos_al_remitente
+            envios[-1]["catalogador_desconocido"] = quien
 
     aviso = ""
     # Segunda pasada, solo si ninguna fila traia el numero delante: se busca dentro del titulo,

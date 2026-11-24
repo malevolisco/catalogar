@@ -7,8 +7,9 @@ de remitentes permitidos, saca los numeros de envio del asunto, del cuerpo y de 
 (.csv, .txt, .xlsx), y devuelve una lista de peticiones. Quien las cataloga y responde es el servidor.
 
 Los adjuntos no se barren como texto suelto: se leen como tabla con listas.py, que coge el numero
-del principio de la columna Name, salta las filas que ya tienen catalogador y no mira la columna de
-fecha. Rastrear el fichero entero buscando cuatro cifras dejaria doce veces el 2026 de Created.
+del principio de la columna Name (una fila con catalogador conocido va a su dueño; con uno que no se conoce, a quien
+manda el correo) y no mira la columna de fecha. Rastrear el fichero entero buscando cuatro cifras dejaria doce veces
+el 2026 de Created.
 
 Permitidos: cualquier direccion de los dominios de "correo_dominios" (por defecto rtve.es y sus subdominios),
 mas las direcciones de la agenda "documentalistas" y "correo_copia". Lo demas se deja sin leer y se anota.
@@ -201,7 +202,8 @@ def _de_adjunto(parte):
         return None
     base = {"nombre": nombre, "numeros": [], "envios": [], "descartes": [], "aviso": "", "error": ""}
     try:
-        envios, descartes, aviso = leer_lista(nombre, datos)
+        # por correo, una fila con un catalogador que no se conoce se hace y va a quien lo manda: no se deja sin contestar
+        envios, descartes, aviso = leer_lista(nombre, datos, desconocidos_al_remitente=True)
     except ListaError as e:
         base["error"] = str(e)
         return base
@@ -367,6 +369,11 @@ def nota_adjuntos(peticion):
             detalle.append(f"{len(sin_numero)} sin numero")
         if detalle:
             texto += " (fuera: " + ", ".join(detalle) + ")"
+        desconocidos = [e["catalogador_desconocido"] for e in a.get("envios") or [] if e.get("catalogador_desconocido")]
+        if desconocidos:
+            quienes = ", ".join(dict.fromkeys(desconocidos))
+            texto += (f". {len(desconocidos)} de catalogador{'es' if len(set(desconocidos)) > 1 else ''} que no esta"
+                      f"{'n' if len(set(desconocidos)) > 1 else ''} en la agenda ({quienes}): se incluyen en esta respuesta")
         if a["aviso"]:
             texto += ". " + a["aviso"]
         lineas.append(texto)
