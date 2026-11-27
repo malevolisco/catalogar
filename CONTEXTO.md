@@ -66,6 +66,9 @@ Herramienta del archivo de RTVE (Adrian, documentalista) que convierte material 
   comprobar_sesion_horas (2) con la cola quieta (Worker._toca_comprobar); si falla y hay credenciales, pausa +
   correo en vez de abrir la ventana de login. Capturas de los fallos en debug/capturas (30) y
   GET /api/admin/diagnostico (zip con capturas + registro, sin config). Visor en Linux: calidad 45, 1 de cada 2.
+  Comprobar sesion (27 nov, Adrian: "que busque item e intente hacerlo"): ademas de la portada abre de verdad
+  los 2 ultimos envios hechos de cada agencia (envios_de_prueba: web, no CSV ni copiadas, <=20 dias, con su fecha);
+  si no abre ninguno, a la pagina de entrada + _login_auto y otra vez; entra pero siguen sin abrir = sesion buena.
 - Agilidad (9 oct): hilo "copias" (Worker._bucle_copias) copia cada segundo las pendientes que ya estan hechas, sin
   turno ni navegador ni modelo. Al borrar un lote, sus hechas van a cola/archivo_hechas.json (ESTADO.archivo,
   5000 fichas) y ya_hecha busca tambien ahi. Registro "hecha en X s (agencia A s, redaccion R s, ...)".
