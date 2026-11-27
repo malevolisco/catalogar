@@ -351,9 +351,79 @@ def credenciales_agencias():
             for a in ("reuters", "ap", "ebu") if CFG.get(f"{a}_usuario") and CFG.get(f"{a}_clave")}
 
 
+ENVIOS_PRUEBA = 2               # envios ya hechos de cada agencia con los que se prueba que la sesion sirve de verdad
+ENVIOS_PRUEBA_DIAS = 20         # solo recientes: los viejos pueden haber desaparecido de la agencia
+
+
+def envios_de_prueba(agencia, cuantos=ENVIOS_PRUEBA, ahora=None):
+    """Los ultimos envios de esa agencia ya hechos leyendo la web (no el CSV): [(numero, fecha), ...]. Con la
+    fecha real, Reuters no se confunde con otro envio del mismo numero."""
+    ahora = ahora or datetime.now()
+    candidatos = []
+    with ESTADO.lock:
+        for l in ESTADO.lotes:
+            for f in l.get("fichas", []):
+                numero = str(f.get("numero") or "")
+                if (f.get("estado") != "hecha" or not numero or f.get("texto_csv") or f.get("copiada")
+                        or agencia_de(numero) != agencia):
+                    continue
+                cuando = None
+                for texto, formato in ((f.get("creado"), "%d/%m/%Y %H:%M"), (l.get("creado"), "%d/%m/%Y %H:%M"),
+                                       (f.get("fecha"), "%d/%m/%Y")):
+                    try:
+                        cuando = datetime.strptime(str(texto or "").strip()[:16], formato)
+                        break
+                    except ValueError:
+                        continue
+                if cuando and ahora - cuando <= timedelta(days=ENVIOS_PRUEBA_DIAS):
+                    candidatos.append((cuando, numero, f.get("fecha") or ""))
+    elegidos, vistos = [], set()
+    for _, numero, fecha in sorted(candidatos, reverse=True):
+        if numero not in vistos:
+            vistos.add(numero)
+            elegidos.append((numero, fecha))
+    return elegidos[:cuantos]
+
+
+def _motivo(e):
+    return f"{type(e).__name__}: {str(e).splitlines()[0][:120]}" if str(e) else type(e).__name__
+
+
+def _probar_envios(ex, envios):
+    """Intenta abrir los envios de prueba. None si alguno se abre con texto; si no, por que han fallado.
+    NeedsLogin y AntiBot salen tal cual (el extractor ya ha intentado entrar solo)."""
+    fallos = []
+    for numero, fecha in envios:
+        try:
+            ficha = ex.fetch(numero, fecha or None)
+        except (NeedsLogin, AntiBot):
+            raise
+        except Exception as e:
+            fallos.append(f"{numero}: {_motivo(e)}")
+            continue
+        if (ficha or {}).get("texto"):
+            return None
+        fallos.append(f"{numero}: se abre sin texto")
+    return "; ".join(fallos)
+
+
+def _entrar_otra_vez(ex, agencia, url):
+    """La portada parecia buena pero los envios no se abren: se va a la pagina de entrada y se inicia sesion
+    con el usuario y la contraseña guardados. True si ha entrado."""
+    try:
+        ex._page.goto(reuters_login() if agencia == "Reuters" else url, wait_until="domcontentloaded")
+        ex._page.wait_for_timeout(2500)
+    except Exception:
+        pass
+    return ex._login_auto(agencia)
+
+
 def comprobar_sesion():
-    """Abre el navegador, entra en las agencias (Reuters, AP y EBU) y comprueba que la sesion sirve. Devuelve None si todo bien,
-    o el texto del problema. Cierra el navegador al terminar. SOLO desde el hilo del Worker."""
+    """Abre el navegador y comprueba que la sesion de las agencias (Reuters, AP y EBU) sirve DE VERDAD: entra en
+    la portada y abre uno de los ultimos envios ya hechos de esa agencia. Si el envio no se abre, la sesion se da
+    por caducada: inicia sesion sola (usuario y contraseña del panel) y lo vuelve a probar. Sin envios recientes
+    de esa agencia, solo la portada. Devuelve None si todo bien, o el texto del problema. Cierra el navegador al
+    terminar. SOLO desde el hilo del Worker."""
     ex = Extractor(headless=CFG["headless"], oculto=CFG.get("navegador_oculto", True), canal=CFG.get("navegador", "auto"), ruta=CFG.get("navegador_ruta"),
                    miniaturas=0, espera_login=0, solo_texto=CFG.get("agencias_solo_texto", True),
                    reuters_xml=CFG.get("reuters_xml", True), ap_datos=CFG.get("ap_datos", True),
@@ -368,6 +438,24 @@ def comprobar_sesion():
             ex._page.goto(url, wait_until="domcontentloaded")
             ex._page.wait_for_timeout(2500)
             ex._comprobar_acceso(agencia, url)
+            envios = envios_de_prueba(agencia)
+            if not envios:
+                log(f"Sesion de {agencia}: sin envios recientes con los que probar, solo se ha mirado la portada.")
+                continue
+            fallo = _probar_envios(ex, envios)
+            if fallo is None:
+                continue
+            log(f"Sesion de {agencia}: la portada abre pero los envios de prueba no ({fallo}); inicio sesion otra vez.")
+            if not _entrar_otra_vez(ex, agencia, url):
+                return (f"Sesion de {agencia} caducada: no se abre ningun envio ({fallo}) y el inicio de sesion "
+                        "automatico no ha podido: " + (ex.login_fallido or "no hay usuario y contraseña guardados en el panel"))
+            fallo = _probar_envios(ex, envios)
+            if fallo is None:
+                log(f"Sesion de {agencia}: renovada, ya se abren los envios.")
+            else:
+                # ha entrado bien y aun asi no se abren: sera de esos envios (retirados...), no de la sesion
+                log(f"Sesion de {agencia}: iniciada, pero los envios de prueba siguen sin abrirse ({fallo}); "
+                    "se da la sesion por buena.")
         return None
     except (NeedsLogin, AntiBot) as e:
         return str(e)
@@ -1936,10 +2024,11 @@ def login_terminar():
 
 @app.post("/api/navegador/comprobar")
 def comprobar_agencias():
-    """Comprueba la sesion de las agencias sin catalogar nada (espera hasta 90 s si el Worker esta ocupado)."""
+    """Comprueba la sesion de las agencias sin catalogar nada: abre un envio reciente de cada una (espera hasta
+    4 minutos: si el Worker esta con otro envio, primero lo termina)."""
     if WORKER.login_activo:
         raise HTTPException(409, "Hay un inicio de sesion en curso")
-    resultado = WORKER.encargar("comprobar", esperar=90)
+    resultado = WORKER.encargar("comprobar", esperar=240)
     if resultado == "ocupado":
         raise HTTPException(503, "El Worker esta redactando; la comprobacion se hara en cuanto termine el envio actual")
     return {"ok": resultado is None, "problema": resultado}
